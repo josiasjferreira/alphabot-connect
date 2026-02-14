@@ -10,6 +10,7 @@ import Chat from "./pages/Chat";
 import Voice from "./pages/Voice";
 import MapNav from "./pages/MapNav";
 import Telemetry from "./pages/Telemetry";
+import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -28,6 +29,7 @@ const App = () => (
           <Route path="/voice" element={<Voice />} />
           <Route path="/map" element={<MapNav />} />
           <Route path="/telemetry" element={<Telemetry />} />
+          <Route path="/settings" element={<Settings />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
