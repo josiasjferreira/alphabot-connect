@@ -219,7 +219,7 @@ const Settings = () => {
           </Card>
         </motion.div>
 
-        <p className="text-xs text-center text-muted-foreground py-4">AlphaBot Companion v1.0.0 • Solar Life Energy</p>
+        <p className="text-xs text-center text-muted-foreground py-4">AlphaBot Companion v1.0.2 • Solar Life Energy & Iascom Ltda</p>
       </div>
     </div>
   );
