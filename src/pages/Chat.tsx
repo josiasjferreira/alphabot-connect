@@ -105,25 +105,30 @@ const Chat = () => {
 
     // Simulate bot thinking
     setTimeout(() => {
-      const { text: botText, action } = getBotResponse(text, status.battery);
+      try {
+        const { text: botText, action } = getBotResponse(text, status.battery);
 
-      const botMsg: Message = {
-        id: (Date.now() + 1).toString(),
-        sender: 'bot',
-        text: botText,
-        timestamp: new Date(),
-      };
+        const botMsg: Message = {
+          id: (Date.now() + 1).toString(),
+          sender: 'bot',
+          text: botText,
+          timestamp: new Date(),
+        };
 
-      setMessages(prev => [...prev, botMsg]);
-      setIsTyping(false);
+        setMessages(prev => [...prev, botMsg]);
+        setIsTyping(false);
 
-      // Execute action via WebSocket
-      if (action) {
-        wsSend({ type: action === 'emergency' ? 'emergency_stop' : action as any, data: { command: text }, timestamp: Date.now() });
+        // Execute action via WebSocket
+        if (action) {
+          wsSend({ type: action === 'emergency' ? 'emergency_stop' : action as any, data: { command: text }, timestamp: Date.now() });
+        }
+
+        // Speak response
+        speak(botText);
+      } catch (e) {
+        console.error('Chat response error:', e);
+        setIsTyping(false);
       }
-
-      // Speak response
-      speak(botText);
     }, 600 + Math.random() * 800);
   }, [status.battery, wsSend]);
 

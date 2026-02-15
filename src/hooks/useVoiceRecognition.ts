@@ -55,11 +55,20 @@ export const useVoiceRecognition = () => {
 };
 
 export const speak = (text: string, onEnd?: () => void) => {
-  if (!('speechSynthesis' in window)) return;
-  speechSynthesis.cancel();
-  const utterance = new SpeechSynthesisUtterance(text);
-  utterance.lang = 'pt-BR';
-  utterance.rate = 1.0;
-  if (onEnd) utterance.onend = onEnd;
-  speechSynthesis.speak(utterance);
+  try {
+    if (!('speechSynthesis' in window)) {
+      onEnd?.();
+      return;
+    }
+    speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = 'pt-BR';
+    utterance.rate = 1.0;
+    if (onEnd) utterance.onend = onEnd;
+    utterance.onerror = () => onEnd?.();
+    speechSynthesis.speak(utterance);
+  } catch (e) {
+    console.warn('Speech synthesis failed:', e);
+    onEnd?.();
+  }
 };
