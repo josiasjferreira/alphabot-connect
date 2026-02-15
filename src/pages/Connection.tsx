@@ -1,17 +1,18 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Wifi, WifiOff, Loader2, CloudOff } from 'lucide-react';
+import { Wifi, WifiOff, Loader2, CloudOff, KeyRound } from 'lucide-react';
 import { useRobotStore } from '@/store/useRobotStore';
 import { useWebSocket } from '@/hooks/useWebSocket';
 import alphaIcon from '/icon-512.png';
 
 const Connection = () => {
   const navigate = useNavigate();
-  const { ip, port, connectionStatus, error, setConnection, setOfflineMode } = useRobotStore();
+  const { ip, port, authToken, connectionStatus, error, setConnection, setOfflineMode } = useRobotStore();
   const { connect } = useWebSocket();
   const [localIp, setLocalIp] = useState(ip);
   const [localPort, setLocalPort] = useState(port);
+  const [localToken, setLocalToken] = useState(authToken);
 
   const isValidIp = /^(\d{1,3}\.){3}\d{1,3}$/.test(localIp);
   const isValidPort = /^\d{1,5}$/.test(localPort) && parseInt(localPort) > 0 && parseInt(localPort) <= 65535;
@@ -31,7 +32,7 @@ const Connection = () => {
       if (!confirmed) return;
     }
 
-    setConnection(localIp, localPort);
+    setConnection(localIp, localPort, localToken);
     connect();
     setTimeout(() => navigate('/dashboard'), 800);
   };
@@ -107,6 +108,21 @@ const Connection = () => {
             className={`w-full h-14 px-4 rounded-xl bg-card border-2 text-foreground text-base font-medium
               focus:outline-none focus:ring-2 focus:ring-primary/30
               ${isValidPort || !localPort ? 'border-border' : 'border-destructive'}`}
+          />
+        </div>
+
+        {/* Auth Token Input (optional) */}
+        <div>
+          <label className="text-xs font-semibold text-muted-foreground mb-1.5 block">
+            <span className="flex items-center gap-1"><KeyRound className="w-3 h-3" /> TOKEN DE AUTENTICAÇÃO (OPCIONAL)</span>
+          </label>
+          <input
+            type="password"
+            value={localToken}
+            onChange={(e) => setLocalToken(e.target.value)}
+            placeholder="Token do robô (se configurado)"
+            className="w-full h-14 px-4 rounded-xl bg-card border-2 border-border text-foreground text-base font-medium
+              focus:outline-none focus:ring-2 focus:ring-primary/30"
           />
         </div>
 

@@ -25,13 +25,14 @@ interface RobotState {
   connectionStatus: 'disconnected' | 'connecting' | 'connected' | 'error';
   ip: string;
   port: string;
+  authToken: string;
   error: string | null;
   offlineMode: boolean;
   robotName: string;
   status: RobotStatus;
   logs: LogEntry[];
 
-  setConnection: (ip: string, port: string) => void;
+  setConnection: (ip: string, port: string, authToken?: string) => void;
   setConnectionStatus: (status: RobotState['connectionStatus']) => void;
   setError: (error: string | null) => void;
   setOfflineMode: (offline: boolean) => void;
@@ -60,13 +61,14 @@ export const useRobotStore = create<RobotState>()(
       connectionStatus: 'disconnected',
       ip: '192.168.99.2',
       port: '8080',
+      authToken: '',
       error: null,
       offlineMode: false,
       robotName: 'CT300-H13307',
       status: defaultStatus,
       logs: [],
 
-      setConnection: (ip, port) => set({ ip, port }),
+      setConnection: (ip, port, authToken) => set({ ip, port, authToken: authToken ?? '' }),
       setConnectionStatus: (connectionStatus) => set({ connectionStatus, error: connectionStatus === 'error' ? 'Falha na conexão' : null }),
       setError: (error) => set({ error }),
       setOfflineMode: (offlineMode) => set({ offlineMode, connectionStatus: offlineMode ? 'connected' : 'disconnected' }),
@@ -79,7 +81,7 @@ export const useRobotStore = create<RobotState>()(
     }),
     {
       name: 'alphabot-store',
-      partialize: (state) => ({ ip: state.ip, port: state.port }),
+      partialize: (state) => ({ ip: state.ip, port: state.port, authToken: state.authToken }),
     }
   )
 );
