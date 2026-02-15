@@ -158,7 +158,7 @@ const Connection = () => {
         </button>
       </motion.div>
 
-      <p className="text-xs text-muted-foreground mt-8">v1.0.2 • Solar Life Energy & Iascom Ltda</p>
+      <p className="text-xs text-muted-foreground mt-8">v1.0.3 • Iascom Ltda</p>
     </div>
   );
 };

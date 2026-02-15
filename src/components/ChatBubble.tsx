@@ -21,7 +21,7 @@ const ChatBubble = ({ sender, text, time, index }: ChatBubbleProps) => {
     >
       <div className={`max-w-[80%] ${isUser ? 'order-1' : 'order-1'}`}>
         <div
-          className={`px-4 py-3 rounded-2xl text-sm leading-relaxed
+          className={`px-4 py-3 rounded-2xl text-lg leading-relaxed
             ${isUser
               ? 'bg-primary text-primary-foreground rounded-br-md'
               : 'bg-chat-bot text-chat-bot-foreground rounded-bl-md'

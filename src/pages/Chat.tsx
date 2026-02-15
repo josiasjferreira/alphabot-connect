@@ -217,7 +217,7 @@ const Chat = () => {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             placeholder="Digite sua mensagem..."
-            className="flex-1 h-12 px-4 rounded-xl bg-background border border-border text-foreground text-sm
+            className="flex-1 h-12 px-4 rounded-xl bg-background border border-border text-foreground text-lg
               focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
           />
 
