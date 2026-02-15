@@ -8,6 +8,45 @@ export interface WebSocketMessage {
   timestamp: number;
 }
 
+// Outbound message validation schemas
+const ChatCommandSchema = z.object({
+  command: z.string().max(500).trim(),
+});
+
+const MoveCommandSchema = z.object({
+  angle: z.number().min(0).max(360),
+  speed: z.number().min(-100).max(100),
+  rotation: z.number().min(-100).max(100),
+});
+
+const OutgoingMessageSchema = z.object({
+  type: z.enum(['move', 'emergency_stop', 'navigate', 'chat', 'voice_command']),
+  data: z.any().optional(),
+  timestamp: z.number(),
+});
+
+/** Sanitize outbound message data based on type */
+const sanitizeOutbound = (message: WebSocketMessage): WebSocketMessage => {
+  // Validate overall message structure
+  OutgoingMessageSchema.parse(message);
+
+  switch (message.type) {
+    case 'chat':
+    case 'voice_command': {
+      const validated = ChatCommandSchema.parse(message.data);
+      return { ...message, data: validated };
+    }
+    case 'move': {
+      const validated = MoveCommandSchema.parse(message.data);
+      return { ...message, data: validated };
+    }
+    case 'emergency_stop':
+      return { ...message, data: undefined };
+    default:
+      return message;
+  }
+};
+
 // Schema for validating incoming status messages
 const StatusDataSchema = z.object({
   battery: z.number().min(0).max(100),
@@ -106,12 +145,16 @@ export const useWebSocket = () => {
 
   const send = useCallback((message: WebSocketMessage) => {
     if (offlineMode) {
-      // Simulate in offline mode
       addLog(`[Offline] Comando: ${message.type}`);
       return;
     }
-    if (wsRef.current?.readyState === WebSocket.OPEN) {
-      wsRef.current.send(JSON.stringify(message));
+    try {
+      const sanitized = sanitizeOutbound(message);
+      if (wsRef.current?.readyState === WebSocket.OPEN) {
+        wsRef.current.send(JSON.stringify(sanitized));
+      }
+    } catch (err) {
+      addLog(`Mensagem inválida bloqueada: ${message.type}`, 'warning');
     }
   }, [offlineMode, addLog]);
 

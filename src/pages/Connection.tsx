@@ -16,11 +16,23 @@ const Connection = () => {
   const isValidIp = /^(\d{1,3}\.){3}\d{1,3}$/.test(localIp);
   const isValidPort = /^\d{1,5}$/.test(localPort) && parseInt(localPort) > 0 && parseInt(localPort) <= 65535;
 
+  const isPrivateIp = (ip: string) =>
+    /^(192\.168\.|10\.|172\.(1[6-9]|2\d|3[01])\.|127\.0\.0\.1|localhost)/.test(ip);
+
   const handleConnect = () => {
     if (!isValidIp || !isValidPort) return;
+
+    // Warn user if connecting to a non-local IP
+    if (!isPrivateIp(localIp)) {
+      const confirmed = window.confirm(
+        `Atenção: Você está conectando a um IP externo (${localIp}). ` +
+        'Isso pode expor comandos do robô a redes não confiáveis. Deseja continuar?'
+      );
+      if (!confirmed) return;
+    }
+
     setConnection(localIp, localPort);
     connect();
-    // Navigate after a short delay
     setTimeout(() => navigate('/dashboard'), 800);
   };
 
