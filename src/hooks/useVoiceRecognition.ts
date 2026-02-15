@@ -1,4 +1,14 @@
-﻿import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useSettingsStore } from '@/store/useSettingsStore';
+
+export const speak = (text: string) => {
+  const { ttsVolume, ttsRate } = useSettingsStore.getState();
+  const utterance = new SpeechSynthesisUtterance(text);
+  utterance.lang = 'pt-BR';
+  utterance.volume = ttsVolume;
+  utterance.rate = ttsRate;
+  speechSynthesis.speak(utterance);
+};
 
 // Verificar suporte ANTES de usar
 const SpeechRecognitionAPI = 
@@ -9,6 +19,7 @@ const SpeechRecognitionAPI =
 export const useVoiceRecognition = () => {
   const [isListening, setIsListening] = useState(false);
   const [transcript, setTranscript] = useState('');
+  const [interimTranscript, setInterimTranscript] = useState('');
   const isSupported = !!SpeechRecognitionAPI;
 
   const recognition = useMemo(() => {
@@ -25,9 +36,17 @@ export const useVoiceRecognition = () => {
     if (!recognition) return;
 
     recognition.onresult = (event: any) => {
-      const current = event.resultIndex;
-      const transcriptText = event.results[current][0].transcript;
-      setTranscript(transcriptText);
+      let interim = '';
+      let final_ = '';
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        if (event.results[i].isFinal) {
+          final_ += event.results[i][0].transcript;
+        } else {
+          interim += event.results[i][0].transcript;
+        }
+      }
+      if (final_) setTranscript(prev => prev + final_);
+      setInterimTranscript(interim);
     };
 
     recognition.onerror = (event: any) => {
@@ -69,11 +88,18 @@ export const useVoiceRecognition = () => {
     }
   }, [recognition, isListening]);
 
+  const resetTranscript = useCallback(() => {
+    setTranscript('');
+    setInterimTranscript('');
+  }, []);
+
   return {
     isListening,
     transcript,
+    interimTranscript,
     startListening,
     stopListening,
+    resetTranscript,
     isSupported,
   };
 };
