@@ -5,7 +5,7 @@ const config: CapacitorConfig = {
   appName: 'AlphaBot Connect',
   webDir: 'dist',
   server: {
-    // Assets locais, mas permite requisições de rede
+    url: 'https://ad0cd682-33f6-49e7-9bbb-34fe0f79d758.lovableproject.com?forceHideBadge=true',
     cleartext: true,
     allowNavigation: ['*'],
   },
