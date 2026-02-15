@@ -78,7 +78,7 @@ const getWsProtocol = (ip: string): string => {
 export const useWebSocket = () => {
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectRef = useRef<ReturnType<typeof setTimeout>>();
-  const { ip, port, setConnectionStatus, addLog, updateStatus, offlineMode } = useRobotStore();
+  const { ip, port, authToken, setConnectionStatus, addLog, updateStatus, offlineMode } = useRobotStore();
 
   const connect = useCallback(() => {
     if (offlineMode) {
@@ -92,7 +92,9 @@ export const useWebSocket = () => {
     addLog(`Conectando a ${protocol}://${ip}:${port}...`);
 
     try {
-      const ws = new WebSocket(`${protocol}://${ip}:${port}`);
+      // Include auth token in query string if provided
+      const tokenParam = authToken ? `?token=${encodeURIComponent(authToken)}` : '';
+      const ws = new WebSocket(`${protocol}://${ip}:${port}${tokenParam}`);
 
       ws.onopen = () => {
         setConnectionStatus('connected');
@@ -133,7 +135,7 @@ export const useWebSocket = () => {
       setConnectionStatus('error');
       addLog('Falha ao criar conexão WebSocket', 'error');
     }
-  }, [ip, port, offlineMode, setConnectionStatus, addLog, updateStatus]);
+  }, [ip, port, authToken, offlineMode, setConnectionStatus, addLog, updateStatus]);
 
   const disconnect = useCallback(() => {
     if (reconnectRef.current) clearTimeout(reconnectRef.current);
