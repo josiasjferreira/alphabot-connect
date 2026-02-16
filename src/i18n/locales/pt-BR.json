@@ -19,5 +19,158 @@
     "offlineButton": "Modo Offline (Simulação)",
     "externalIpWarning": "Atenção: Você está conectando a um IP externo ({{ip}}). Isso pode expor comandos do robô a redes não confiáveis. Deseja continuar?",
     "version": "v1.0.3 • Iascom Ltda"
+  },
+  "dashboard": {
+    "title": "AlphaBot Dashboard",
+    "menu": {
+      "control": "Controle Manual",
+      "controlDesc": "Joystick e comandos",
+      "chat": "Chat IA",
+      "chatDesc": "Converse com o robô",
+      "map": "Mapa",
+      "mapDesc": "Navegação e rotas",
+      "telemetry": "Telemetria",
+      "telemetryDesc": "Status e sensores",
+      "voice": "Comandos de Voz",
+      "voiceDesc": "Controle por voz",
+      "settings": "Configurações",
+      "settingsDesc": "Ajustes avançados"
+    }
+  },
+  "control": {
+    "title": "Controle Manual",
+    "videoStream": "Vídeo Stream",
+    "waitingFeed": "Aguardando feed de câmera",
+    "angle": "ÂNGULO",
+    "power": "POTÊNCIA",
+    "maxSpeed": "Vel. Máx: {{value}}%",
+    "rotation": "Rotação: {{value}}%",
+    "emergencyLog": "⚠️ PARADA DE EMERGÊNCIA ativada!"
+  },
+  "chat": {
+    "title": "💬 Chat com AlphaBot",
+    "clear": "Limpar",
+    "inputPlaceholder": "Digite sua mensagem...",
+    "welcomeMessage": "Olá! Sou o AlphaBot CT300-H13307. Como posso ajudá-lo hoje? 🤖",
+    "clearedMessage": "Histórico limpo! Como posso ajudá-lo? 🤖",
+    "responses": {
+      "hello": "Olá! Como posso ajudá-lo hoje? 🤖",
+      "howAreYou": "Estou funcionando perfeitamente! Todos os sistemas operacionais. ✅",
+      "battery": "Minha bateria está em {{battery}}%. {{status}}",
+      "batteryGood": "Nível bom!",
+      "batteryLow": "Considere recarregar em breve.",
+      "navigate": "Entendido! Iniciando navegação para o local solicitado... 🗺️",
+      "stop": "Parando todos os movimentos agora! 🛑",
+      "status": "Status: Bateria {{battery}}%, temp. normal, WiFi estável. Tudo OK! 📊",
+      "forward": "Movendo para frente! ⬆️",
+      "backward": "Recuando! ⬇️",
+      "left": "Virando à esquerda! ⬅️",
+      "right": "Virando à direita! ➡️",
+      "position": "Estou na posição X: 5.2m, Y: 3.8m, orientação: 45° NE. 📍",
+      "help": "Posso ajudá-lo com: navegar, verificar bateria, status do sistema, controle de movimento. O que deseja?",
+      "thanks": "Por nada! Estou sempre aqui para ajudar! 😊",
+      "camera": "Ativando câmera... O feed está disponível na tela de controle. 📹",
+      "map": "O mapa está disponível na seção de navegação. Deseja que eu vá para algum local específico?",
+      "fallback": "Entendi! Posso ajudar com navegação, status do sistema ou controle de movimento. O que você precisa? 🤔"
+    }
+  },
+  "voice": {
+    "title": "🎤 Comandos de Voz",
+    "listening": "Ouvindo... Fale agora!",
+    "tapToSpeak": "Toque para falar",
+    "availableCommands": "COMANDOS DISPONÍVEIS",
+    "recentCommands": "ÚLTIMOS COMANDOS",
+    "commands": {
+      "forward": "Vá para frente",
+      "backward": "Vá para trás",
+      "left": "Vire à esquerda",
+      "right": "Vire à direita",
+      "stop": "Pare",
+      "battery": "Status da bateria",
+      "where": "Onde estou?"
+    },
+    "responses": {
+      "forward": "Movendo para frente!",
+      "backward": "Movendo para trás!",
+      "left": "Virando à esquerda!",
+      "right": "Virando à direita!",
+      "stop": "Robô parado!",
+      "battery": "Bateria em {{battery}}%",
+      "position": "Posição: X: 5.2m, Y: 3.8m",
+      "unknown": "Comando não reconhecido. Tente novamente."
+    },
+    "voiceCommandLog": "Comando de voz: \"{{command}}\" → {{response}}"
+  },
+  "telemetry": {
+    "title": "📊 Telemetria",
+    "battery": "Bateria",
+    "batteryRemaining": "≈ 2h 30min restantes",
+    "sensors": {
+      "wifi": "WiFi",
+      "temperature": "Temperatura",
+      "consumption": "Consumo",
+      "audio": "Áudio"
+    },
+    "motors": "MOTORES",
+    "motorLeft": "Esquerdo",
+    "motorRight": "Direito",
+    "navigation": "NAVEGAÇÃO",
+    "odometry": "Odometria",
+    "speed": "Velocidade",
+    "orientation": "Orientação",
+    "recentLogs": "LOGS RECENTES",
+    "export": "Exportar",
+    "noLogs": "Nenhum log disponível"
+  },
+  "settings": {
+    "title": "Configurações",
+    "connection": "Conexão",
+    "connected": "Conectado",
+    "disconnected": "Desconectado",
+    "offline": "Offline",
+    "online": "Online",
+    "robotIp": "IP DO ROBÔ",
+    "port": "PORTA",
+    "reconnect": "Reconectar",
+    "maxSpeed": "Velocidade Máxima",
+    "speedLimit": "Limite de velocidade",
+    "speedHint": "Limita a velocidade máxima do joystick e comandos de voz.",
+    "voiceSynthesis": "Síntese de Voz",
+    "volume": "Volume",
+    "speechRate": "Velocidade da fala",
+    "testVoice": "Testar Voz",
+    "testVoiceText": "Testando síntese de voz do AlphaBot.",
+    "appearance": "Aparência",
+    "darkMode": "Modo Escuro",
+    "darkModeHint": "Ativar tema escuro",
+    "data": "Dados",
+    "clearLogs": "Limpar Logs",
+    "clearChatHistory": "Limpar Histórico de Chat",
+    "version": "AlphaBot Companion v1.0.2 • Solar Life Energy & Iascom Ltda"
+  },
+  "map": {
+    "title": "🗺️ Mapa de Navegação",
+    "legend": {
+      "robot": "Robô",
+      "destination": "Destino",
+      "obstacle": "Obstáculo"
+    },
+    "position": "Posição",
+    "orientation": "Orientação",
+    "destination": "Destino",
+    "destinationSet": "Destino definido: ({{x}}, {{y}})",
+    "base": "Base",
+    "mark": "Marcar",
+    "markLog": "Ponto marcado",
+    "refresh": "Atualizar"
+  },
+  "emergency": {
+    "stop": "PARADA DE EMERGÊNCIA",
+    "unlock": "DESBLOQUEAR ROBÔ"
+  },
+  "notFound": {
+    "title": "404",
+    "message": "Ops! Página não encontrada",
+    "backHome": "Voltar ao Início"
   }
 }

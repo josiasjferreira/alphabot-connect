@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import StatusHeader from '@/components/StatusHeader';
 import Joystick from '@/components/Joystick';
 import EmergencyButton from '@/components/EmergencyButton';
@@ -6,6 +7,7 @@ import { useWebSocket } from '@/hooks/useWebSocket';
 import { useRobotStore } from '@/store/useRobotStore';
 
 const Control = () => {
+  const { t } = useTranslation();
   const { send } = useWebSocket();
   const { addLog } = useRobotStore();
   const [speed, setSpeed] = useState(50);
@@ -38,67 +40,47 @@ const Control = () => {
 
   const handleEmergency = () => {
     send({ type: 'emergency_stop', timestamp: Date.now() });
-    addLog('⚠️ PARADA DE EMERGÊNCIA ativada!', 'error');
+    addLog(t('control.emergencyLog'), 'error');
   };
 
   return (
     <div className="min-h-screen bg-background safe-bottom flex flex-col">
-      <StatusHeader title="Controle Manual" />
+      <StatusHeader title={t('control.title')} />
 
       <div className="flex-1 p-4 flex flex-col gap-4">
-        {/* Video placeholder */}
         <div className="w-full aspect-video rounded-2xl bg-card border border-border flex items-center justify-center shadow-card">
           <div className="text-center text-muted-foreground">
             <div className="text-4xl mb-2">📹</div>
-            <p className="text-sm font-medium">Vídeo Stream</p>
-            <p className="text-xs">Aguardando feed de câmera</p>
+            <p className="text-sm font-medium">{t('control.videoStream')}</p>
+            <p className="text-xs">{t('control.waitingFeed')}</p>
           </div>
         </div>
 
-        {/* Joystick + controls row */}
         <div className="flex gap-4 items-center justify-center">
           <Joystick size={180} onMove={handleMove} onRelease={handleRelease} />
 
           <div className="flex-1 space-y-4 max-w-[160px]">
-            {/* Speed info */}
             <div className="text-center">
-              <p className="text-xs text-muted-foreground font-semibold">ÂNGULO</p>
+              <p className="text-xs text-muted-foreground font-semibold">{t('control.angle')}</p>
               <p className="text-2xl font-bold text-foreground">{currentAngle}°</p>
             </div>
             <div className="text-center">
-              <p className="text-xs text-muted-foreground font-semibold">POTÊNCIA</p>
+              <p className="text-xs text-muted-foreground font-semibold">{t('control.power')}</p>
               <p className="text-2xl font-bold text-primary">{currentDist}%</p>
             </div>
 
-            {/* Speed slider */}
             <div>
-              <label className="text-xs text-muted-foreground font-semibold">Vel. Máx: {speed}%</label>
-              <input
-                type="range"
-                min={10}
-                max={100}
-                value={speed}
-                onChange={(e) => setSpeed(Number(e.target.value))}
-                className="w-full accent-primary mt-1"
-              />
+              <label className="text-xs text-muted-foreground font-semibold">{t('control.maxSpeed', { value: speed })}</label>
+              <input type="range" min={10} max={100} value={speed} onChange={(e) => setSpeed(Number(e.target.value))} className="w-full accent-primary mt-1" />
             </div>
 
-            {/* Rotation slider */}
             <div>
-              <label className="text-xs text-muted-foreground font-semibold">Rotação: {rotation}%</label>
-              <input
-                type="range"
-                min={10}
-                max={100}
-                value={rotation}
-                onChange={(e) => setRotation(Number(e.target.value))}
-                className="w-full accent-secondary mt-1"
-              />
+              <label className="text-xs text-muted-foreground font-semibold">{t('control.rotation', { value: rotation })}</label>
+              <input type="range" min={10} max={100} value={rotation} onChange={(e) => setRotation(Number(e.target.value))} className="w-full accent-secondary mt-1" />
             </div>
           </div>
         </div>
 
-        {/* Emergency button */}
         <div className="mt-auto">
           <EmergencyButton onEmergency={handleEmergency} />
         </div>
