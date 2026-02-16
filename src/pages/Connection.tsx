@@ -2,11 +2,13 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Wifi, WifiOff, Loader2, CloudOff, KeyRound } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useRobotStore } from '@/store/useRobotStore';
 import { useWebSocket } from '@/hooks/useWebSocket';
 import alphaIcon from '/icon-512.png';
 
 const Connection = () => {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const { ip, port, authToken, connectionStatus, error, setConnection, setOfflineMode } = useRobotStore();
   const { connect } = useWebSocket();
@@ -23,12 +25,8 @@ const Connection = () => {
   const handleConnect = () => {
     if (!isValidIp || !isValidPort) return;
 
-    // Warn user if connecting to a non-local IP
     if (!isPrivateIp(localIp)) {
-      const confirmed = window.confirm(
-        `Atenção: Você está conectando a um IP externo (${localIp}). ` +
-        'Isso pode expor comandos do robô a redes não confiáveis. Deseja continuar?'
-      );
+      const confirmed = window.confirm(t('connection.externalIpWarning', { ip: localIp }));
       if (!confirmed) return;
     }
 
@@ -43,6 +41,10 @@ const Connection = () => {
   };
 
   const isConnecting = connectionStatus === 'connecting';
+
+  const statusKey = connectionStatus === 'connected' ? 'connected'
+    : connectionStatus === 'connecting' ? 'connecting'
+    : connectionStatus === 'error' ? 'error' : 'disconnected';
 
   return (
     <div className="min-h-screen bg-background flex flex-col items-center justify-center px-4 safe-bottom">
@@ -59,8 +61,8 @@ const Connection = () => {
           animate={{ y: [0, -6, 0] }}
           transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
         />
-        <h1 className="text-2xl font-bold text-foreground">AlphaBot Companion</h1>
-        <p className="text-sm text-muted-foreground mt-1">Robô de Telepresença CT300-H13307</p>
+        <h1 className="text-2xl font-bold text-foreground">{t('connection.title')}</h1>
+        <p className="text-sm text-muted-foreground mt-1">{t('connection.subtitle')}</p>
       </motion.div>
 
       <motion.div
@@ -69,7 +71,6 @@ const Connection = () => {
         transition={{ duration: 0.6, delay: 0.2 }}
         className="w-full max-w-sm space-y-4"
       >
-        {/* Status indicator */}
         <div className="flex items-center justify-center gap-2 py-2">
           <div className={`w-2.5 h-2.5 rounded-full ${
             connectionStatus === 'connected' ? 'bg-success' :
@@ -77,50 +78,45 @@ const Connection = () => {
             connectionStatus === 'error' ? 'bg-destructive' : 'bg-muted-foreground'
           }`} />
           <span className="text-sm text-muted-foreground font-medium">
-            {connectionStatus === 'connected' ? 'Conectado' :
-             connectionStatus === 'connecting' ? 'Conectando...' :
-             connectionStatus === 'error' ? 'Erro de conexão' : 'Desconectado'}
+            {t(`connection.status.${statusKey}`)}
           </span>
         </div>
 
-        {/* IP Input */}
         <div>
-          <label className="text-xs font-semibold text-muted-foreground mb-1.5 block">ENDEREÇO IP DO ROBÔ</label>
+          <label className="text-xs font-semibold text-muted-foreground mb-1.5 block">{t('connection.ipLabel')}</label>
           <input
             type="text"
             value={localIp}
             onChange={(e) => setLocalIp(e.target.value)}
-            placeholder="192.168.99.2"
+            placeholder={t('connection.ipPlaceholder')}
             className={`w-full h-14 px-4 rounded-xl bg-card border-2 text-foreground text-base font-medium
               focus:outline-none focus:ring-2 focus:ring-primary/30
               ${isValidIp || !localIp ? 'border-border' : 'border-destructive'}`}
           />
         </div>
 
-        {/* Port Input */}
         <div>
-          <label className="text-xs font-semibold text-muted-foreground mb-1.5 block">PORTA</label>
+          <label className="text-xs font-semibold text-muted-foreground mb-1.5 block">{t('connection.portLabel')}</label>
           <input
             type="text"
             value={localPort}
             onChange={(e) => setLocalPort(e.target.value)}
-            placeholder="8080"
+            placeholder={t('connection.portPlaceholder')}
             className={`w-full h-14 px-4 rounded-xl bg-card border-2 text-foreground text-base font-medium
               focus:outline-none focus:ring-2 focus:ring-primary/30
               ${isValidPort || !localPort ? 'border-border' : 'border-destructive'}`}
           />
         </div>
 
-        {/* Auth Token Input (optional) */}
         <div>
           <label className="text-xs font-semibold text-muted-foreground mb-1.5 block">
-            <span className="flex items-center gap-1"><KeyRound className="w-3 h-3" /> TOKEN DE AUTENTICAÇÃO (OPCIONAL)</span>
+            <span className="flex items-center gap-1"><KeyRound className="w-3 h-3" /> {t('connection.tokenLabel')}</span>
           </label>
           <input
             type="password"
             value={localToken}
             onChange={(e) => setLocalToken(e.target.value)}
-            placeholder="Token do robô (se configurado)"
+            placeholder={t('connection.tokenPlaceholder')}
             className="w-full h-14 px-4 rounded-xl bg-card border-2 border-border text-foreground text-base font-medium
               focus:outline-none focus:ring-2 focus:ring-primary/30"
           />
@@ -130,7 +126,6 @@ const Connection = () => {
           <p className="text-sm text-destructive text-center">{error}</p>
         )}
 
-        {/* Connect Button */}
         <motion.button
           whileTap={{ scale: 0.97 }}
           onClick={handleConnect}
@@ -144,21 +139,20 @@ const Connection = () => {
           ) : (
             <Wifi className="w-5 h-5" />
           )}
-          {isConnecting ? 'CONECTANDO...' : 'CONECTAR ROBÔ'}
+          {isConnecting ? t('connection.connectingButton') : t('connection.connectButton')}
         </motion.button>
 
-        {/* Offline Mode */}
         <button
           onClick={handleOffline}
           className="w-full min-h-[48px] rounded-xl border-2 border-border bg-card text-muted-foreground font-semibold text-sm
             flex items-center justify-center gap-2 active:bg-muted"
         >
           <CloudOff className="w-4 h-4" />
-          Modo Offline (Simulação)
+          {t('connection.offlineButton')}
         </button>
       </motion.div>
 
-      <p className="text-xs text-muted-foreground mt-8">v1.0.3 • Iascom Ltda</p>
+      <p className="text-xs text-muted-foreground mt-8">{t('connection.version')}</p>
     </div>
   );
 };

@@ -1,6 +1,7 @@
 import { createRoot } from "react-dom/client";
 import App from "./App.tsx";
 import "./index.css";
+import "./i18n";
 
 // Global error handler - dev shows details, prod shows generic message
 window.onerror = (msg, source, line, col, error) => {
