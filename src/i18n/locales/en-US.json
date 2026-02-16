@@ -33,6 +33,8 @@
       "telemetryDesc": "Status and sensors",
       "voice": "Voice Commands",
       "voiceDesc": "Voice control",
+      "showcase": "Solar Life Products",
+      "showcaseDesc": "Presentation & recording",
       "settings": "Settings",
       "settingsDesc": "Advanced settings"
     }
@@ -179,5 +181,43 @@
     "CHARGING": "Charging",
     "ERROR": "Error",
     "RECEPTION": "Reception"
+  },
+  "showcase": {
+    "title": "🛍️ Solar Life Products",
+    "playingDemo": "Playing demo...",
+    "stopVideo": "Stop video",
+    "watchDemo": "Watch Demo",
+    "clientSection": "Client Record",
+    "clientNamePlaceholder": "Client name...",
+    "startRec": "Record",
+    "stopRec": "Stop",
+    "takePhoto": "Photo",
+    "clientPhoto": "Client photo",
+    "saveInteraction": "Save Interaction",
+    "savedSuccess": "Saved!",
+    "saved": "Interaction recorded successfully!",
+    "enterName": "Enter client name",
+    "products": {
+      "residential": {
+        "name": "Residential Solar Kit",
+        "desc": "Complete solar energy system for homes. Includes photovoltaic panels, inverter, mounting structure and smart monitoring. Save up to 95% on your electricity bill."
+      },
+      "commercial": {
+        "name": "Commercial/Industrial System",
+        "desc": "Large-scale solutions for businesses and industries. Custom projects with high energy efficiency and return on investment within 4 years."
+      },
+      "portable": {
+        "name": "Portable Solar Station",
+        "desc": "Portable solar generator for field use, events and emergencies. Integrated lithium battery with multiple USB and AC outputs."
+      },
+      "irrigation": {
+        "name": "Solar Irrigation",
+        "desc": "Solar pumping for agricultural irrigation. Autonomous system without grid power, ideal for remote areas."
+      },
+      "lighting": {
+        "name": "Solar Lighting",
+        "desc": "Autonomous solar poles and luminaires for public lighting, condominiums and rural areas. High-efficiency LED with twilight sensor."
+      }
+    }
   }
 }
