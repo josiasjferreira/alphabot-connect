@@ -1,10 +1,12 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Play, Camera, Mic, MicOff, Save, ChevronLeft, ChevronRight, User, CheckCircle } from 'lucide-react';
+import { Play, Camera, Mic, MicOff, Save, ChevronLeft, ChevronRight, User, CheckCircle, LogOut } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import StatusHeader from '@/components/StatusHeader';
 import { useMediaRecorder } from '@/hooks/useMediaRecorder';
 import { useToast } from '@/hooks/use-toast';
+import { useRobotStore } from '@/store/useRobotStore';
 
 interface Product {
   id: string;
@@ -25,12 +27,23 @@ const PRODUCTS: Product[] = [
 const ProductShowcase = () => {
   const { t } = useTranslation();
   const { toast } = useToast();
+  const navigate = useNavigate();
+  const { machineState, dispatchEvent } = useRobotStore();
+  const isReceptionMode = machineState === 'RECEPTION';
+
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [clientName, setClientName] = useState('');
   const [saved, setSaved] = useState(false);
 
   const { isRecording, photoUrl, startRecording, stopRecording, capturePhoto, saveSession, resetMedia } = useMediaRecorder();
+
+  // If robot leaves RECEPTION state externally, go back to dashboard
+  useEffect(() => {
+    if (machineState === 'ERROR') {
+      navigate('/dashboard');
+    }
+  }, [machineState, navigate]);
 
   const product = PRODUCTS[selectedIndex];
 
@@ -42,18 +55,46 @@ const ProductShowcase = () => {
       toast({ title: t('showcase.enterName'), variant: 'destructive' });
       return;
     }
-    const audioBlob = isRecording ? await stopRecording() : null;
+    if (isRecording) await stopRecording();
     await saveSession(product.id, clientName.trim());
     setSaved(true);
     toast({ title: t('showcase.saved') });
     setTimeout(() => { setSaved(false); resetMedia(); setClientName(''); }, 2000);
   }, [clientName, isRecording, stopRecording, saveSession, product.id, resetMedia, toast, t]);
 
+  const handleEndReception = useCallback(() => {
+    dispatchEvent('LEAVE_RECEPTION');
+    navigate('/dashboard');
+  }, [dispatchEvent, navigate]);
+
   return (
     <div className="h-screen bg-background flex flex-col">
       <StatusHeader title={t('showcase.title')} />
 
       <div className="flex-1 overflow-y-auto">
+        {/* Reception Mode Banner */}
+        {isReceptionMode && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mx-4 mt-3 px-4 py-3 rounded-xl bg-primary/10 border border-primary/30 flex items-center justify-between"
+          >
+            <div className="flex items-center gap-2">
+              <span className="text-lg">👋</span>
+              <div>
+                <p className="text-sm font-semibold text-foreground">{t('showcase.receptionActive')}</p>
+                <p className="text-xs text-muted-foreground">{t('showcase.receptionHint')}</p>
+              </div>
+            </div>
+            <button
+              onClick={handleEndReception}
+              className="flex items-center gap-1 px-3 py-2 rounded-lg bg-secondary text-secondary-foreground text-xs font-semibold"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+              {t('showcase.endReception')}
+            </button>
+          </motion.div>
+        )}
         {/* Product Carousel */}
         <div className="relative px-4 pt-4">
           <div className="flex items-center justify-between mb-2">

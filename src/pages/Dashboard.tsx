@@ -1,12 +1,22 @@
 import { useNavigate } from 'react-router-dom';
+import { useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Gamepad2, MessageCircle, Map, BarChart3, Mic, Settings, ShoppingBag } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import StatusHeader from '@/components/StatusHeader';
+import { useRobotStore } from '@/store/useRobotStore';
 
 const Dashboard = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const { machineState } = useRobotStore();
+
+  // Auto-navigate to showcase when robot enters RECEPTION state
+  useEffect(() => {
+    if (machineState === 'RECEPTION') {
+      navigate('/showcase');
+    }
+  }, [machineState, navigate]);
 
   const menuItems = [
     { icon: Gamepad2, titleKey: 'dashboard.menu.control', descKey: 'dashboard.menu.controlDesc', path: '/control', gradient: 'from-primary to-primary/80' },
