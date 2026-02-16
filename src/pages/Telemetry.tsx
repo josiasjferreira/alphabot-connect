@@ -1,12 +1,27 @@
 import { motion } from 'framer-motion';
-import { Battery, Thermometer, Wifi, Volume2, Gauge, Compass, RotateCw, Download } from 'lucide-react';
+import { Battery, Thermometer, Wifi, Volume2, Gauge, Compass, RotateCw, Download, Zap } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import StatusHeader from '@/components/StatusHeader';
 import { useRobotStore } from '@/store/useRobotStore';
+import { type RobotEvent, getAvailableEvents, STATE_LABELS } from '@/machine/robotStateMachine';
+
+const EVENT_ICONS: Record<RobotEvent, string> = {
+  START_DELIVERY: '🚀',
+  DELIVERY_COMPLETE: '✅',
+  START_CHARGING: '🔋',
+  CHARGING_COMPLETE: '⚡',
+  ARRIVE_RECEPTION: '👋',
+  LEAVE_RECEPTION: '🚪',
+  FAULT: '💥',
+  RESET: '🔄',
+  EMERGENCY_STOP: '🛑',
+};
 
 const Telemetry = () => {
   const { t } = useTranslation();
-  const { status, logs } = useRobotStore();
+  const { status, logs, machineState, dispatchEvent } = useRobotStore();
+  const availableEvents = getAvailableEvents(machineState);
+  const stateInfo = STATE_LABELS[machineState];
 
   const batteryColor = status.battery > 50 ? 'text-success' : status.battery > 20 ? 'text-warning' : 'text-destructive';
   const batteryBg = status.battery > 50 ? 'bg-success' : status.battery > 20 ? 'bg-warning' : 'bg-destructive';
@@ -96,6 +111,33 @@ const Telemetry = () => {
           </div>
         </div>
 
+        {/* State Machine Simulator */}
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="bg-card rounded-2xl border border-border shadow-card p-4">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-xs font-bold text-muted-foreground flex items-center gap-1.5">
+              <Zap className="w-3.5 h-3.5" /> {t('telemetry.stateSimulator')}
+            </h3>
+            <span className="text-sm font-bold text-foreground">
+              {stateInfo.icon} {t(`stateMachine.${machineState}`)}
+            </span>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {availableEvents.map((event) => (
+              <motion.button
+                key={event}
+                whileTap={{ scale: 0.93 }}
+                onClick={() => dispatchEvent(event)}
+                className="px-3 py-2 rounded-lg bg-secondary text-secondary-foreground text-xs font-semibold flex items-center gap-1.5 active:bg-primary active:text-primary-foreground transition-colors"
+              >
+                <span>{EVENT_ICONS[event]}</span>
+                {event.replace(/_/g, ' ')}
+              </motion.button>
+            ))}
+          </div>
+          {availableEvents.length === 0 && (
+            <p className="text-xs text-muted-foreground">{t('telemetry.noTransitions')}</p>
+          )}
+        </motion.div>
         <div className="bg-card rounded-2xl border border-border shadow-card p-4">
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-xs font-bold text-muted-foreground">{t('telemetry.recentLogs')}</h3>
