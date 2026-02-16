@@ -197,6 +197,9 @@
     "savedSuccess": "Saved!",
     "saved": "Interaction recorded successfully!",
     "enterName": "Enter client name",
+    "receptionActive": "Reception Mode Active",
+    "receptionHint": "The robot is attending a client",
+    "endReception": "End",
     "products": {
       "residential": {
         "name": "Residential Solar Kit",

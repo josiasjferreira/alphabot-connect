@@ -197,6 +197,9 @@
     "savedSuccess": "Salvo!",
     "saved": "Interação registrada com sucesso!",
     "enterName": "Digite o nome do cliente",
+    "receptionActive": "Modo Recepção Ativo",
+    "receptionHint": "O robô está recebendo um cliente",
+    "endReception": "Encerrar",
     "products": {
       "residential": {
         "name": "Kit Solar Residencial",
