@@ -33,6 +33,8 @@
       "telemetryDesc": "Status e sensores",
       "voice": "Comandos de Voz",
       "voiceDesc": "Controle por voz",
+      "showcase": "Produtos Solar Life",
+      "showcaseDesc": "Apresentação e registro",
       "settings": "Configurações",
       "settingsDesc": "Ajustes avançados"
     }
@@ -179,5 +181,43 @@
     "CHARGING": "Carregando",
     "ERROR": "Erro",
     "RECEPTION": "Recepção"
+  },
+  "showcase": {
+    "title": "🛍️ Produtos Solar Life",
+    "playingDemo": "Reproduzindo demonstração...",
+    "stopVideo": "Parar vídeo",
+    "watchDemo": "Assistir Demonstração",
+    "clientSection": "Registro do Cliente",
+    "clientNamePlaceholder": "Nome do cliente...",
+    "startRec": "Gravar",
+    "stopRec": "Parar",
+    "takePhoto": "Foto",
+    "clientPhoto": "Foto do cliente",
+    "saveInteraction": "Salvar Interação",
+    "savedSuccess": "Salvo!",
+    "saved": "Interação registrada com sucesso!",
+    "enterName": "Digite o nome do cliente",
+    "products": {
+      "residential": {
+        "name": "Kit Solar Residencial",
+        "desc": "Sistema completo de energia solar para residências. Inclui painéis fotovoltaicos, inversor, estrutura de fixação e monitoramento inteligente. Economia de até 95% na conta de luz."
+      },
+      "commercial": {
+        "name": "Sistema Comercial/Industrial",
+        "desc": "Soluções de grande porte para empresas e indústrias. Projetos customizados com alta eficiência energética e retorno do investimento em até 4 anos."
+      },
+      "portable": {
+        "name": "Estação Solar Portátil",
+        "desc": "Gerador solar portátil para uso em campo, eventos e emergências. Bateria de lítio integrada com múltiplas saídas USB e AC."
+      },
+      "irrigation": {
+        "name": "Irrigação Solar",
+        "desc": "Bombeamento solar para irrigação agrícola. Sistema autônomo sem necessidade de rede elétrica, ideal para áreas remotas."
+      },
+      "lighting": {
+        "name": "Iluminação Solar",
+        "desc": "Postes e luminárias solares autônomas para iluminação pública, condomínios e áreas rurais. LED de alta eficiência com sensor crepuscular."
+      }
+    }
   }
 }

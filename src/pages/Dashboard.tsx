@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Gamepad2, MessageCircle, Map, BarChart3, Mic, Settings } from 'lucide-react';
+import { Gamepad2, MessageCircle, Map, BarChart3, Mic, Settings, ShoppingBag } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import StatusHeader from '@/components/StatusHeader';
 
@@ -14,6 +14,7 @@ const Dashboard = () => {
     { icon: Map, titleKey: 'dashboard.menu.map', descKey: 'dashboard.menu.mapDesc', path: '/map', gradient: 'from-success to-success/80' },
     { icon: BarChart3, titleKey: 'dashboard.menu.telemetry', descKey: 'dashboard.menu.telemetryDesc', path: '/telemetry', gradient: 'from-warning to-warning/80' },
     { icon: Mic, titleKey: 'dashboard.menu.voice', descKey: 'dashboard.menu.voiceDesc', path: '/voice', gradient: 'from-primary to-destructive/80' },
+    { icon: ShoppingBag, titleKey: 'dashboard.menu.showcase', descKey: 'dashboard.menu.showcaseDesc', path: '/showcase', gradient: 'from-success to-primary/80' },
     { icon: Settings, titleKey: 'dashboard.menu.settings', descKey: 'dashboard.menu.settingsDesc', path: '/settings', gradient: 'from-muted-foreground to-muted-foreground/60' },
   ];
 
