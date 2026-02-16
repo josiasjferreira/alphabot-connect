@@ -172,5 +172,12 @@
     "title": "404",
     "message": "Ops! Página não encontrada",
     "backHome": "Voltar ao Início"
+  },
+  "stateMachine": {
+    "IDLE": "Ocioso",
+    "DELIVERY": "Em entrega",
+    "CHARGING": "Carregando",
+    "ERROR": "Erro",
+    "RECEPTION": "Recepção"
   }
 }

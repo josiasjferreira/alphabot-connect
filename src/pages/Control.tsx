@@ -41,6 +41,8 @@ const Control = () => {
   const handleEmergency = () => {
     send({ type: 'emergency_stop', timestamp: Date.now() });
     addLog(t('control.emergencyLog'), 'error');
+    // Transition state machine to ERROR via EMERGENCY_STOP event
+    useRobotStore.getState().dispatchEvent('EMERGENCY_STOP');
   };
 
   return (
