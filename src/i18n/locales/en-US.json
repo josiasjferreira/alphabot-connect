@@ -19,5 +19,158 @@
     "offlineButton": "Offline Mode (Simulation)",
     "externalIpWarning": "Warning: You are connecting to an external IP ({{ip}}). This may expose robot commands to untrusted networks. Continue?",
     "version": "v1.0.3 • Iascom Ltda"
+  },
+  "dashboard": {
+    "title": "AlphaBot Dashboard",
+    "menu": {
+      "control": "Manual Control",
+      "controlDesc": "Joystick and commands",
+      "chat": "AI Chat",
+      "chatDesc": "Talk to the robot",
+      "map": "Map",
+      "mapDesc": "Navigation and routes",
+      "telemetry": "Telemetry",
+      "telemetryDesc": "Status and sensors",
+      "voice": "Voice Commands",
+      "voiceDesc": "Voice control",
+      "settings": "Settings",
+      "settingsDesc": "Advanced settings"
+    }
+  },
+  "control": {
+    "title": "Manual Control",
+    "videoStream": "Video Stream",
+    "waitingFeed": "Waiting for camera feed",
+    "angle": "ANGLE",
+    "power": "POWER",
+    "maxSpeed": "Max Speed: {{value}}%",
+    "rotation": "Rotation: {{value}}%",
+    "emergencyLog": "⚠️ EMERGENCY STOP activated!"
+  },
+  "chat": {
+    "title": "💬 Chat with AlphaBot",
+    "clear": "Clear",
+    "inputPlaceholder": "Type your message...",
+    "welcomeMessage": "Hello! I'm AlphaBot CT300-H13307. How can I help you today? 🤖",
+    "clearedMessage": "History cleared! How can I help? 🤖",
+    "responses": {
+      "hello": "Hello! How can I help you today? 🤖",
+      "howAreYou": "I'm working perfectly! All systems operational. ✅",
+      "battery": "My battery is at {{battery}}%. {{status}}",
+      "batteryGood": "Good level!",
+      "batteryLow": "Consider recharging soon.",
+      "navigate": "Got it! Starting navigation to the requested location... 🗺️",
+      "stop": "Stopping all movements now! 🛑",
+      "status": "Status: Battery {{battery}}%, temp. normal, WiFi stable. All OK! 📊",
+      "forward": "Moving forward! ⬆️",
+      "backward": "Moving backward! ⬇️",
+      "left": "Turning left! ⬅️",
+      "right": "Turning right! ➡️",
+      "position": "I'm at position X: 5.2m, Y: 3.8m, orientation: 45° NE. 📍",
+      "help": "I can help with: navigation, battery check, system status, movement control. What do you need?",
+      "thanks": "You're welcome! I'm always here to help! 😊",
+      "camera": "Activating camera... The feed is available on the control screen. 📹",
+      "map": "The map is available in the navigation section. Want me to go somewhere specific?",
+      "fallback": "Got it! I can help with navigation, system status or movement control. What do you need? 🤔"
+    }
+  },
+  "voice": {
+    "title": "🎤 Voice Commands",
+    "listening": "Listening... Speak now!",
+    "tapToSpeak": "Tap to speak",
+    "availableCommands": "AVAILABLE COMMANDS",
+    "recentCommands": "RECENT COMMANDS",
+    "commands": {
+      "forward": "Go forward",
+      "backward": "Go backward",
+      "left": "Turn left",
+      "right": "Turn right",
+      "stop": "Stop",
+      "battery": "Battery status",
+      "where": "Where am I?"
+    },
+    "responses": {
+      "forward": "Moving forward!",
+      "backward": "Moving backward!",
+      "left": "Turning left!",
+      "right": "Turning right!",
+      "stop": "Robot stopped!",
+      "battery": "Battery at {{battery}}%",
+      "position": "Position: X: 5.2m, Y: 3.8m",
+      "unknown": "Command not recognized. Try again."
+    },
+    "voiceCommandLog": "Voice command: \"{{command}}\" → {{response}}"
+  },
+  "telemetry": {
+    "title": "📊 Telemetry",
+    "battery": "Battery",
+    "batteryRemaining": "≈ 2h 30min remaining",
+    "sensors": {
+      "wifi": "WiFi",
+      "temperature": "Temperature",
+      "consumption": "Consumption",
+      "audio": "Audio"
+    },
+    "motors": "MOTORS",
+    "motorLeft": "Left",
+    "motorRight": "Right",
+    "navigation": "NAVIGATION",
+    "odometry": "Odometry",
+    "speed": "Speed",
+    "orientation": "Orientation",
+    "recentLogs": "RECENT LOGS",
+    "export": "Export",
+    "noLogs": "No logs available"
+  },
+  "settings": {
+    "title": "Settings",
+    "connection": "Connection",
+    "connected": "Connected",
+    "disconnected": "Disconnected",
+    "offline": "Offline",
+    "online": "Online",
+    "robotIp": "ROBOT IP",
+    "port": "PORT",
+    "reconnect": "Reconnect",
+    "maxSpeed": "Maximum Speed",
+    "speedLimit": "Speed limit",
+    "speedHint": "Limits the maximum speed for joystick and voice commands.",
+    "voiceSynthesis": "Voice Synthesis",
+    "volume": "Volume",
+    "speechRate": "Speech rate",
+    "testVoice": "Test Voice",
+    "testVoiceText": "Testing AlphaBot voice synthesis.",
+    "appearance": "Appearance",
+    "darkMode": "Dark Mode",
+    "darkModeHint": "Enable dark theme",
+    "data": "Data",
+    "clearLogs": "Clear Logs",
+    "clearChatHistory": "Clear Chat History",
+    "version": "AlphaBot Companion v1.0.2 • Solar Life Energy & Iascom Ltda"
+  },
+  "map": {
+    "title": "🗺️ Navigation Map",
+    "legend": {
+      "robot": "Robot",
+      "destination": "Destination",
+      "obstacle": "Obstacle"
+    },
+    "position": "Position",
+    "orientation": "Orientation",
+    "destination": "Destination",
+    "destinationSet": "Destination set: ({{x}}, {{y}})",
+    "base": "Base",
+    "mark": "Mark",
+    "markLog": "Point marked",
+    "refresh": "Refresh"
+  },
+  "emergency": {
+    "stop": "EMERGENCY STOP",
+    "unlock": "UNLOCK ROBOT"
+  },
+  "notFound": {
+    "title": "404",
+    "message": "Oops! Page not found",
+    "backHome": "Return to Home"
   }
 }
