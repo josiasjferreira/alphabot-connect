@@ -44,7 +44,7 @@ interface RobotState {
 const defaultStatus: RobotStatus = {
   battery: 85,
   temperature: 38,
-  wifiStrength: 4,
+  wifiStrength: 4, // 0-5 scale
   speed: 0,
   orientation: 0,
   posX: 5.2,

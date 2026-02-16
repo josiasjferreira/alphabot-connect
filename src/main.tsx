@@ -2,6 +2,11 @@ import { createRoot } from "react-dom/client";
 import App from "./App.tsx";
 import "./index.css";
 import "./i18n";
+import { useSettingsStore } from "./store/useSettingsStore";
+
+// Apply dark mode from persisted settings on load
+const darkMode = useSettingsStore.getState().darkMode;
+if (darkMode) document.documentElement.classList.add('dark');
 
 // Global error handler - dev shows details, prod shows generic message
 window.onerror = (msg, source, line, col, error) => {

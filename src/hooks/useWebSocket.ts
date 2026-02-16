@@ -51,7 +51,7 @@ const sanitizeOutbound = (message: WebSocketMessage): WebSocketMessage => {
 const StatusDataSchema = z.object({
   battery: z.number().min(0).max(100),
   temperature: z.number().min(-50).max(150),
-  wifiStrength: z.number().min(0).max(4),
+  wifiStrength: z.number().min(0).max(5),
   speed: z.number(),
   orientation: z.number().min(0).max(360),
   posX: z.number(),
