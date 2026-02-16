@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { Mic, MicOff, Volume2, Check, AlertCircle } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -20,6 +20,7 @@ const Voice = () => {
   const { isListening, transcript, interimTranscript, startListening, stopListening, resetTranscript } = useVoiceRecognition();
   const { send } = useWebSocket();
   const { status, addLog } = useRobotStore();
+  const processedTranscript = useRef('');
 
   const availableCommands = [
     { text: t('voice.commands.forward'), icon: '⬆️' },
@@ -52,7 +53,14 @@ const Voice = () => {
     if (success) send({ type: 'voice_command', data: { command: text }, timestamp: Date.now() });
   }, [processCommand, send, addLog, t]);
 
-  if (transcript && !isListening) { executeCommand(transcript); resetTranscript(); }
+  // Process transcript in useEffect instead of render body
+  useEffect(() => {
+    if (transcript && !isListening && transcript !== processedTranscript.current) {
+      processedTranscript.current = transcript;
+      executeCommand(transcript);
+      resetTranscript();
+    }
+  }, [transcript, isListening, executeCommand, resetTranscript]);
 
   return (
     <div className="min-h-screen bg-background safe-bottom flex flex-col">

@@ -63,7 +63,8 @@ const MapNav = () => {
     ctx.fillText('🤖', robotGridX * CELL_PX + CELL_PX / 2, robotGridY * CELL_PX + CELL_PX / 2 + 5);
   };
 
-  useEffect(() => { drawMap(); }, [status.posX, status.posY, destination]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { drawMap(); }, [status.posX, status.posY, destination, robotGridX, robotGridY]);
 
   const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
     const rect = canvasRef.current?.getBoundingClientRect();
