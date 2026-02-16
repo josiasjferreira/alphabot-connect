@@ -122,7 +122,9 @@
     "orientation": "Orientation",
     "recentLogs": "RECENT LOGS",
     "export": "Export",
-    "noLogs": "No logs available"
+    "noLogs": "No logs available",
+    "stateSimulator": "STATE SIMULATOR",
+    "noTransitions": "No transitions available from this state"
   },
   "settings": {
     "title": "Settings",
