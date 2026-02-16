@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { type RobotState as MachineState, type RobotEvent, transition, canTransition, getAvailableEvents } from '@/machine/robotStateMachine';
 
 export interface RobotStatus {
   battery: number;
@@ -32,6 +33,10 @@ interface RobotState {
   status: RobotStatus;
   logs: LogEntry[];
 
+  // State machine
+  machineState: MachineState;
+  lastEvent: RobotEvent | null;
+
   setConnection: (ip: string, port: string, authToken?: string) => void;
   setConnectionStatus: (status: RobotState['connectionStatus']) => void;
   setError: (error: string | null) => void;
@@ -39,6 +44,11 @@ interface RobotState {
   updateStatus: (status: Partial<RobotStatus>) => void;
   addLog: (message: string, type?: LogEntry['type']) => void;
   clearLogs: () => void;
+
+  // State machine actions
+  dispatchEvent: (event: RobotEvent) => boolean;
+  canDispatch: (event: RobotEvent) => boolean;
+  getAvailableEvents: () => RobotEvent[];
 }
 
 const defaultStatus: RobotStatus = {
@@ -57,7 +67,7 @@ const defaultStatus: RobotStatus = {
 
 export const useRobotStore = create<RobotState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       connectionStatus: 'disconnected',
       ip: '192.168.99.2',
       port: '8080',
@@ -67,6 +77,10 @@ export const useRobotStore = create<RobotState>()(
       robotName: 'CT300-H13307',
       status: defaultStatus,
       logs: [],
+
+      // State machine defaults
+      machineState: 'IDLE',
+      lastEvent: null,
 
       setConnection: (ip, port, authToken) => set({ ip, port, authToken: authToken ?? '' }),
       setConnectionStatus: (connectionStatus) => set({ connectionStatus, error: connectionStatus === 'error' ? 'Falha na conexão' : null }),
@@ -78,6 +92,21 @@ export const useRobotStore = create<RobotState>()(
           logs: [{ timestamp: new Date(), message, type }, ...s.logs].slice(0, 50),
         })),
       clearLogs: () => set({ logs: [] }),
+
+      // State machine actions
+      dispatchEvent: (event) => {
+        const current = get().machineState;
+        const result = transition(current, event);
+        if (result.success) {
+          set({ machineState: result.newState, lastEvent: event });
+          get().addLog(`Estado: ${result.previousState} → ${result.newState} (${event})`, 'info');
+        } else {
+          get().addLog(result.error || `Transição inválida: ${event}`, 'warning');
+        }
+        return result.success;
+      },
+      canDispatch: (event) => canTransition(get().machineState, event),
+      getAvailableEvents: () => getAvailableEvents(get().machineState),
     }),
     {
       name: 'alphabot-store',
