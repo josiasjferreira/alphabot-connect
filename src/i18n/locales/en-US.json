@@ -1,0 +1,23 @@
+{
+  "connection": {
+    "title": "AlphaBot Companion",
+    "subtitle": "Telepresence Robot CT300-H13307",
+    "status": {
+      "connected": "Connected",
+      "connecting": "Connecting...",
+      "error": "Connection error",
+      "disconnected": "Disconnected"
+    },
+    "ipLabel": "ROBOT IP ADDRESS",
+    "ipPlaceholder": "192.168.99.2",
+    "portLabel": "PORT",
+    "portPlaceholder": "8080",
+    "tokenLabel": "AUTH TOKEN (OPTIONAL)",
+    "tokenPlaceholder": "Robot token (if configured)",
+    "connectButton": "CONNECT ROBOT",
+    "connectingButton": "CONNECTING...",
+    "offlineButton": "Offline Mode (Simulation)",
+    "externalIpWarning": "Warning: You are connecting to an external IP ({{ip}}). This may expose robot commands to untrusted networks. Continue?",
+    "version": "v1.0.3 • Iascom Ltda"
+  }
+}
