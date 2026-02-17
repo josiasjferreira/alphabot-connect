@@ -38,7 +38,7 @@ const Dashboard = () => {
 
   return (
     <div className="min-h-screen bg-background safe-bottom">
-      <StatusHeader title={t('dashboard.title')} showBack={false} />
+      <StatusHeader title={t('dashboard.title')} />
 
       <div className="p-4 grid grid-cols-2 gap-3">
         {menuItems.map((item, i) => (

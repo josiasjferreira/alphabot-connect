@@ -50,7 +50,7 @@ const OtaUpdate = () => {
             <Info className="w-4 h-4 text-muted-foreground" />
             <span className="text-xs font-semibold text-muted-foreground">{t('ota.currentVersion')}</span>
           </div>
-          <p className="text-lg font-bold text-foreground">v1.0.4</p>
+          <p className="text-lg font-bold text-foreground">v1.0.5</p>
           <p className="text-xs text-muted-foreground mt-1">{t('ota.firmwareDate')}: 2025-02-15</p>
         </div>
 
