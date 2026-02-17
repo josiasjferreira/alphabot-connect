@@ -90,6 +90,7 @@
       "thanks": "Por nada! Estou sempre aqui para ajudar! 😊",
       "camera": "Ativando câmera... O feed está disponível na tela de controle. 📹",
       "map": "O mapa está disponível na seção de navegação. Deseja que eu vá para algum local específico?",
+      "ken": "Oi! Eu sou o Ken, seu robô assistente! Estou aqui para te ajudar. O que você precisa? 🤖✨",
       "fallback": "Entendi! Posso ajudar com navegação, status do sistema ou controle de movimento. O que você precisa? 🤔"
     }
   },
@@ -116,6 +117,7 @@
       "stop": "Robô parado!",
       "battery": "Bateria em {{battery}}%",
       "position": "Posição: X: 5.2m, Y: 3.8m",
+      "ken": "Oi! Aqui é o Ken! Estou ouvindo você. Como posso ajudar?",
       "unknown": "Comando não reconhecido. Tente novamente."
     },
     "voiceCommandLog": "Comando de voz: \"{{command}}\" → {{response}}"

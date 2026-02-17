@@ -23,6 +23,7 @@ const Chat = () => {
   const getBotResponse = useCallback((userMessage: string, battery: number): { text: string; action?: string } => {
     const msg = userMessage.toLowerCase().trim();
     const patterns: [RegExp, string, string?][] = [
+      [/\bken\b/i, t('chat.responses.ken'), undefined],
       [/^(ol[aá]|oi|hey|e a[ií])\b/i, t('chat.responses.hello'), undefined],
       [/como (voc[eê]|est[aá])/i, t('chat.responses.howAreYou'), undefined],
       [/bateria|carga|energia/i, t('chat.responses.battery', { battery, status: battery > 50 ? t('chat.responses.batteryGood') : t('chat.responses.batteryLow') }), 'status'],

@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Sparkles, Play, Hand, Heart, Star, PartyPopper } from 'lucide-react';
 import StatusHeader from '@/components/StatusHeader';
+import RobotFace, { getExpressionForAnimation } from '@/components/RobotFace';
 import { speak } from '@/hooks/useVoiceRecognition';
 import { playBackgroundTone, animationSounds } from '@/lib/audioEffects';
 
@@ -63,21 +64,24 @@ const Blessing = () => {
                 initial={{ scale: 0, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
                 exit={{ scale: 0, opacity: 0 }}
-                className="text-center"
+                className="text-center flex flex-col items-center"
               >
+                {/* Robot Face Expression */}
+                <RobotFace expression={getExpressionForAnimation(playing || 'neutral')} />
+
                 <motion.div
-                  animate={{ scale: [1, 1.3, 1], rotate: [0, 10, -10, 0] }}
-                  transition={{ repeat: Infinity, duration: 1 }}
-                  className="text-7xl mb-2"
+                  animate={{ scale: [1, 1.2, 1] }}
+                  transition={{ repeat: Infinity, duration: 1.2 }}
+                  className="text-4xl mt-1"
                 >
                   {activePreset.emoji}
                 </motion.div>
-                <p className="text-sm font-semibold text-foreground">{t(activePreset.labelKey)}</p>
+                <p className="text-sm font-semibold text-foreground mt-1">{t(activePreset.labelKey)}</p>
                 <motion.p
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.3 }}
-                  className="text-xs text-muted-foreground mt-1 max-w-[200px]"
+                  className="text-xs text-muted-foreground mt-1 max-w-[220px]"
                 >
                   🔊 {t(activePreset.phrase)}
                 </motion.p>
@@ -94,9 +98,9 @@ const Blessing = () => {
                 </motion.div>
               </motion.div>
             ) : (
-              <div className="text-center text-muted-foreground">
-                <Sparkles className="w-10 h-10 mx-auto mb-2" />
-                <p className="text-sm">{t('blessing.selectAnimation')}</p>
+              <div className="text-center flex flex-col items-center">
+                <RobotFace expression="neutral" />
+                <p className="text-sm text-muted-foreground mt-2">{t('blessing.selectAnimation')}</p>
                 <p className="text-xs mt-1 opacity-60">🤖 Ken</p>
               </div>
             )}
