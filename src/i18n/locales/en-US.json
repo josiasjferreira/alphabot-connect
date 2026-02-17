@@ -398,6 +398,16 @@
       "warning": "Warning",
       "error": "Error",
       "success": "Success"
-    }
+     }
+  },
+  "chatSync": {
+    "offline": "Offline — local DB",
+    "synced": "Synced",
+    "pending": "Sync pending",
+    "lastSync": "Last sync",
+    "syncNow": "Sync now",
+    "syncing": "Syncing...",
+    "syncSuccess": "Synced! +{{knowledge}} knowledge items, {{messages}} msgs uploaded.",
+    "loadingDb": "Loading local database..."
   }
 }

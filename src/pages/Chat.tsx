@@ -1,71 +1,21 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Send, Mic, MicOff, Trash2 } from 'lucide-react';
+import { Send, Mic, MicOff, Trash2, RefreshCw, Wifi, WifiOff, Cloud, Database } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import StatusHeader from '@/components/StatusHeader';
 import ChatBubble from '@/components/ChatBubble';
-import { useVoiceRecognition, speak } from '@/hooks/useVoiceRecognition';
-import { useRobotStore } from '@/store/useRobotStore';
-import { useWebSocket } from '@/hooks/useWebSocket';
-
-interface Message {
-  id: string;
-  sender: 'user' | 'bot';
-  text: string;
-  timestamp: Date;
-}
-
-const STORAGE_KEY = 'alphabot-chat-history';
+import { useVoiceRecognition } from '@/hooks/useVoiceRecognition';
+import { useChatIA } from '@/hooks/useChatIA';
+import { useSyncStatus } from '@/hooks/useSyncStatus';
 
 const Chat = () => {
   const { t } = useTranslation();
-
-  const getBotResponse = useCallback((userMessage: string, battery: number): { text: string; action?: string } => {
-    const msg = userMessage.toLowerCase().trim();
-    const patterns: [RegExp, string, string?][] = [
-      [/\bken\b/i, t('chat.responses.ken'), undefined],
-      [/^(ol[aá]|oi|hey|e a[ií])\b/i, t('chat.responses.hello'), undefined],
-      [/como (voc[eê]|est[aá])/i, t('chat.responses.howAreYou'), undefined],
-      [/bateria|carga|energia/i, t('chat.responses.battery', { battery, status: battery > 50 ? t('chat.responses.batteryGood') : t('chat.responses.batteryLow') }), 'status'],
-      [/(ir para|v[aá] para|navegu[ei]|mov[ae])/i, t('chat.responses.navigate'), 'navigate'],
-      [/(par[ea]|stop|freio)/i, t('chat.responses.stop'), 'emergency'],
-      [/status|estado|sistema/i, t('chat.responses.status', { battery }), 'status'],
-      [/(frente|avante|avan[cç])/i, t('chat.responses.forward'), 'navigate'],
-      [/(tr[aá]s|recue|volte)/i, t('chat.responses.backward'), 'navigate'],
-      [/(esquerda|left)/i, t('chat.responses.left'), 'navigate'],
-      [/(direita|right)/i, t('chat.responses.right'), 'navigate'],
-      [/(onde|posi[cç][aã]o|localiza)/i, t('chat.responses.position'), 'status'],
-      [/(ajuda|help|comando)/i, t('chat.responses.help'), undefined],
-      [/(obrigad|valeu|thank)/i, t('chat.responses.thanks'), undefined],
-      [/(foto|câmera|image)/i, t('chat.responses.camera'), undefined],
-      [/(mapa|planta)/i, t('chat.responses.map'), undefined],
-    ];
-    for (const [pattern, response, action] of patterns) {
-      if (pattern.test(msg)) return { text: response, action };
-    }
-    return { text: t('chat.responses.fallback') };
-  }, [t]);
-
-  const [messages, setMessages] = useState<Message[]>(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        return parsed.map((m: any) => ({ ...m, timestamp: new Date(m.timestamp) }));
-      }
-    } catch {}
-    return [{ id: '1', sender: 'bot' as const, text: t('chat.welcomeMessage'), timestamp: new Date() }];
-  });
   const [input, setInput] = useState('');
-  const [isTyping, setIsTyping] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const { status } = useRobotStore();
-  const { send: wsSend } = useWebSocket();
   const { isListening, transcript, interimTranscript, startListening, stopListening, resetTranscript } = useVoiceRecognition();
-
-  useEffect(() => {
-    if (messages.length > 0) localStorage.setItem(STORAGE_KEY, JSON.stringify(messages.slice(-100)));
-  }, [messages]);
+  const { messages, isTyping, sendMessage, clearHistory, dbReady } = useChatIA();
+  const { isOnline, syncState, isSyncing, doSync, formatLastSync, lastResult } = useSyncStatus();
+  const [showSyncInfo, setShowSyncInfo] = useState(false);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
@@ -75,58 +25,102 @@ const Chat = () => {
     if (transcript && !isListening) { setInput(transcript); resetTranscript(); }
   }, [transcript, isListening, resetTranscript]);
 
-  const sendMessage = useCallback((text: string) => {
-    if (!text.trim()) return;
-    const userMsg: Message = { id: Date.now().toString(), sender: 'user', text: text.trim(), timestamp: new Date() };
-    setMessages(prev => [...prev, userMsg]);
-    setInput('');
-    setIsTyping(true);
+  const handleSubmit = (e: React.FormEvent) => { e.preventDefault(); sendMessage(input); setInput(''); };
 
-    setTimeout(() => {
-      try {
-        const { text: botText, action } = getBotResponse(text, status.battery);
-        setMessages(prev => [...prev, { id: (Date.now() + 1).toString(), sender: 'bot', text: botText, timestamp: new Date() }]);
-        setIsTyping(false);
-        if (action) wsSend({ type: action === 'emergency' ? 'emergency_stop' : action as any, data: { command: text }, timestamp: Date.now() });
-        speak(botText);
-      } catch (e) { console.error('Chat response error:', e); setIsTyping(false); }
-    }, 600 + Math.random() * 800);
-  }, [status.battery, wsSend, getBotResponse]);
-
-  const handleSubmit = (e: React.FormEvent) => { e.preventDefault(); sendMessage(input); };
-
-  const clearHistory = () => {
-    setMessages([{ id: Date.now().toString(), sender: 'bot', text: t('chat.clearedMessage'), timestamp: new Date() }]);
-    localStorage.removeItem(STORAGE_KEY);
+  const handleSync = async () => {
+    // Use simulation since real endpoint isn't connected yet
+    const result = await doSync(true);
+    if (result.success) {
+      setShowSyncInfo(true);
+      setTimeout(() => setShowSyncInfo(false), 4000);
+    }
   };
 
-  const formatTime = (d: Date) => `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`;
+  const formatTime = (ts: number) => {
+    const d = new Date(ts);
+    return `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`;
+  };
+
+  const syncStateConfig = {
+    'offline': { icon: WifiOff, label: t('chatSync.offline'), color: 'text-amber-400', bg: 'bg-amber-500/10' },
+    'online-synced': { icon: Cloud, label: t('chatSync.synced'), color: 'text-emerald-400', bg: 'bg-emerald-500/10' },
+    'online-pending': { icon: Database, label: t('chatSync.pending'), color: 'text-blue-400', bg: 'bg-blue-500/10' },
+  };
+
+  const currentSync = syncStateConfig[syncState];
+  const SyncIcon = currentSync.icon;
 
   return (
     <div className="h-screen bg-background flex flex-col">
       <StatusHeader title={t('chat.title')} />
-      <div className="px-4 py-2 flex justify-end">
-        <button onClick={clearHistory} className="text-xs text-muted-foreground flex items-center gap-1 active:text-destructive">
-          <Trash2 className="w-3 h-3" /> {t('chat.clear')}
-        </button>
+
+      {/* Sync Status Bar */}
+      <div className="px-4 py-2 flex items-center justify-between border-b border-border">
+        <div className="flex items-center gap-2">
+          <div className={`flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium ${currentSync.bg} ${currentSync.color}`}>
+            <SyncIcon className="w-3 h-3" />
+            {currentSync.label}
+          </div>
+          <span className="text-[10px] text-muted-foreground">
+            {t('chatSync.lastSync')}: {formatLastSync()}
+          </span>
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleSync}
+            disabled={isSyncing}
+            className="flex items-center gap-1 text-xs text-primary hover:text-primary/80 disabled:opacity-40 transition-colors"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
+            {isSyncing ? t('chatSync.syncing') : t('chatSync.syncNow')}
+          </button>
+          <button onClick={clearHistory} className="text-xs text-muted-foreground flex items-center gap-1 active:text-destructive">
+            <Trash2 className="w-3 h-3" /> {t('chat.clear')}
+          </button>
+        </div>
       </div>
 
-      <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 pb-4">
-        {messages.map((msg, i) => (
-          <ChatBubble key={msg.id} sender={msg.sender} text={msg.text} time={formatTime(msg.timestamp)} index={i} />
-        ))}
-        {isTyping && (
-          <div className="flex justify-start mb-3">
-            <div className="bg-chat-bot text-chat-bot-foreground px-4 py-3 rounded-2xl rounded-bl-md">
-              <motion.div className="flex gap-1">
-                {[0, 1, 2].map((i) => (
-                  <motion.span key={i} className="w-2 h-2 bg-muted-foreground rounded-full" animate={{ y: [0, -6, 0] }} transition={{ duration: 0.6, delay: i * 0.15, repeat: Infinity }} />
-                ))}
-              </motion.div>
-            </div>
+      {/* Sync Result Toast */}
+      {showSyncInfo && lastResult?.success && (
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0 }}
+          className="mx-4 mt-2 px-3 py-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-xs text-emerald-400"
+        >
+          ✅ {t('chatSync.syncSuccess', { knowledge: lastResult.newKnowledge, messages: lastResult.uploadedMessages })}
+        </motion.div>
+      )}
+
+      {/* DB Loading */}
+      {!dbReady && (
+        <div className="flex-1 flex items-center justify-center">
+          <div className="flex items-center gap-2 text-muted-foreground text-sm">
+            <Database className="w-4 h-4 animate-pulse" />
+            {t('chatSync.loadingDb')}
           </div>
-        )}
-      </div>
+        </div>
+      )}
+
+      {/* Messages */}
+      {dbReady && (
+        <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 pb-4">
+          {messages.map((msg, i) => (
+            <ChatBubble key={msg.id} sender={msg.role === 'user' ? 'user' : 'bot'} text={msg.text} time={formatTime(msg.createdAt)} index={i} />
+          ))}
+          {isTyping && (
+            <div className="flex justify-start mb-3">
+              <div className="bg-chat-bot text-chat-bot-foreground px-4 py-3 rounded-2xl rounded-bl-md">
+                <motion.div className="flex gap-1">
+                  {[0, 1, 2].map((i) => (
+                    <motion.span key={i} className="w-2 h-2 bg-muted-foreground rounded-full" animate={{ y: [0, -6, 0] }} transition={{ duration: 0.6, delay: i * 0.15, repeat: Infinity }} />
+                  ))}
+                </motion.div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {isListening && interimTranscript && (
         <div className="px-4 py-2 bg-primary/5 text-sm text-muted-foreground italic border-t border-border">🎤 {interimTranscript}</div>
