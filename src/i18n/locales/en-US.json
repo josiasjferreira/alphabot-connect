@@ -35,6 +35,22 @@
       "voiceDesc": "Voice control",
       "showcase": "Solar Life Products",
       "showcaseDesc": "Presentation & recording",
+      "diagnostics": "Diagnostics",
+      "diagnosticsDesc": "Hardware tests",
+      "delivery": "Delivery",
+      "deliveryDesc": "Delivery management",
+      "patrol": "Patrol",
+      "patrolDesc": "Autonomous rounds",
+      "blessing": "Animations",
+      "blessingDesc": "Greetings & gestures",
+      "slam": "SLAM Maps",
+      "slamDesc": "Manage maps",
+      "mqtt": "MQTT",
+      "mqttDesc": "Message monitor",
+      "ota": "OTA Update",
+      "otaDesc": "Robot firmware",
+      "logs": "Advanced Logs",
+      "logsDesc": "Detailed history",
       "settings": "Settings",
       "settingsDesc": "Advanced settings"
     }
@@ -223,6 +239,107 @@
         "name": "Solar Lighting",
         "desc": "Autonomous solar poles and luminaires for public lighting, condominiums and rural areas. High-efficiency LED with twilight sensor."
       }
+    }
+  },
+  "diagnostics": {
+    "title": "🩺 Diagnostics",
+    "runAll": "Run All",
+    "ok": "OK",
+    "failed": "Failed",
+    "tests": {
+      "cpu": "Processor (CPU)",
+      "memory": "RAM Memory",
+      "battery": "Battery",
+      "temperature": "Temperature Sensor",
+      "wifi": "WiFi Module",
+      "camera": "Camera",
+      "microphone": "Microphone"
+    }
+  },
+  "delivery": {
+    "title": "📦 Delivery",
+    "destinationPlaceholder": "Delivery location...",
+    "start": "Start",
+    "complete": "Complete",
+    "empty": "No pending deliveries",
+    "status": {
+      "pending": "Pending",
+      "in_progress": "In progress",
+      "delivered": "Delivered"
+    }
+  },
+  "patrol": {
+    "title": "🛡️ Patrol",
+    "active": "Patrolling",
+    "inactive": "Inactive",
+    "start": "Start",
+    "stop": "Stop",
+    "loop": "Loop {{count}}",
+    "waypointPlaceholder": "Waypoint name..."
+  },
+  "blessing": {
+    "title": "✨ Animations",
+    "selectAnimation": "Select an animation",
+    "custom": "Custom",
+    "history": "HISTORY",
+    "presets": {
+      "wave": "Wave",
+      "welcome": "Welcome",
+      "love": "Love",
+      "celebrate": "Celebrate",
+      "star": "Star"
+    }
+  },
+  "slam": {
+    "title": "🗺️ SLAM Maps",
+    "mapCount": "{{count}} maps",
+    "newScan": "Scan",
+    "newScanBtn": "New Scan",
+    "scanning": "Scanning...",
+    "points": "points",
+    "activate": "Activate",
+    "activeLabel": "ACTIVE"
+  },
+  "mqtt": {
+    "title": "📡 MQTT Monitor",
+    "broker": "Broker",
+    "connect": "Connect",
+    "disconnect": "Disconnect",
+    "publish": "PUBLISH",
+    "messages": "MESSAGES",
+    "noMessages": "No messages"
+  },
+  "ota": {
+    "title": "🔄 OTA Update",
+    "currentVersion": "CURRENT VERSION",
+    "firmwareDate": "Firmware date",
+    "checkUpdates": "Check for Updates",
+    "checking": "Checking...",
+    "updateAvailable": "Update available!",
+    "downloadInstall": "Download & Install",
+    "downloading": "Downloading update...",
+    "installed": "Update installed!",
+    "restartRequired": "Restart robot to apply",
+    "restartNow": "Restart Now",
+    "changelog": {
+      "item1": "Motor stability improvements",
+      "item2": "Navigation bug fixes",
+      "item3": "New power saving mode"
+    }
+  },
+  "advancedLogs": {
+    "title": "📋 Advanced Logs",
+    "search": "Search logs...",
+    "entries": "entries",
+    "export": "Export",
+    "clear": "Clear",
+    "noLogs": "No logs recorded",
+    "levels": {
+      "all": "All",
+      "info": "Info",
+      "warning": "Warning",
+      "error": "Error",
+      "success": "Success"
     }
   }
 }

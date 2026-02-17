@@ -35,6 +35,22 @@
       "voiceDesc": "Controle por voz",
       "showcase": "Produtos Solar Life",
       "showcaseDesc": "Apresentação e registro",
+      "diagnostics": "Diagnósticos",
+      "diagnosticsDesc": "Testes de hardware",
+      "delivery": "Entregas",
+      "deliveryDesc": "Gestão de entregas",
+      "patrol": "Patrulha",
+      "patrolDesc": "Rondas autônomas",
+      "blessing": "Animações",
+      "blessingDesc": "Saudações e gestos",
+      "slam": "Mapas SLAM",
+      "slamDesc": "Gerenciar mapas",
+      "mqtt": "MQTT",
+      "mqttDesc": "Monitor de mensagens",
+      "ota": "Atualização OTA",
+      "otaDesc": "Firmware do robô",
+      "logs": "Logs Avançados",
+      "logsDesc": "Histórico detalhado",
       "settings": "Configurações",
       "settingsDesc": "Ajustes avançados"
     }
@@ -223,6 +239,107 @@
         "name": "Iluminação Solar",
         "desc": "Postes e luminárias solares autônomas para iluminação pública, condomínios e áreas rurais. LED de alta eficiência com sensor crepuscular."
       }
+    }
+  },
+  "diagnostics": {
+    "title": "🩺 Diagnósticos",
+    "runAll": "Executar Todos",
+    "ok": "OK",
+    "failed": "Falha",
+    "tests": {
+      "cpu": "Processador (CPU)",
+      "memory": "Memória RAM",
+      "battery": "Bateria",
+      "temperature": "Sensor de Temperatura",
+      "wifi": "Módulo WiFi",
+      "camera": "Câmera",
+      "microphone": "Microfone"
+    }
+  },
+  "delivery": {
+    "title": "📦 Entregas",
+    "destinationPlaceholder": "Local de entrega...",
+    "start": "Iniciar",
+    "complete": "Concluir",
+    "empty": "Nenhuma entrega pendente",
+    "status": {
+      "pending": "Pendente",
+      "in_progress": "Em andamento",
+      "delivered": "Entregue"
+    }
+  },
+  "patrol": {
+    "title": "🛡️ Patrulha",
+    "active": "Patrulhando",
+    "inactive": "Inativa",
+    "start": "Iniciar",
+    "stop": "Parar",
+    "loop": "Volta {{count}}",
+    "waypointPlaceholder": "Nome do ponto..."
+  },
+  "blessing": {
+    "title": "✨ Animações",
+    "selectAnimation": "Selecione uma animação",
+    "custom": "Personalizada",
+    "history": "HISTÓRICO",
+    "presets": {
+      "wave": "Acenar",
+      "welcome": "Boas-vindas",
+      "love": "Amor",
+      "celebrate": "Celebrar",
+      "star": "Estrela"
+    }
+  },
+  "slam": {
+    "title": "🗺️ Mapas SLAM",
+    "mapCount": "{{count}} mapas",
+    "newScan": "Varredura",
+    "newScanBtn": "Nova Varredura",
+    "scanning": "Escaneando...",
+    "points": "pontos",
+    "activate": "Ativar",
+    "activeLabel": "ATIVO"
+  },
+  "mqtt": {
+    "title": "📡 MQTT Monitor",
+    "broker": "Broker",
+    "connect": "Conectar",
+    "disconnect": "Desconectar",
+    "publish": "PUBLICAR",
+    "messages": "MENSAGENS",
+    "noMessages": "Nenhuma mensagem"
+  },
+  "ota": {
+    "title": "🔄 Atualização OTA",
+    "currentVersion": "VERSÃO ATUAL",
+    "firmwareDate": "Data do firmware",
+    "checkUpdates": "Verificar Atualizações",
+    "checking": "Verificando...",
+    "updateAvailable": "Atualização disponível!",
+    "downloadInstall": "Baixar e Instalar",
+    "downloading": "Baixando atualização...",
+    "installed": "Atualização instalada!",
+    "restartRequired": "Reinicie o robô para aplicar",
+    "restartNow": "Reiniciar Agora",
+    "changelog": {
+      "item1": "Melhorias de estabilidade do motor",
+      "item2": "Correção de bugs de navegação",
+      "item3": "Novo modo de economia de energia"
+    }
+  },
+  "advancedLogs": {
+    "title": "📋 Logs Avançados",
+    "search": "Buscar nos logs...",
+    "entries": "registros",
+    "export": "Exportar",
+    "clear": "Limpar",
+    "noLogs": "Nenhum log registrado",
+    "levels": {
+      "all": "Todos",
+      "info": "Info",
+      "warning": "Alerta",
+      "error": "Erro",
+      "success": "Sucesso"
     }
   }
 }
