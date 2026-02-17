@@ -1,10 +1,12 @@
 import { useNavigate } from 'react-router-dom';
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { motion } from 'framer-motion';
-import { Gamepad2, MessageCircle, Map, BarChart3, Mic, Settings, ShoppingBag, Stethoscope, Package, Shield, Sparkles, Layers, Radio, Download, ScrollText, Camera, VideoOff } from 'lucide-react';
+import { Gamepad2, MessageCircle, Map, BarChart3, Mic, Settings, ShoppingBag, Stethoscope, Package, Shield, Sparkles, Layers, Radio, Download, ScrollText, Camera, VideoOff, Users } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import StatusHeader from '@/components/StatusHeader';
 import { useRobotStore } from '@/store/useRobotStore';
+import { useWebSocket } from '@/hooks/useWebSocket';
+import { useInteractionSync } from '@/hooks/useInteractionSync';
 
 type FeedSource = 'real' | 'simulation';
 
@@ -261,6 +263,8 @@ const Dashboard = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { machineState } = useRobotStore();
+  const { send } = useWebSocket();
+  useInteractionSync(send);
 
   useEffect(() => {
     if (machineState === 'RECEPTION') {
@@ -283,6 +287,7 @@ const Dashboard = () => {
     { icon: Radio, titleKey: 'dashboard.menu.mqtt', descKey: 'dashboard.menu.mqttDesc', path: '/mqtt', gradient: 'from-destructive to-warning/80' },
     { icon: Download, titleKey: 'dashboard.menu.ota', descKey: 'dashboard.menu.otaDesc', path: '/ota', gradient: 'from-primary to-success/80' },
     { icon: ScrollText, titleKey: 'dashboard.menu.logs', descKey: 'dashboard.menu.logsDesc', path: '/logs', gradient: 'from-muted-foreground to-secondary/60' },
+    { icon: Users, titleKey: 'dashboard.menu.interactions', descKey: 'dashboard.menu.interactionsDesc', path: '/interactions', gradient: 'from-primary to-secondary/80' },
     { icon: Settings, titleKey: 'dashboard.menu.settings', descKey: 'dashboard.menu.settingsDesc', path: '/settings', gradient: 'from-muted-foreground to-muted-foreground/60' },
   ];
 
