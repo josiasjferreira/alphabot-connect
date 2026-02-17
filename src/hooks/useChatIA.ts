@@ -52,9 +52,12 @@ export function useChatIA() {
 
       // Pattern-based responses (same as before)
       const patterns: [RegExp, string, string?][] = [
+        [/quem [eé] voc[eê]/i, t('chat.responses.whoAmI'), undefined],
         [/\bken\b/i, t('chat.responses.ken'), undefined],
         [/^(ol[aá]|oi|hey|e a[ií])\b/i, t('chat.responses.hello'), undefined],
         [/como (voc[eê]|est[aá])/i, t('chat.responses.howAreYou'), undefined],
+        [/(o que|qual).*(faz|pode|capaz|consegu)/i, t('chat.responses.capabilities'), undefined],
+        [/(sensor|lidar|ultras)/i, t('chat.responses.sensors'), undefined],
         [/bateria|carga|energia/i, t('chat.responses.battery', { battery: status.battery, status: status.battery > 50 ? t('chat.responses.batteryGood') : t('chat.responses.batteryLow') }), 'status'],
         [/(ir para|v[aá] para|navegu[ei]|mov[ae])/i, t('chat.responses.navigate'), 'navigate'],
         [/(par[ea]|stop|freio)/i, t('chat.responses.stop'), 'emergency'],
