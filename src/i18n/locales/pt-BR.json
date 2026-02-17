@@ -71,6 +71,8 @@
       "otaDesc": "Firmware do robô",
       "logs": "Logs Avançados",
       "logsDesc": "Histórico detalhado",
+      "interactions": "Interações",
+      "interactionsDesc": "Clientes e registros",
       "settings": "Configurações",
       "settingsDesc": "Ajustes avançados"
     }
@@ -436,5 +438,20 @@
     "syncing": "Sincronizando...",
     "syncSuccess": "Sincronizado! +{{knowledge}} conhecimentos, {{messages}} msgs enviadas.",
     "loadingDb": "Carregando base local..."
+  },
+  "interactionAdmin": {
+    "title": "📋 Interações de Clientes",
+    "clients": "Clientes",
+    "total": "Total",
+    "pending": "Pendentes",
+    "searchPlaceholder": "Buscar por nome, WhatsApp, produto...",
+    "exportCSV": "Exportar CSV",
+    "exportJSON": "Exportar JSON",
+    "noData": "Nenhuma interação registrada",
+    "synced": "Sincronizado",
+    "notSynced": "Pendente de sincronização",
+    "clearAll": "Limpar Todos os Registros",
+    "cancel": "Cancelar",
+    "confirmClear": "Confirmar Exclusão"
   }
 }

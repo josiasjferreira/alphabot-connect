@@ -71,6 +71,8 @@
       "otaDesc": "Robot firmware",
       "logs": "Advanced Logs",
       "logsDesc": "Detailed history",
+      "interactions": "Interactions",
+      "interactionsDesc": "Clients & records",
       "settings": "Settings",
       "settingsDesc": "Advanced settings"
     }
@@ -436,5 +438,20 @@
     "syncing": "Syncing...",
     "syncSuccess": "Synced! +{{knowledge}} knowledge items, {{messages}} msgs uploaded.",
     "loadingDb": "Loading local database..."
+  },
+  "interactionAdmin": {
+    "title": "📋 Client Interactions",
+    "clients": "Clients",
+    "total": "Total",
+    "pending": "Pending",
+    "searchPlaceholder": "Search by name, WhatsApp, product...",
+    "exportCSV": "Export CSV",
+    "exportJSON": "Export JSON",
+    "noData": "No interactions recorded",
+    "synced": "Synced",
+    "notSynced": "Pending sync",
+    "clearAll": "Clear All Records",
+    "cancel": "Cancel",
+    "confirmClear": "Confirm Delete"
   }
 }

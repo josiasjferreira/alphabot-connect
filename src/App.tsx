@@ -20,6 +20,7 @@ import SlamMaps from "./pages/SlamMaps";
 import MqttMonitor from "./pages/MqttMonitor";
 import OtaUpdate from "./pages/OtaUpdate";
 import AdvancedLogs from "./pages/AdvancedLogs";
+import InteractionAdmin from "./pages/InteractionAdmin";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -48,6 +49,7 @@ const App = () => (
           <Route path="/mqtt" element={<MqttMonitor />} />
           <Route path="/ota" element={<OtaUpdate />} />
           <Route path="/logs" element={<AdvancedLogs />} />
+          <Route path="/interactions" element={<InteractionAdmin />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </HashRouter>
