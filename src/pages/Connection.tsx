@@ -184,7 +184,7 @@ const Connection = () => {
             >
               <div className="space-y-2 mt-2">
                 {['step1', 'step2', 'step3', 'step4', 'step5'].map((step) => (
-                  <div key={step} className="rounded-xl bg-primary/10 border border-primary/30 overflow-hidden">
+                  <div key={step} className="rounded-xl bg-accent border border-accent-foreground/20 overflow-hidden">
                     <button
                       onClick={() => setOpenStep(openStep === step ? null : step)}
                       className="w-full px-4 py-3 flex items-center justify-between text-left"
