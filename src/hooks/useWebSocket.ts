@@ -8,7 +8,6 @@ export interface WebSocketMessage {
   timestamp: number;
 }
 
-// Outbound message validation schemas
 const ChatCommandSchema = z.object({
   command: z.string().max(500).trim(),
 });
@@ -25,11 +24,8 @@ const OutgoingMessageSchema = z.object({
   timestamp: z.number(),
 });
 
-/** Sanitize outbound message data based on type */
 const sanitizeOutbound = (message: WebSocketMessage): WebSocketMessage => {
-  // Validate overall message structure
   OutgoingMessageSchema.parse(message);
-
   switch (message.type) {
     case 'chat':
     case 'voice_command': {
@@ -47,7 +43,6 @@ const sanitizeOutbound = (message: WebSocketMessage): WebSocketMessage => {
   }
 };
 
-// Schema for validating incoming status messages
 const StatusDataSchema = z.object({
   battery: z.number().min(0).max(100),
   temperature: z.number().min(-50).max(150),
@@ -60,14 +55,13 @@ const StatusDataSchema = z.object({
   motorRight: z.number().min(-100).max(100),
   odometry: z.number(),
   powerConsumption: z.number().min(0),
-}).partial(); // partial to allow incremental updates
+}).partial();
 
 const IncomingMessageSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('status'), data: StatusDataSchema }),
   z.object({ type: z.literal('chat'), data: z.any() }),
 ]);
 
-/** Use wss:// for non-local IPs, ws:// for local network (hardware robot) */
 const getWsProtocol = (ip: string): string => {
   if (ip.startsWith('192.168.') || ip.startsWith('10.') || ip.startsWith('172.') || ip === 'localhost' || ip === '127.0.0.1') {
     return 'ws';
@@ -75,43 +69,58 @@ const getWsProtocol = (ip: string): string => {
   return 'wss';
 };
 
+const MAX_RETRIES = 5;
+const BASE_DELAY = 2000;
+
 export const useWebSocket = () => {
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectRef = useRef<ReturnType<typeof setTimeout>>();
+  const retriesRef = useRef(0);
+  const manualDisconnectRef = useRef(false);
   const { ip, port, authToken, setConnectionStatus, addLog, updateStatus, offlineMode } = useRobotStore();
 
-  const connect = useCallback(() => {
-    if (offlineMode) {
-      setConnectionStatus('connected');
-      addLog('Modo offline ativado', 'info');
-      return;
+  const attemptConnect = useCallback(() => {
+    if (manualDisconnectRef.current) return;
+
+    // Close any existing connection first
+    if (wsRef.current) {
+      try { wsRef.current.close(); } catch {}
+      wsRef.current = null;
     }
 
     const protocol = getWsProtocol(ip);
     setConnectionStatus('connecting');
-    addLog(`Conectando a ${protocol}://${ip}:${port}...`);
+    addLog(`Conectando a ${protocol}://${ip}:${port}... (tentativa ${retriesRef.current + 1}/${MAX_RETRIES})`);
 
     try {
-      // Include auth token in query string if provided
       const tokenParam = authToken ? `?token=${encodeURIComponent(authToken)}` : '';
       const ws = new WebSocket(`${protocol}://${ip}:${port}${tokenParam}`);
 
       ws.onopen = () => {
+        retriesRef.current = 0;
         setConnectionStatus('connected');
         addLog('Conectado ao robô!', 'success');
       };
 
       ws.onclose = () => {
+        if (manualDisconnectRef.current) return;
         setConnectionStatus('disconnected');
-        addLog('Conexão perdida', 'warning');
-        reconnectRef.current = setTimeout(() => {
-          if (!offlineMode) connect();
-        }, 3000);
+
+        if (retriesRef.current < MAX_RETRIES) {
+          const delay = BASE_DELAY * Math.pow(2, retriesRef.current);
+          retriesRef.current += 1;
+          addLog(`Conexão perdida. Reconectando em ${Math.round(delay / 1000)}s... (${retriesRef.current}/${MAX_RETRIES})`, 'warning');
+          reconnectRef.current = setTimeout(() => {
+            if (!offlineMode && !manualDisconnectRef.current) attemptConnect();
+          }, delay);
+        } else {
+          addLog('Limite de reconexões atingido. Reconecte manualmente.', 'error');
+          setConnectionStatus('error');
+        }
       };
 
       ws.onerror = () => {
-        setConnectionStatus('error');
-        addLog('Erro de conexão WebSocket', 'error');
+        // onclose will handle retry logic
       };
 
       ws.onmessage = (event) => {
@@ -137,7 +146,20 @@ export const useWebSocket = () => {
     }
   }, [ip, port, authToken, offlineMode, setConnectionStatus, addLog, updateStatus]);
 
+  const connect = useCallback(() => {
+    if (offlineMode) {
+      setConnectionStatus('connected');
+      addLog('Modo offline ativado', 'info');
+      return;
+    }
+    retriesRef.current = 0;
+    manualDisconnectRef.current = false;
+    attemptConnect();
+  }, [offlineMode, attemptConnect, setConnectionStatus, addLog]);
+
   const disconnect = useCallback(() => {
+    manualDisconnectRef.current = true;
+    retriesRef.current = 0;
     if (reconnectRef.current) clearTimeout(reconnectRef.current);
     wsRef.current?.close();
     wsRef.current = null;
@@ -162,6 +184,7 @@ export const useWebSocket = () => {
 
   useEffect(() => {
     return () => {
+      manualDisconnectRef.current = true;
       if (reconnectRef.current) clearTimeout(reconnectRef.current);
       wsRef.current?.close();
     };

@@ -1,5 +1,32 @@
 // Simple synthesized background sounds using Web Audio API
-const audioCtx = () => new (window.AudioContext || (window as any).webkitAudioContext)();
+let sharedCtx: AudioContext | null = null;
+
+const getAudioContext = (): AudioContext => {
+  if (!sharedCtx || sharedCtx.state === 'closed') {
+    sharedCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+  }
+  // Resume if suspended (Android WebView requires user gesture)
+  if (sharedCtx.state === 'suspended') {
+    sharedCtx.resume().catch(() => {});
+  }
+  return sharedCtx;
+};
+
+/** Call this once on any user tap/click to unlock audio on Android */
+export const unlockAudio = (): void => {
+  try {
+    const ctx = getAudioContext();
+    if (ctx.state === 'suspended') {
+      ctx.resume();
+    }
+    // Create and immediately stop a silent buffer to unlock
+    const buffer = ctx.createBuffer(1, 1, 22050);
+    const source = ctx.createBufferSource();
+    source.buffer = buffer;
+    source.connect(ctx.destination);
+    source.start(0);
+  } catch {}
+};
 
 type ToneType = 'happy' | 'warm' | 'love' | 'celebrate' | 'magic';
 
@@ -13,7 +40,7 @@ const toneConfigs: Record<ToneType, { notes: number[]; duration: number; wavefor
 
 export const playBackgroundTone = (type: ToneType, volume = 0.15): (() => void) => {
   try {
-    const ctx = audioCtx();
+    const ctx = getAudioContext();
     const gainNode = ctx.createGain();
     gainNode.gain.setValueAtTime(volume, ctx.currentTime);
     gainNode.connect(ctx.destination);
@@ -37,9 +64,7 @@ export const playBackgroundTone = (type: ToneType, volume = 0.15): (() => void) 
       time += config.duration * 0.8;
     });
 
-    return () => {
-      try { ctx.close(); } catch {}
-    };
+    return () => {};
   } catch {
     return () => {};
   }
