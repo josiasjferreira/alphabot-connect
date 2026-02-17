@@ -110,7 +110,10 @@
       "camera": "Activating camera... The feed is available on the control screen. 📹",
       "map": "The map is available in the navigation section. Want me to go somewhere specific?",
       "ken": "Hi! I'm Ken, your robot assistant! I'm here to help you. What do you need? 🤖✨",
-      "fallback": "Got it! I can help with navigation, system status or movement control. What do you need? 🤔"
+      "whoAmI": "I'm Ken, a telepresence robot model CT300-H13307, manufactured by CsjBot. I can move, chat, navigate autonomously and assist with tasks! 🤖",
+      "capabilities": "I can navigate autonomously, respond to voice commands, monitor environments with a camera, check battery and status, and much more! 🚀",
+      "sensors": "I have proximity sensors, LIDAR and ultrasonic sensors that help me detect obstacles and navigate safely. 📡",
+      "fallback": "Hmm, I'm not sure about that. I can help with navigation, system status, movement control or camera. Try asking in a different way! 🤔"
     }
   },
   "voice": {

@@ -131,12 +131,28 @@ export async function searchKnowledge(query: string): Promise<KnowledgeItem[]> {
   const db = await getChatDB();
   const all = await db.getAll('knowledge');
   const q = query.toLowerCase();
-  return all.filter(
-    k =>
-      k.title.toLowerCase().includes(q) ||
-      k.content.toLowerCase().includes(q) ||
-      k.tags.some(t => t.toLowerCase().includes(q))
-  );
+  // Split query into individual words (min 2 chars) for better matching
+  const words = q.split(/\s+/).filter(w => w.length >= 2);
+
+  return all
+    .map(k => {
+      const title = k.title.toLowerCase();
+      const content = k.content.toLowerCase();
+      const tags = k.tags.map(t => t.toLowerCase());
+
+      // Score: full phrase match = 10, each word match = 1
+      let score = 0;
+      if (title.includes(q) || content.includes(q)) score += 10;
+      for (const word of words) {
+        if (title.includes(word)) score += 2;
+        if (content.includes(word)) score += 1;
+        if (tags.some(t => t.includes(word))) score += 2;
+      }
+      return { item: k, score };
+    })
+    .filter(r => r.score > 0)
+    .sort((a, b) => b.score - a.score)
+    .map(r => r.item);
 }
 
 /* ───────── Sync Meta ───────── */

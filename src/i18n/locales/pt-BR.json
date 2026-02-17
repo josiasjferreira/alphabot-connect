@@ -110,7 +110,10 @@
       "camera": "Ativando câmera... O feed está disponível na tela de controle. 📹",
       "map": "O mapa está disponível na seção de navegação. Deseja que eu vá para algum local específico?",
       "ken": "Oi! Eu sou o Ken, seu robô assistente! Estou aqui para te ajudar. O que você precisa? 🤖✨",
-      "fallback": "Entendi! Posso ajudar com navegação, status do sistema ou controle de movimento. O que você precisa? 🤔"
+      "whoAmI": "Eu sou o Ken, um robô de telepresença modelo CT300-H13307, fabricado pela CsjBot. Posso me mover, conversar, navegar e auxiliar em tarefas! 🤖",
+      "capabilities": "Posso navegar autonomamente, responder a comandos de voz, monitorar ambientes com câmera, verificar bateria e status, e muito mais! 🚀",
+      "sensors": "Possuo sensores de proximidade, LIDAR e ultrassônicos que me ajudam a detectar obstáculos e navegar com segurança. 📡",
+      "fallback": "Hmm, não tenho certeza sobre isso. Posso ajudar com navegação, status do sistema, controle de movimento ou câmera. Tente perguntar de outra forma! 🤔"
     }
   },
   "voice": {
