@@ -398,6 +398,16 @@
       "warning": "Alerta",
       "error": "Erro",
       "success": "Sucesso"
-    }
+     }
+  },
+  "chatSync": {
+    "offline": "Offline — base local",
+    "synced": "Sincronizado",
+    "pending": "Sync pendente",
+    "lastSync": "Última sync",
+    "syncNow": "Sincronizar",
+    "syncing": "Sincronizando...",
+    "syncSuccess": "Sincronizado! +{{knowledge}} conhecimentos, {{messages}} msgs enviadas.",
+    "loadingDb": "Carregando base local..."
   }
 }
