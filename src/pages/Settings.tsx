@@ -1,6 +1,6 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion } from 'framer-motion';
-import { Wifi, WifiOff, Volume2, Gauge, Moon, Sun, RotateCcw, Trash2, Zap, Activity, Network } from 'lucide-react';
+import { Wifi, WifiOff, Volume2, Gauge, Moon, Sun, RotateCcw, Trash2, Zap, Activity, Network, Brain, RefreshCw, Search, Tag, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import StatusHeader from '@/components/StatusHeader';
 import { Slider } from '@/components/ui/slider';
@@ -11,6 +11,8 @@ import { useRobotStore } from '@/store/useRobotStore';
 import { useWebSocket } from '@/hooks/useWebSocket';
 import { useSettingsStore } from '@/store/useSettingsStore';
 import { Progress } from '@/components/ui/progress';
+import { getAllKnowledge, searchKnowledge, seedKnowledgeIfEmpty, clearAllMessages, type KnowledgeItem } from '@/db/chatDatabase';
+import { useSyncStatus } from '@/hooks/useSyncStatus';
 
 const Settings = () => {
   const { t } = useTranslation();
@@ -33,6 +35,30 @@ const Settings = () => {
   // Network diagnostics
   const [netDiag, setNetDiag] = useState<{ dns: string; gateway: string; signal: number; packetLoss: number } | null>(null);
   const [diagRunning, setDiagRunning] = useState(false);
+
+  // Knowledge base state
+  const [knowledgeItems, setKnowledgeItems] = useState<KnowledgeItem[]>([]);
+  const [knowledgeSearch, setKnowledgeSearch] = useState('');
+  const [knowledgeLoading, setKnowledgeLoading] = useState(true);
+  const [expandedItem, setExpandedItem] = useState<string | null>(null);
+  const { syncState, isSyncing, doSync, formatLastSync } = useSyncStatus();
+
+  const loadKnowledge = useCallback(async () => {
+    setKnowledgeLoading(true);
+    await seedKnowledgeIfEmpty();
+    const items = knowledgeSearch.trim()
+      ? await searchKnowledge(knowledgeSearch)
+      : await getAllKnowledge();
+    setKnowledgeItems(items);
+    setKnowledgeLoading(false);
+  }, [knowledgeSearch]);
+
+  useEffect(() => { loadKnowledge(); }, [loadKnowledge]);
+
+  const handleKnowledgeSync = async () => {
+    await doSync(true); // simulated
+    await loadKnowledge();
+  };
 
   const handleReconnect = () => { disconnect(); setConnection(localIp, localPort); connect(); };
   const handleToggleDark = (checked: boolean) => { setDarkMode(checked); document.documentElement.classList.toggle('dark', checked); };
@@ -331,8 +357,108 @@ const Settings = () => {
           </Card>
         </motion.div>
 
+        {/* Knowledge Base */}
+        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.33 }}>
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Brain className="w-5 h-5 text-primary" /> {t('settings.knowledge.title')}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {/* Stats */}
+              <div className="grid grid-cols-3 gap-2 text-center">
+                <div className="p-2 rounded-lg bg-muted/30">
+                  <p className="text-xs text-muted-foreground">{t('settings.knowledge.items')}</p>
+                  <p className="text-lg font-bold text-foreground">{knowledgeItems.length}</p>
+                </div>
+                <div className="p-2 rounded-lg bg-muted/30">
+                  <p className="text-xs text-muted-foreground">{t('settings.knowledge.sources')}</p>
+                  <p className="text-lg font-bold text-foreground">
+                    {new Set(knowledgeItems.map(k => k.source)).size}
+                  </p>
+                </div>
+                <div className="p-2 rounded-lg bg-muted/30">
+                  <p className="text-xs text-muted-foreground">{t('settings.knowledge.lastSync')}</p>
+                  <p className="text-sm font-bold text-foreground">{formatLastSync()}</p>
+                </div>
+              </div>
+
+              {/* Sync button */}
+              <button onClick={handleKnowledgeSync} disabled={isSyncing}
+                className="w-full h-12 rounded-xl border-2 border-primary/40 bg-primary/5 text-primary font-semibold text-sm flex items-center justify-center gap-2 active:bg-primary/10 disabled:opacity-50">
+                <RefreshCw className={`w-4 h-4 ${isSyncing ? 'animate-spin' : ''}`} />
+                {isSyncing ? t('settings.knowledge.syncing') : t('settings.knowledge.syncNow')}
+              </button>
+
+              {/* Search */}
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <input
+                  type="text"
+                  value={knowledgeSearch}
+                  onChange={(e) => setKnowledgeSearch(e.target.value)}
+                  placeholder={t('settings.knowledge.search')}
+                  className="w-full h-10 pl-9 pr-8 rounded-xl bg-background border border-border text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                />
+                {knowledgeSearch && (
+                  <button onClick={() => setKnowledgeSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2">
+                    <X className="w-3.5 h-3.5 text-muted-foreground" />
+                  </button>
+                )}
+              </div>
+
+              {/* Knowledge list */}
+              <div className="space-y-2 max-h-64 overflow-y-auto">
+                {knowledgeLoading ? (
+                  <p className="text-sm text-muted-foreground text-center py-4 animate-pulse">{t('settings.knowledge.loading')}</p>
+                ) : knowledgeItems.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-4">{t('settings.knowledge.empty')}</p>
+                ) : (
+                  knowledgeItems.map(item => (
+                    <motion.div
+                      key={item.id}
+                      layout
+                      onClick={() => setExpandedItem(expandedItem === item.id ? null : item.id)}
+                      className="p-3 rounded-xl bg-muted/20 border border-border/50 cursor-pointer active:bg-muted/40 transition-colors"
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-semibold text-foreground truncate">{item.title}</p>
+                          <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                            {item.tags.slice(0, 3).map(tag => (
+                              <span key={tag} className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md bg-primary/10 text-primary text-[10px] font-medium">
+                                <Tag className="w-2.5 h-2.5" /> {tag}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                        <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${
+                          item.source === 'remote' ? 'bg-primary/10 text-primary' :
+                          item.source === 'seed' ? 'bg-muted text-muted-foreground' :
+                          'bg-accent/10 text-accent-foreground'
+                        }`}>
+                          {item.source}
+                        </span>
+                      </div>
+                      {expandedItem === item.id && (
+                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mt-2 pt-2 border-t border-border/30">
+                          <p className="text-xs text-muted-foreground leading-relaxed">{item.content}</p>
+                          <p className="text-[10px] text-muted-foreground mt-2">
+                            v{item.version} • {new Date(item.updatedAt).toLocaleDateString()}
+                          </p>
+                        </motion.div>
+                      )}
+                    </motion.div>
+                  ))
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
+
         {/* Data */}
-        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.36 }}>
+        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.39 }}>
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-base flex items-center gap-2">
@@ -343,7 +469,7 @@ const Settings = () => {
               <button onClick={clearLogs} className="w-full h-12 rounded-xl border-2 border-destructive/30 text-destructive font-semibold text-sm flex items-center justify-center gap-2 active:bg-destructive/10">
                 {t('settings.clearLogs')}
               </button>
-              <button onClick={() => { localStorage.removeItem('alphabot-chat-history'); window.location.reload(); }}
+              <button onClick={async () => { await clearAllMessages(); localStorage.removeItem('alphabot-chat-history'); window.location.reload(); }}
                 className="w-full h-12 rounded-xl border-2 border-destructive/30 text-destructive font-semibold text-sm flex items-center justify-center gap-2 active:bg-destructive/10">
                 {t('settings.clearChatHistory')}
               </button>

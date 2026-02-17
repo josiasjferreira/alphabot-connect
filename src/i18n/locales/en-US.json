@@ -207,6 +207,17 @@
     "data": "Data",
     "clearLogs": "Clear Logs",
     "clearChatHistory": "Clear Chat History",
+    "knowledge": {
+      "title": "🧠 Knowledge Base",
+      "items": "Items",
+      "sources": "Sources",
+      "lastSync": "Last Sync",
+      "syncNow": "Sync Knowledge",
+      "syncing": "Syncing...",
+      "search": "Search knowledge...",
+      "loading": "Loading...",
+      "empty": "No items found"
+    },
     "version": "AlphaBot Companion v1.0.5 • Solar Life Energy & Iascom Ltda"
   },
   "map": {
