@@ -19,7 +19,21 @@
     "connectingButton": "CONNECTING...",
     "offlineButton": "Offline Mode (Simulation)",
     "externalIpWarning": "Warning: You are connecting to an external IP ({{ip}}). This may expose robot commands to untrusted networks. Continue?",
-    "version": "v1.0.7 • Iascom Ltda",
+    "version": "v1.0.9 • Iascom Ltda",
+    "bluetooth": {
+      "title": "BLUETOOTH CONNECTION",
+      "scan": "Scan Devices",
+      "scanning": "Scanning...",
+      "paired": "Paired",
+      "connected": "Connected",
+      "disconnected": "Disconnected",
+      "connect": "CONNECT VIA BLUETOOTH",
+      "disconnect": "Disconnect BT",
+      "deviceFound": "Device found",
+      "noDevice": "No device found",
+      "error": "Bluetooth connection error",
+      "notSupported": "Bluetooth not supported in this browser"
+    },
     "guide": {
       "title": "📖 Admin Quick Guide",
       "step1Title": "1. Power On Robot Ken",
@@ -170,7 +184,13 @@
     "noTransitions": "No transitions available from this state",
     "wsLimitReached": "Reconnection limit reached",
     "wsLimitHint": "Tap to reconnect manually",
-    "reconnect": "Reconnect"
+    "reconnect": "Reconnect",
+    "bluetooth": "Bluetooth",
+    "btPaired": "Paired",
+    "btConnected": "Connected",
+    "btDisconnected": "Disconnected",
+    "btScanning": "Scanning...",
+    "btError": "BT Error"
   },
   "settings": {
     "title": "Settings",
@@ -237,7 +257,7 @@
       "delete": "Delete",
       "confirmDelete": "Confirm delete"
     },
-    "version": "AlphaBot Companion v1.0.7 • Iascom Ltda"
+    "version": "AlphaBot Companion v1.0.9 • Iascom Ltda"
   },
   "map": {
     "title": "🗺️ Navigation Map",
