@@ -37,6 +37,10 @@
   },
   "dashboard": {
     "title": "AlphaBot Dashboard",
+    "camera": {
+      "title": "📹 LIVE CAMERA — KEN",
+      "off": "Camera off"
+    },
     "menu": {
       "control": "Manual Control",
       "controlDesc": "Joystick and commands",
@@ -169,6 +173,25 @@
     "robotIp": "ROBOT IP",
     "port": "PORT",
     "reconnect": "Reconnect",
+    "testConnection": "Test Connection",
+    "testingConnection": "Testing...",
+    "testSuccess": "Connection OK",
+    "testFail": "Connection failed — check IP and port",
+    "latency": {
+      "title": "Real-Time Latency",
+      "monitor": "Ping monitor",
+      "avg": "Avg",
+      "min": "Min",
+      "max": "Max",
+      "quality": "Quality"
+    },
+    "netDiag": {
+      "title": "Network Diagnostics",
+      "run": "Run Diagnostics",
+      "running": "Analyzing network...",
+      "signal": "WiFi Signal",
+      "packetLoss": "Packet Loss"
+    },
     "maxSpeed": "Maximum Speed",
     "speedLimit": "Speed limit",
     "speedHint": "Limits the maximum speed for joystick and voice commands.",
