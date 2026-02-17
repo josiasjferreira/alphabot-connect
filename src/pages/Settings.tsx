@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion } from 'framer-motion';
-import { Wifi, WifiOff, Volume2, Gauge, Moon, Sun, RotateCcw, Trash2, Zap, Activity, Network, Brain, RefreshCw, Search, Tag, X } from 'lucide-react';
+import { Wifi, WifiOff, Volume2, Gauge, Moon, Sun, RotateCcw, Trash2, Zap, Activity, Network, Brain, RefreshCw, Search, Tag, X, Plus, Pencil, Check } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import StatusHeader from '@/components/StatusHeader';
 import { Slider } from '@/components/ui/slider';
@@ -11,7 +11,7 @@ import { useRobotStore } from '@/store/useRobotStore';
 import { useWebSocket } from '@/hooks/useWebSocket';
 import { useSettingsStore } from '@/store/useSettingsStore';
 import { Progress } from '@/components/ui/progress';
-import { getAllKnowledge, searchKnowledge, seedKnowledgeIfEmpty, clearAllMessages, type KnowledgeItem } from '@/db/chatDatabase';
+import { getAllKnowledge, searchKnowledge, seedKnowledgeIfEmpty, clearAllMessages, upsertKnowledge, deleteKnowledge, type KnowledgeItem } from '@/db/chatDatabase';
 import { useSyncStatus } from '@/hooks/useSyncStatus';
 
 const Settings = () => {
@@ -41,6 +41,12 @@ const Settings = () => {
   const [knowledgeSearch, setKnowledgeSearch] = useState('');
   const [knowledgeLoading, setKnowledgeLoading] = useState(true);
   const [expandedItem, setExpandedItem] = useState<string | null>(null);
+  const [editingItem, setEditingItem] = useState<KnowledgeItem | null>(null);
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [formTitle, setFormTitle] = useState('');
+  const [formContent, setFormContent] = useState('');
+  const [formTags, setFormTags] = useState('');
+  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const { syncState, isSyncing, doSync, formatLastSync } = useSyncStatus();
 
   const loadKnowledge = useCallback(async () => {
@@ -57,6 +63,51 @@ const Settings = () => {
 
   const handleKnowledgeSync = async () => {
     await doSync(true); // simulated
+    await loadKnowledge();
+  };
+
+  const resetForm = () => {
+    setFormTitle('');
+    setFormContent('');
+    setFormTags('');
+    setEditingItem(null);
+    setShowAddForm(false);
+  };
+
+  const openAddForm = () => {
+    resetForm();
+    setShowAddForm(true);
+    setExpandedItem(null);
+  };
+
+  const openEditForm = (item: KnowledgeItem) => {
+    setFormTitle(item.title);
+    setFormContent(item.content);
+    setFormTags(item.tags.join(', '));
+    setEditingItem(item);
+    setShowAddForm(true);
+    setExpandedItem(null);
+  };
+
+  const handleSaveItem = async () => {
+    const title = formTitle.trim();
+    const content = formContent.trim();
+    if (!title || !content) return;
+
+    const tags = formTags.split(',').map(t => t.trim()).filter(Boolean);
+    const item: KnowledgeItem = editingItem
+      ? { ...editingItem, title, content, tags, version: editingItem.version + 1, updatedAt: Date.now(), synced: false }
+      : { id: `k-${Date.now()}`, title, content, tags, version: 1, source: 'local', updatedAt: Date.now(), synced: false };
+
+    await upsertKnowledge(item);
+    resetForm();
+    await loadKnowledge();
+  };
+
+  const handleDeleteItem = async (id: string) => {
+    await deleteKnowledge(id);
+    setDeleteConfirm(null);
+    setExpandedItem(null);
     await loadKnowledge();
   };
 
@@ -384,12 +435,54 @@ const Settings = () => {
                 </div>
               </div>
 
-              {/* Sync button */}
-              <button onClick={handleKnowledgeSync} disabled={isSyncing}
-                className="w-full h-12 rounded-xl border-2 border-primary/40 bg-primary/5 text-primary font-semibold text-sm flex items-center justify-center gap-2 active:bg-primary/10 disabled:opacity-50">
-                <RefreshCw className={`w-4 h-4 ${isSyncing ? 'animate-spin' : ''}`} />
-                {isSyncing ? t('settings.knowledge.syncing') : t('settings.knowledge.syncNow')}
-              </button>
+              {/* Action buttons */}
+              <div className="flex gap-2">
+                <button onClick={handleKnowledgeSync} disabled={isSyncing}
+                  className="flex-1 h-10 rounded-xl border-2 border-primary/40 bg-primary/5 text-primary font-semibold text-sm flex items-center justify-center gap-2 active:bg-primary/10 disabled:opacity-50">
+                  <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
+                  {isSyncing ? t('settings.knowledge.syncing') : t('settings.knowledge.syncNow')}
+                </button>
+                <button onClick={openAddForm}
+                  className="h-10 px-4 rounded-xl gradient-primary text-primary-foreground font-semibold text-sm flex items-center justify-center gap-1.5">
+                  <Plus className="w-4 h-4" /> {t('settings.knowledge.add')}
+                </button>
+              </div>
+
+              {/* Add/Edit Form */}
+              {showAddForm && (
+                <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }}
+                  className="space-y-2 p-3 rounded-xl border-2 border-primary/30 bg-primary/5">
+                  <p className="text-xs font-semibold text-primary">
+                    {editingItem ? t('settings.knowledge.editing') : t('settings.knowledge.adding')}
+                  </p>
+                  <input
+                    type="text" value={formTitle} onChange={(e) => setFormTitle(e.target.value.slice(0, 100))}
+                    placeholder={t('settings.knowledge.titlePlaceholder')}
+                    className="w-full h-10 px-3 rounded-lg bg-background border border-border text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                  />
+                  <textarea
+                    value={formContent} onChange={(e) => setFormContent(e.target.value.slice(0, 1000))}
+                    placeholder={t('settings.knowledge.contentPlaceholder')}
+                    rows={3}
+                    className="w-full px-3 py-2 rounded-lg bg-background border border-border text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 resize-none"
+                  />
+                  <input
+                    type="text" value={formTags} onChange={(e) => setFormTags(e.target.value.slice(0, 200))}
+                    placeholder={t('settings.knowledge.tagsPlaceholder')}
+                    className="w-full h-10 px-3 rounded-lg bg-background border border-border text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                  />
+                  <div className="flex gap-2">
+                    <button onClick={handleSaveItem} disabled={!formTitle.trim() || !formContent.trim()}
+                      className="flex-1 h-10 rounded-lg gradient-primary text-primary-foreground font-semibold text-sm flex items-center justify-center gap-1.5 disabled:opacity-40">
+                      <Check className="w-4 h-4" /> {t('settings.knowledge.save')}
+                    </button>
+                    <button onClick={resetForm}
+                      className="h-10 px-4 rounded-lg border border-border text-muted-foreground text-sm font-medium">
+                      {t('settings.knowledge.cancel')}
+                    </button>
+                  </div>
+                </motion.div>
+              )}
 
               {/* Search */}
               <div className="relative">
@@ -409,7 +502,7 @@ const Settings = () => {
               </div>
 
               {/* Knowledge list */}
-              <div className="space-y-2 max-h-64 overflow-y-auto">
+              <div className="space-y-2 max-h-72 overflow-y-auto">
                 {knowledgeLoading ? (
                   <p className="text-sm text-muted-foreground text-center py-4 animate-pulse">{t('settings.knowledge.loading')}</p>
                 ) : knowledgeItems.length === 0 ? (
@@ -447,6 +540,29 @@ const Settings = () => {
                           <p className="text-[10px] text-muted-foreground mt-2">
                             v{item.version} • {new Date(item.updatedAt).toLocaleDateString()}
                           </p>
+                          <div className="flex gap-2 mt-2">
+                            <button
+                              onClick={(e) => { e.stopPropagation(); openEditForm(item); }}
+                              className="flex-1 h-8 rounded-lg border border-primary/30 text-primary text-xs font-medium flex items-center justify-center gap-1 active:bg-primary/10"
+                            >
+                              <Pencil className="w-3 h-3" /> {t('settings.knowledge.edit')}
+                            </button>
+                            {deleteConfirm === item.id ? (
+                              <button
+                                onClick={(e) => { e.stopPropagation(); handleDeleteItem(item.id); }}
+                                className="flex-1 h-8 rounded-lg bg-destructive text-destructive-foreground text-xs font-medium flex items-center justify-center gap-1"
+                              >
+                                <Trash2 className="w-3 h-3" /> {t('settings.knowledge.confirmDelete')}
+                              </button>
+                            ) : (
+                              <button
+                                onClick={(e) => { e.stopPropagation(); setDeleteConfirm(item.id); }}
+                                className="flex-1 h-8 rounded-lg border border-destructive/30 text-destructive text-xs font-medium flex items-center justify-center gap-1 active:bg-destructive/10"
+                              >
+                                <Trash2 className="w-3 h-3" /> {t('settings.knowledge.delete')}
+                              </button>
+                            )}
+                          </div>
                         </motion.div>
                       )}
                     </motion.div>

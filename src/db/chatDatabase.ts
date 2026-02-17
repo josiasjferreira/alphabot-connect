@@ -117,6 +117,11 @@ export async function upsertKnowledge(item: KnowledgeItem): Promise<void> {
   }
 }
 
+export async function deleteKnowledge(id: string): Promise<void> {
+  const db = await getChatDB();
+  await db.delete('knowledge', id);
+}
+
 export async function getAllKnowledge(): Promise<KnowledgeItem[]> {
   const db = await getChatDB();
   return db.getAll('knowledge');

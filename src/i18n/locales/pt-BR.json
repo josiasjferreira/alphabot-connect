@@ -216,7 +216,18 @@
       "syncing": "Sincronizando...",
       "search": "Buscar conhecimento...",
       "loading": "Carregando base...",
-      "empty": "Nenhum item encontrado"
+      "empty": "Nenhum item encontrado",
+      "add": "Adicionar",
+      "adding": "Novo item de conhecimento",
+      "editing": "Editando item",
+      "titlePlaceholder": "Título (ex: Manutenção do Ken)",
+      "contentPlaceholder": "Conteúdo / descrição detalhada...",
+      "tagsPlaceholder": "Tags separadas por vírgula (ex: bateria, sensor)",
+      "save": "Salvar",
+      "cancel": "Cancelar",
+      "edit": "Editar",
+      "delete": "Excluir",
+      "confirmDelete": "Confirmar exclusão"
     },
     "version": "AlphaBot Companion v1.0.5 • Solar Life Energy & Iascom Ltda"
   },
