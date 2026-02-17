@@ -116,7 +116,15 @@ export const useRobotStore = create<RobotState>()(
     }),
     {
       name: 'alphabot-store',
-      partialize: (state) => ({ ip: state.ip, port: state.port, authToken: state.authToken }),
+      partialize: (state) => ({
+        ip: state.ip,
+        port: state.port,
+        authToken: state.authToken,
+        bluetoothDevice: state.bluetoothDevice,
+        bluetoothStatus: state.bluetoothStatus === 'connected' || state.bluetoothStatus === 'paired'
+          ? 'disconnected' as const
+          : state.bluetoothStatus,
+      }),
     }
   )
 );
