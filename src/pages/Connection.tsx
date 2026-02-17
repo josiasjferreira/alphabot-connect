@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
-import { Wifi, WifiOff, Loader2, CloudOff, KeyRound } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Wifi, Loader2, CloudOff, KeyRound, BookOpen, ChevronDown } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useRobotStore } from '@/store/useRobotStore';
 import { useWebSocket } from '@/hooks/useWebSocket';
@@ -15,6 +15,8 @@ const Connection = () => {
   const [localIp, setLocalIp] = useState(ip);
   const [localPort, setLocalPort] = useState(port);
   const [localToken, setLocalToken] = useState(authToken);
+  const [showGuide, setShowGuide] = useState(false);
+  const [openStep, setOpenStep] = useState<string | null>(null);
 
   const isValidIp = /^(\d{1,3}\.){3}\d{1,3}$/.test(localIp);
   const isValidPort = /^\d{1,5}$/.test(localPort) && parseInt(localPort) > 0 && parseInt(localPort) <= 65535;
@@ -150,6 +152,64 @@ const Connection = () => {
           <CloudOff className="w-4 h-4" />
           {t('connection.offlineButton')}
         </button>
+
+        {/* Guide Toggle */}
+        <motion.button
+          whileTap={{ scale: 0.97 }}
+          onClick={() => setShowGuide(!showGuide)}
+          className="w-full min-h-[44px] rounded-xl bg-primary/10 text-primary font-semibold text-sm
+            flex items-center justify-center gap-2 mt-2"
+        >
+          <BookOpen className="w-4 h-4" />
+          {t('connection.guide.title')}
+          <ChevronDown className={`w-4 h-4 transition-transform duration-300 ${showGuide ? 'rotate-180' : ''}`} />
+        </motion.button>
+
+        <AnimatePresence>
+          {showGuide && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{ duration: 0.3 }}
+              className="overflow-hidden"
+            >
+              <div className="space-y-2 mt-2">
+                {['step1', 'step2', 'step3', 'step4', 'step5'].map((step) => (
+                  <div key={step} className="rounded-xl bg-card border border-border overflow-hidden">
+                    <button
+                      onClick={() => setOpenStep(openStep === step ? null : step)}
+                      className="w-full px-4 py-3 flex items-center justify-between text-left"
+                    >
+                      <span className="text-sm font-semibold text-foreground">
+                        {t(`connection.guide.${step}Title`)}
+                      </span>
+                      <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform duration-200 ${openStep === step ? 'rotate-180' : ''}`} />
+                    </button>
+                    <AnimatePresence>
+                      {openStep === step && (
+                        <motion.div
+                          initial={{ opacity: 0, height: 0 }}
+                          animate={{ opacity: 1, height: 'auto' }}
+                          exit={{ opacity: 0, height: 0 }}
+                          transition={{ duration: 0.2 }}
+                          className="overflow-hidden"
+                        >
+                          <p className="px-4 pb-3 text-xs text-muted-foreground leading-relaxed">
+                            {t(`connection.guide.${step}Desc`)}
+                          </p>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
+                ))}
+                <p className="text-xs text-primary/80 text-center py-2 font-medium">
+                  {t('connection.guide.tip')}
+                </p>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </motion.div>
 
       <p className="text-xs text-muted-foreground mt-8">{t('connection.version')}</p>

@@ -19,7 +19,21 @@
     "connectingButton": "CONNECTING...",
     "offlineButton": "Offline Mode (Simulation)",
     "externalIpWarning": "Warning: You are connecting to an external IP ({{ip}}). This may expose robot commands to untrusted networks. Continue?",
-    "version": "v1.0.5 • Iascom Ltda"
+    "version": "v1.0.5 • Iascom Ltda",
+    "guide": {
+      "title": "📖 Admin Quick Guide",
+      "step1Title": "1. Power On Robot Ken",
+      "step1Desc": "Make sure the CT300-H13307 robot is powered on and connected to the same Wi-Fi network as your phone. The status LED should be green.",
+      "step2Title": "2. Find the Robot IP",
+      "step2Desc": "On the robot panel or the manufacturer app (CsjRobotStudio), find the local IP address (e.g., 192.168.99.2). Default port is 8080.",
+      "step3Title": "3. Connect via App",
+      "step3Desc": "Enter the IP and port in the fields above and tap 'CONNECT ROBOT'. If the indicator turns green, the connection is established.",
+      "step4Title": "4. Controls & Features",
+      "step4Desc": "On the Dashboard you'll find: Joystick to move the robot, AI Chat to talk with Ken, Map for autonomous navigation, Telemetry to monitor battery and sensors, and Animations with voice.",
+      "step5Title": "5. Offline Mode",
+      "step5Desc": "If the robot is unavailable, use 'Offline Mode' to explore the interface and test simulation features.",
+      "tip": "💡 Tip: Keep your phone and robot on the same local network for best performance."
+    }
   },
   "dashboard": {
     "title": "AlphaBot Dashboard",
