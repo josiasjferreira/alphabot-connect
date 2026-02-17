@@ -39,7 +39,8 @@
     "title": "AlphaBot Dashboard",
     "camera": {
       "title": "📹 LIVE CAMERA — KEN",
-      "off": "Camera off"
+      "off": "Camera off",
+      "sim": "SIMULATION"
     },
     "menu": {
       "control": "Manual Control",
