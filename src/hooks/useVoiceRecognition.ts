@@ -7,6 +7,12 @@ export const speak = (text: string) => {
   utterance.lang = 'pt-BR';
   utterance.volume = ttsVolume;
   utterance.rate = ttsRate;
+  // Prefer masculine pt-BR voice for Ken
+  const voices = speechSynthesis.getVoices();
+  const maleVoice = voices.find(v => v.lang.startsWith('pt') && /male|masculin|ricardo|daniel/i.test(v.name))
+    || voices.find(v => v.lang.startsWith('pt-BR'))
+    || voices.find(v => v.lang.startsWith('pt'));
+  if (maleVoice) utterance.voice = maleVoice;
   speechSynthesis.speak(utterance);
 };
 

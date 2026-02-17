@@ -1,6 +1,7 @@
 {
+  "robotName": "Ken",
   "connection": {
-    "title": "AlphaBot Companion",
+    "title": "Ken - AlphaBot Companion",
     "subtitle": "Robô de Telepresença CT300-H13307",
     "status": {
       "connected": "Conectado",
@@ -296,11 +297,15 @@
     "history": "HISTÓRICO",
     "presets": {
       "wave": "Acenar",
+      "wavePhrase": "Oi! Eu sou o Ken! Tudo bem com você?",
       "welcome": "Boas-vindas",
-      "welcomePhrase": "Olá! Bem-vindo(a)! Como posso ajudá-lo(a) hoje?",
+      "welcomePhrase": "Olá! Bem-vindo! Eu sou o Ken, seu robô assistente. Como posso ajudá-lo hoje?",
       "love": "Amor",
+      "lovePhrase": "Que bom ter você aqui! O Ken adora fazer companhia!",
       "celebrate": "Celebrar",
-      "star": "Estrela"
+      "celebratePhrase": "Uhuuu! Hora de comemorar! Vamos celebrar juntos!",
+      "star": "Estrela",
+      "starPhrase": "Você é uma estrela! O Ken reconhece seu brilho!"
     }
   },
   "slam": {
