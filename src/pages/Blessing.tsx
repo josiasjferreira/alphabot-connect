@@ -11,11 +11,12 @@ interface AnimationPreset {
   labelKey: string;
   color: string;
   emoji: string;
+  phrase?: string;
 }
 
 const presets: AnimationPreset[] = [
   { id: 'wave', icon: Hand, labelKey: 'blessing.presets.wave', color: 'from-primary to-warning', emoji: '👋' },
-  { id: 'welcome', icon: Sparkles, labelKey: 'blessing.presets.welcome', color: 'from-secondary to-primary', emoji: '✨' },
+  { id: 'welcome', icon: Sparkles, labelKey: 'blessing.presets.welcome', color: 'from-secondary to-primary', emoji: '✨', phrase: 'blessing.presets.welcomePhrase' },
   { id: 'love', icon: Heart, labelKey: 'blessing.presets.love', color: 'from-destructive to-primary', emoji: '❤️' },
   { id: 'celebrate', icon: PartyPopper, labelKey: 'blessing.presets.celebrate', color: 'from-success to-warning', emoji: '🎉' },
   { id: 'star', icon: Star, labelKey: 'blessing.presets.star', color: 'from-warning to-primary', emoji: '⭐' },
@@ -57,6 +58,16 @@ const Blessing = () => {
                   {activePreset.emoji}
                 </motion.div>
                 <p className="text-sm font-semibold text-foreground">{t(activePreset.labelKey)}</p>
+                {activePreset.phrase && (
+                  <motion.p
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.3 }}
+                    className="text-xs text-muted-foreground mt-1"
+                  >
+                    {t(activePreset.phrase)}
+                  </motion.p>
+                )}
               </motion.div>
             ) : (
               <div className="text-center text-muted-foreground">

@@ -18,7 +18,7 @@
     "connectingButton": "CONECTANDO...",
     "offlineButton": "Modo Offline (Simulação)",
     "externalIpWarning": "Atenção: Você está conectando a um IP externo ({{ip}}). Isso pode expor comandos do robô a redes não confiáveis. Deseja continuar?",
-    "version": "v1.0.4 • Iascom Ltda"
+    "version": "v1.0.5 • Iascom Ltda"
   },
   "dashboard": {
     "title": "AlphaBot Dashboard",
@@ -166,7 +166,7 @@
     "data": "Dados",
     "clearLogs": "Limpar Logs",
     "clearChatHistory": "Limpar Histórico de Chat",
-    "version": "AlphaBot Companion v1.0.4 • Solar Life Energy & Iascom Ltda"
+    "version": "AlphaBot Companion v1.0.5 • Solar Life Energy & Iascom Ltda"
   },
   "map": {
     "title": "🗺️ Mapa de Navegação",
@@ -297,6 +297,7 @@
     "presets": {
       "wave": "Acenar",
       "welcome": "Boas-vindas",
+      "welcomePhrase": "Olá! Bem-vindo(a)! Como posso ajudá-lo(a) hoje?",
       "love": "Amor",
       "celebrate": "Celebrar",
       "star": "Estrela"
