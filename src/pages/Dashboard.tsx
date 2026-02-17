@@ -1,21 +1,154 @@
 import { useNavigate } from 'react-router-dom';
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { Gamepad2, MessageCircle, Map, BarChart3, Mic, Settings, ShoppingBag, Stethoscope, Package, Shield, Sparkles, Layers, Radio, Download, ScrollText, Camera, VideoOff } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import StatusHeader from '@/components/StatusHeader';
 import { useRobotStore } from '@/store/useRobotStore';
 
+type FeedSource = 'real' | 'simulation';
+
 const CameraFeed = () => {
   const { t } = useTranslation();
-  const { ip, connectionStatus, offlineMode } = useRobotStore();
+  const { ip, port, connectionStatus, offlineMode } = useRobotStore();
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const imgRef = useRef<HTMLImageElement | null>(null);
   const [active, setActive] = useState(true);
+  const [feedSource, setFeedSource] = useState<FeedSource>('simulation');
+  const [fps, setFps] = useState(0);
   const frameRef = useRef<number>(0);
+  const wsRef = useRef<WebSocket | null>(null);
+  const fpsCounterRef = useRef({ count: 0, lastTime: Date.now() });
+  const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Simulated camera feed with moving visual
+  // Try to connect to real camera WebSocket
+  const connectRealFeed = useCallback(() => {
+    if (offlineMode || !active) return;
+
+    const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
+    // Camera stream endpoint — the robot typically serves JPEG frames on /camera or /video
+    const cameraUrl = `${protocol}://${ip}:${port}/camera`;
+
+    try {
+      const ws = new WebSocket(cameraUrl);
+      ws.binaryType = 'arraybuffer';
+      wsRef.current = ws;
+
+      ws.onopen = () => {
+        console.log('[CameraFeed] Real camera WebSocket connected');
+        setFeedSource('real');
+      };
+
+      ws.onmessage = (event) => {
+        if (!canvasRef.current) return;
+        const ctx = canvasRef.current.getContext('2d');
+        if (!ctx) return;
+
+        // Track FPS
+        fpsCounterRef.current.count++;
+        const now = Date.now();
+        if (now - fpsCounterRef.current.lastTime >= 1000) {
+          setFps(fpsCounterRef.current.count);
+          fpsCounterRef.current = { count: 0, lastTime: now };
+        }
+
+        // Handle binary JPEG frame
+        if (event.data instanceof ArrayBuffer) {
+          const blob = new Blob([event.data], { type: 'image/jpeg' });
+          const url = URL.createObjectURL(blob);
+          const img = imgRef.current || new Image();
+          imgRef.current = img;
+          img.onload = () => {
+            const canvas = canvasRef.current;
+            if (!canvas || !ctx) return;
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+            drawOverlay(ctx, canvas.width, canvas.height);
+            URL.revokeObjectURL(url);
+          };
+          img.src = url;
+        }
+        // Handle base64 JSON frame: { "frame": "data:image/jpeg;base64,..." }
+        else if (typeof event.data === 'string') {
+          try {
+            const parsed = JSON.parse(event.data);
+            const src = parsed.frame || parsed.image || parsed.data;
+            if (src) {
+              const img = imgRef.current || new Image();
+              imgRef.current = img;
+              img.onload = () => {
+                const canvas = canvasRef.current;
+                if (!canvas || !ctx) return;
+                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                drawOverlay(ctx, canvas.width, canvas.height);
+              };
+              img.src = src.startsWith('data:') ? src : `data:image/jpeg;base64,${src}`;
+            }
+          } catch {
+            // Not JSON, ignore
+          }
+        }
+      };
+
+      ws.onclose = () => {
+        console.log('[CameraFeed] Real camera disconnected, falling back to simulation');
+        setFeedSource('simulation');
+        wsRef.current = null;
+        // Retry after 5s
+        reconnectTimeoutRef.current = setTimeout(connectRealFeed, 5000);
+      };
+
+      ws.onerror = () => {
+        ws.close();
+      };
+    } catch {
+      setFeedSource('simulation');
+    }
+  }, [ip, port, offlineMode, active]);
+
+  // Draw HUD overlay on real feed
+  const drawOverlay = (ctx: CanvasRenderingContext2D, w: number, h: number) => {
+    // Corner brackets
+    ctx.strokeStyle = 'rgba(0, 78, 137, 0.6)';
+    ctx.lineWidth = 2;
+    const bk = 15;
+    [[4, 4, 1, 1], [w - 4, 4, -1, 1], [4, h - 4, 1, -1], [w - 4, h - 4, -1, -1]].forEach(([x, y, dx, dy]) => {
+      ctx.beginPath(); ctx.moveTo(x, y + dy * bk); ctx.lineTo(x, y); ctx.lineTo(x + dx * bk, y); ctx.stroke();
+    });
+
+    // Crosshair
+    const cx = w / 2, cy = h / 2;
+    ctx.strokeStyle = 'rgba(255, 107, 53, 0.5)';
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(cx - 15, cy); ctx.lineTo(cx - 5, cy); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(cx + 5, cy); ctx.lineTo(cx + 15, cy); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(cx, cy - 15); ctx.lineTo(cx, cy - 5); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(cx, cy + 5); ctx.lineTo(cx, cy + 15); ctx.stroke();
+
+    // Timestamp + REC
+    ctx.fillStyle = 'rgba(255, 107, 53, 0.8)';
+    ctx.font = '10px monospace';
+    ctx.fillText(`CAM01 ${new Date().toLocaleTimeString()}`, 8, h - 8);
+    ctx.fillStyle = 'rgba(255, 50, 50, 0.9)';
+    ctx.beginPath(); ctx.arc(w - 48, 11, 3, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = 'rgba(255, 107, 53, 0.8)';
+    ctx.fillText('LIVE', w - 42, 14);
+  };
+
+  // Attempt real connection on mount / when settings change
   useEffect(() => {
-    if (!active || !canvasRef.current) return;
+    if (active && !offlineMode && connectionStatus === 'connected') {
+      connectRealFeed();
+    }
+    return () => {
+      wsRef.current?.close();
+      wsRef.current = null;
+      if (reconnectTimeoutRef.current) clearTimeout(reconnectTimeoutRef.current);
+    };
+  }, [active, offlineMode, connectionStatus, connectRealFeed]);
+
+  // Simulation fallback
+  useEffect(() => {
+    if (!active || feedSource !== 'simulation' || !canvasRef.current) return;
     const canvas = canvasRef.current;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
@@ -27,23 +160,22 @@ const CameraFeed = () => {
       frameRef.current += 1;
       const f = frameRef.current;
 
-      // Dark background with grid
       ctx.fillStyle = '#0a1628';
       ctx.fillRect(0, 0, w, h);
 
-      // Grid overlay
+      // Grid
       ctx.strokeStyle = 'rgba(0, 78, 137, 0.15)';
       ctx.lineWidth = 1;
       for (let x = 0; x < w; x += 20) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke(); }
       for (let y = 0; y < h; y += 20) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke(); }
 
-      // Simulated room environment shapes
+      // Room shapes
       ctx.fillStyle = 'rgba(0, 78, 137, 0.08)';
       ctx.fillRect(20, 30, 80, 60);
       ctx.fillRect(w - 100, 20, 80, 50);
       ctx.fillRect(40, h - 70, 120, 40);
 
-      // Moving scan line
+      // Scan line
       const scanY = (f * 2) % h;
       const gradient = ctx.createLinearGradient(0, scanY - 10, 0, scanY + 10);
       gradient.addColorStop(0, 'rgba(255, 107, 53, 0)');
@@ -52,7 +184,7 @@ const CameraFeed = () => {
       ctx.fillStyle = gradient;
       ctx.fillRect(0, scanY - 10, w, 20);
 
-      // Center crosshair
+      // Crosshair
       const cx = w / 2, cy = h / 2;
       ctx.strokeStyle = 'rgba(255, 107, 53, 0.6)';
       ctx.lineWidth = 1;
@@ -61,7 +193,7 @@ const CameraFeed = () => {
       ctx.beginPath(); ctx.moveTo(cx, cy - 20); ctx.lineTo(cx, cy - 8); ctx.stroke();
       ctx.beginPath(); ctx.moveTo(cx, cy + 8); ctx.lineTo(cx, cy + 20); ctx.stroke();
 
-      // Corner brackets
+      // Corners
       ctx.strokeStyle = 'rgba(0, 78, 137, 0.5)';
       ctx.lineWidth = 2;
       const bk = 15;
@@ -69,20 +201,20 @@ const CameraFeed = () => {
         ctx.beginPath(); ctx.moveTo(x, y + dy * bk); ctx.lineTo(x, y); ctx.lineTo(x + dx * bk, y); ctx.stroke();
       });
 
-      // Timestamp overlay
+      // Timestamp
       ctx.fillStyle = 'rgba(255, 107, 53, 0.8)';
       ctx.font = '10px monospace';
       const now = new Date();
       ctx.fillText(`CAM01 ${now.toLocaleTimeString()}`, 8, h - 8);
-      ctx.fillText(`REC ●`, w - 45, 14);
+      ctx.fillText('SIM', w - 35, 14);
 
-      // Blinking REC dot
+      // Blinking SIM dot
       if (f % 60 < 30) {
-        ctx.fillStyle = 'rgba(255, 50, 50, 0.9)';
-        ctx.beginPath(); ctx.arc(w - 48, 11, 3, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = 'rgba(255, 200, 50, 0.9)';
+        ctx.beginPath(); ctx.arc(w - 40, 11, 3, 0, Math.PI * 2); ctx.fill();
       }
 
-      // Noise dots
+      // Noise
       for (let i = 0; i < 15; i++) {
         ctx.fillStyle = `rgba(255,255,255,${Math.random() * 0.08})`;
         ctx.fillRect(Math.random() * w, Math.random() * h, 2, 2);
@@ -92,7 +224,7 @@ const CameraFeed = () => {
     };
     draw();
     return () => cancelAnimationFrame(animId);
-  }, [active]);
+  }, [active, feedSource]);
 
   return (
     <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}
@@ -102,6 +234,11 @@ const CameraFeed = () => {
           <Camera className="w-4 h-4 text-primary" />
           <span className="text-xs font-bold text-foreground">{t('dashboard.camera.title')}</span>
           <div className={`w-2 h-2 rounded-full ${active ? 'bg-success animate-pulse' : 'bg-muted-foreground'}`} />
+          {active && (
+            <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded ${feedSource === 'real' ? 'bg-success/20 text-success' : 'bg-warning/20 text-warning'}`}>
+              {feedSource === 'real' ? `LIVE ${fps}fps` : t('dashboard.camera.sim')}
+            </span>
+          )}
         </div>
         <button onClick={() => setActive(!active)} className="p-1 rounded-lg hover:bg-muted/50 active:bg-muted">
           {active ? <VideoOff className="w-4 h-4 text-muted-foreground" /> : <Camera className="w-4 h-4 text-muted-foreground" />}
