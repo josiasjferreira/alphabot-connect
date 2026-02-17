@@ -1,12 +1,12 @@
 import { useState, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Play, Camera, Mic, MicOff, Save, ChevronLeft, ChevronRight, User, CheckCircle, LogOut } from 'lucide-react';
+import { motion } from 'framer-motion';
+import { Play, Save, ChevronLeft, ChevronRight, User, Phone, CheckCircle, LogOut } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import StatusHeader from '@/components/StatusHeader';
-import { useMediaRecorder } from '@/hooks/useMediaRecorder';
 import { useToast } from '@/hooks/use-toast';
 import { useRobotStore } from '@/store/useRobotStore';
+import { saveInteraction } from '@/db/interactionDatabase';
 
 interface Product {
   id: string;
@@ -34,11 +34,23 @@ const ProductShowcase = () => {
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [clientName, setClientName] = useState('');
+  const [clientWhatsapp, setClientWhatsapp] = useState('');
   const [saved, setSaved] = useState(false);
 
-  const { isRecording, photoUrl, startRecording, stopRecording, capturePhoto, saveSession, resetMedia } = useMediaRecorder();
+  // Auto-log page access to IndexedDB
+  useEffect(() => {
+    const record = {
+      id: `access-${Date.now()}`,
+      clientName: '',
+      clientWhatsapp: '',
+      productId: 'page-access',
+      texts: [`Acesso à página de produtos em ${new Date().toLocaleString()}`],
+      createdAt: Date.now(),
+      synced: false,
+    };
+    saveInteraction(record);
+  }, []);
 
-  // If robot leaves RECEPTION state externally, go back to dashboard
   useEffect(() => {
     if (machineState === 'ERROR') {
       navigate('/dashboard');
@@ -50,17 +62,42 @@ const ProductShowcase = () => {
   const prev = () => { setSelectedIndex((i) => (i === 0 ? PRODUCTS.length - 1 : i - 1)); setIsPlaying(false); };
   const next = () => { setSelectedIndex((i) => (i === PRODUCTS.length - 1 ? 0 : i + 1)); setIsPlaying(false); };
 
+  // Log product view automatically
+  useEffect(() => {
+    const record = {
+      id: `view-${product.id}-${Date.now()}`,
+      clientName: clientName || 'anônimo',
+      clientWhatsapp: clientWhatsapp || '',
+      productId: product.id,
+      texts: [`Visualizou produto: ${product.id}`],
+      createdAt: Date.now(),
+      synced: false,
+    };
+    saveInteraction(record);
+  }, [selectedIndex]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const handleSave = useCallback(async () => {
     if (!clientName.trim()) {
       toast({ title: t('showcase.enterName'), variant: 'destructive' });
       return;
     }
-    if (isRecording) await stopRecording();
-    await saveSession(product.id, clientName.trim());
+
+    // Save interaction to IndexedDB
+    const record = {
+      id: `interaction-${Date.now()}`,
+      clientName: clientName.trim(),
+      clientWhatsapp: clientWhatsapp.trim(),
+      productId: product.id,
+      texts: [`Cliente interessado no produto: ${product.id}`, `Nome: ${clientName}`, `WhatsApp: ${clientWhatsapp}`],
+      createdAt: Date.now(),
+      synced: false,
+    };
+    await saveInteraction(record);
+
     setSaved(true);
     toast({ title: t('showcase.saved') });
-    setTimeout(() => { setSaved(false); resetMedia(); setClientName(''); }, 2000);
-  }, [clientName, isRecording, stopRecording, saveSession, product.id, resetMedia, toast, t]);
+    setTimeout(() => { setSaved(false); setClientName(''); setClientWhatsapp(''); }, 2000);
+  }, [clientName, clientWhatsapp, product.id, toast, t]);
 
   const handleEndReception = useCallback(() => {
     dispatchEvent('LEAVE_RECEPTION');
@@ -95,6 +132,7 @@ const ProductShowcase = () => {
             </button>
           </motion.div>
         )}
+
         {/* Product Carousel */}
         <div className="relative px-4 pt-4">
           <div className="flex items-center justify-between mb-2">
@@ -157,43 +195,17 @@ const ProductShowcase = () => {
             />
           </div>
 
-          {/* Media Controls */}
-          <div className="flex gap-2">
-            {/* Audio Recording */}
-            <motion.button
-              whileTap={{ scale: 0.95 }}
-              onClick={isRecording ? () => stopRecording() : startRecording}
-              className={`flex-1 h-12 rounded-xl flex items-center justify-center gap-2 font-semibold text-sm transition-colors ${
-                isRecording
-                  ? 'bg-destructive text-destructive-foreground animate-pulse'
-                  : 'bg-secondary text-secondary-foreground'
-              }`}
-            >
-              {isRecording ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
-              {isRecording ? t('showcase.stopRec') : t('showcase.startRec')}
-            </motion.button>
-
-            {/* Photo Capture */}
-            <motion.button
-              whileTap={{ scale: 0.95 }}
-              onClick={capturePhoto}
-              className="flex-1 h-12 rounded-xl bg-secondary text-secondary-foreground flex items-center justify-center gap-2 font-semibold text-sm"
-            >
-              <Camera className="w-5 h-5" />
-              {t('showcase.takePhoto')}
-            </motion.button>
+          {/* Client WhatsApp */}
+          <div className="flex items-center gap-2">
+            <Phone className="w-5 h-5 text-muted-foreground flex-shrink-0" />
+            <input
+              type="tel"
+              value={clientWhatsapp}
+              onChange={(e) => setClientWhatsapp(e.target.value)}
+              placeholder={t('showcase.clientWhatsappPlaceholder')}
+              className="flex-1 h-11 px-3 rounded-xl bg-card border border-border text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+            />
           </div>
-
-          {/* Photo Preview */}
-          <AnimatePresence>
-            {photoUrl && (
-              <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
-                <div className="rounded-xl overflow-hidden border border-border">
-                  <img src={photoUrl} alt={t('showcase.clientPhoto')} className="w-full h-40 object-cover" />
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
 
           {/* Save Button */}
           <motion.button

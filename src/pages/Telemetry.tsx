@@ -1,8 +1,9 @@
 import { motion } from 'framer-motion';
-import { Battery, Thermometer, Wifi, Volume2, Gauge, Compass, RotateCw, Download, Zap } from 'lucide-react';
+import { Battery, Thermometer, Wifi, Volume2, Gauge, Compass, RotateCw, Download, Zap, RefreshCw } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import StatusHeader from '@/components/StatusHeader';
 import { useRobotStore } from '@/store/useRobotStore';
+import { useWebSocket } from '@/hooks/useWebSocket';
 import { type RobotEvent, getAvailableEvents, STATE_LABELS } from '@/machine/robotStateMachine';
 
 const EVENT_ICONS: Record<RobotEvent, string> = {
@@ -19,9 +20,11 @@ const EVENT_ICONS: Record<RobotEvent, string> = {
 
 const Telemetry = () => {
   const { t } = useTranslation();
-  const { status, logs, machineState, dispatchEvent } = useRobotStore();
+  const { status, logs, machineState, dispatchEvent, connectionStatus } = useRobotStore();
+  const { connect } = useWebSocket();
   const availableEvents = getAvailableEvents(machineState);
   const stateInfo = STATE_LABELS[machineState];
+  const isWsError = connectionStatus === 'error';
 
   const batteryColor = status.battery > 50 ? 'text-success' : status.battery > 20 ? 'text-warning' : 'text-destructive';
   const batteryBg = status.battery > 50 ? 'bg-success' : status.battery > 20 ? 'bg-warning' : 'bg-destructive';
@@ -138,6 +141,24 @@ const Telemetry = () => {
             <p className="text-xs text-muted-foreground">{t('telemetry.noTransitions')}</p>
           )}
         </motion.div>
+        {/* Manual Reconnect Button */}
+        {isWsError && (
+          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="bg-destructive/10 border border-destructive/30 rounded-2xl p-4 flex items-center justify-between">
+            <div>
+              <p className="text-sm font-bold text-destructive">{t('telemetry.wsLimitReached')}</p>
+              <p className="text-xs text-muted-foreground mt-0.5">{t('telemetry.wsLimitHint')}</p>
+            </div>
+            <motion.button
+              whileTap={{ scale: 0.93 }}
+              onClick={() => connect()}
+              className="px-4 py-3 rounded-xl gradient-primary text-primary-foreground font-bold text-sm flex items-center gap-2 shadow-button"
+            >
+              <RefreshCw className="w-4 h-4" />
+              {t('telemetry.reconnect')}
+            </motion.button>
+          </motion.div>
+        )}
+
         <div className="bg-card rounded-2xl border border-border shadow-card p-4">
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-xs font-bold text-muted-foreground">{t('telemetry.recentLogs')}</h3>

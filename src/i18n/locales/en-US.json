@@ -19,7 +19,7 @@
     "connectingButton": "CONNECTING...",
     "offlineButton": "Offline Mode (Simulation)",
     "externalIpWarning": "Warning: You are connecting to an external IP ({{ip}}). This may expose robot commands to untrusted networks. Continue?",
-    "version": "v1.0.5 • Iascom Ltda",
+    "version": "v1.0.7 • Iascom Ltda",
     "guide": {
       "title": "📖 Admin Quick Guide",
       "step1Title": "1. Power On Robot Ken",
@@ -165,7 +165,10 @@
     "export": "Export",
     "noLogs": "No logs available",
     "stateSimulator": "STATE SIMULATOR",
-    "noTransitions": "No transitions available from this state"
+    "noTransitions": "No transitions available from this state",
+    "wsLimitReached": "Reconnection limit reached",
+    "wsLimitHint": "Tap to reconnect manually",
+    "reconnect": "Reconnect"
   },
   "settings": {
     "title": "Settings",
@@ -232,7 +235,7 @@
       "delete": "Delete",
       "confirmDelete": "Confirm delete"
     },
-    "version": "AlphaBot Companion v1.0.5 • Solar Life Energy & Iascom Ltda"
+    "version": "AlphaBot Companion v1.0.7 • Solar Life Energy & Iascom Ltda"
   },
   "map": {
     "title": "🗺️ Navigation Map",
@@ -273,9 +276,8 @@
     "watchDemo": "Watch Demo",
     "clientSection": "Client Record",
     "clientNamePlaceholder": "Client name...",
-    "startRec": "Record",
-    "stopRec": "Stop",
-    "takePhoto": "Photo",
+    "clientWhatsappPlaceholder": "Client WhatsApp...",
+    "saveInteraction": "Save Interaction",
     "clientPhoto": "Client photo",
     "saveInteraction": "Save Interaction",
     "savedSuccess": "Saved!",
