@@ -12,6 +12,14 @@ import MapNav from "./pages/MapNav";
 import Telemetry from "./pages/Telemetry";
 import Settings from "./pages/Settings";
 import ProductShowcase from "./pages/ProductShowcase";
+import Diagnostics from "./pages/Diagnostics";
+import Delivery from "./pages/Delivery";
+import Patrol from "./pages/Patrol";
+import Blessing from "./pages/Blessing";
+import SlamMaps from "./pages/SlamMaps";
+import MqttMonitor from "./pages/MqttMonitor";
+import OtaUpdate from "./pages/OtaUpdate";
+import AdvancedLogs from "./pages/AdvancedLogs";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -32,6 +40,14 @@ const App = () => (
           <Route path="/telemetry" element={<Telemetry />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="/showcase" element={<ProductShowcase />} />
+          <Route path="/diagnostics" element={<Diagnostics />} />
+          <Route path="/delivery" element={<Delivery />} />
+          <Route path="/patrol" element={<Patrol />} />
+          <Route path="/blessing" element={<Blessing />} />
+          <Route path="/slam" element={<SlamMaps />} />
+          <Route path="/mqtt" element={<MqttMonitor />} />
+          <Route path="/ota" element={<OtaUpdate />} />
+          <Route path="/logs" element={<AdvancedLogs />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </HashRouter>
