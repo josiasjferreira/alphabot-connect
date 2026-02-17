@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Wifi, Loader2, CloudOff, KeyRound, BookOpen, ChevronDown } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useRobotStore } from '@/store/useRobotStore';
 import { useWebSocket } from '@/hooks/useWebSocket';
+import { unlockAudio } from '@/lib/audioEffects';
 import alphaIcon from '/icon-512.png';
 
 const Connection = () => {
@@ -17,6 +18,13 @@ const Connection = () => {
   const [localToken, setLocalToken] = useState(authToken);
   const [showGuide, setShowGuide] = useState(false);
   const [openStep, setOpenStep] = useState<string | null>(null);
+
+  // Unlock audio on first user interaction (required for Android WebView)
+  useEffect(() => {
+    const handler = () => { unlockAudio(); document.removeEventListener('click', handler); };
+    document.addEventListener('click', handler, { once: true });
+    return () => document.removeEventListener('click', handler);
+  }, []);
 
   const isValidIp = /^(\d{1,3}\.){3}\d{1,3}$/.test(localIp);
   const isValidPort = /^\d{1,5}$/.test(localPort) && parseInt(localPort) > 0 && parseInt(localPort) <= 65535;
