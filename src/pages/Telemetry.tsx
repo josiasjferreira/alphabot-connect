@@ -26,8 +26,9 @@ const Telemetry = () => {
   const stateInfo = STATE_LABELS[machineState];
   const isWsError = connectionStatus === 'error';
 
-  const batteryColor = status.battery > 50 ? 'text-success' : status.battery > 20 ? 'text-warning' : 'text-destructive';
-  const batteryBg = status.battery > 50 ? 'bg-success' : status.battery > 20 ? 'bg-warning' : 'bg-destructive';
+  const batteryLevel = typeof status.battery === 'number' && !isNaN(status.battery) ? Math.max(0, Math.min(100, Math.round(status.battery))) : 0;
+  const batteryColor = batteryLevel > 50 ? 'text-success' : batteryLevel > 20 ? 'text-warning' : 'text-destructive';
+  const batteryBg = batteryLevel > 50 ? 'bg-success' : batteryLevel > 20 ? 'bg-warning' : 'bg-destructive';
   const tempColor = status.temperature < 50 ? 'text-success' : status.temperature < 70 ? 'text-warning' : 'text-destructive';
 
   const sensors = [
@@ -62,10 +63,10 @@ const Telemetry = () => {
               <Battery className={`w-5 h-5 ${batteryColor}`} />
               <span className="font-bold text-foreground">{t('telemetry.battery')}</span>
             </div>
-            <span className={`text-2xl font-bold ${batteryColor}`}>{status.battery}%</span>
+            <span className={`text-2xl font-bold ${batteryColor}`}>{batteryLevel}%</span>
           </div>
           <div className="w-full h-3 bg-muted rounded-full overflow-hidden">
-            <div className={`h-full rounded-full transition-all ${batteryBg}`} style={{ width: `${status.battery}%` }} />
+            <div className={`h-full rounded-full transition-all ${batteryBg}`} style={{ width: `${batteryLevel}%` }} />
           </div>
           <p className="text-xs text-muted-foreground mt-1">{t('telemetry.batteryRemaining')}</p>
         </motion.div>
