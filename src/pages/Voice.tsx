@@ -34,6 +34,7 @@ const Voice = () => {
 
   const processCommand = useCallback((text: string): { response: string; success: boolean } => {
     const cmd = text.toLowerCase();
+    if (/\bken\b/.test(cmd)) return { response: t('voice.responses.ken'), success: true };
     if (/frente|avan[cç]|forward/.test(cmd)) return { response: t('voice.responses.forward'), success: true };
     if (/tr[aá]s|recue|backward/.test(cmd)) return { response: t('voice.responses.backward'), success: true };
     if (/esquerda|left/.test(cmd)) return { response: t('voice.responses.left'), success: true };

@@ -90,6 +90,7 @@
       "thanks": "You're welcome! I'm always here to help! 😊",
       "camera": "Activating camera... The feed is available on the control screen. 📹",
       "map": "The map is available in the navigation section. Want me to go somewhere specific?",
+      "ken": "Hi! I'm Ken, your robot assistant! I'm here to help you. What do you need? 🤖✨",
       "fallback": "Got it! I can help with navigation, system status or movement control. What do you need? 🤔"
     }
   },
@@ -116,6 +117,7 @@
       "stop": "Robot stopped!",
       "battery": "Battery at {{battery}}%",
       "position": "Position: X: 5.2m, Y: 3.8m",
+      "ken": "Hi! This is Ken! I'm listening. How can I help?",
       "unknown": "Command not recognized. Try again."
     },
     "voiceCommandLog": "Voice command: \"{{command}}\" → {{response}}"
