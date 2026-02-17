@@ -5,14 +5,16 @@ import { Wifi, Loader2, CloudOff, KeyRound, BookOpen, ChevronDown, Bluetooth, Bl
 import { useTranslation } from 'react-i18next';
 import { useRobotStore } from '@/store/useRobotStore';
 import { useWebSocket } from '@/hooks/useWebSocket';
+import { useBluetoothSerial } from '@/hooks/useBluetoothSerial';
 import { unlockAudio } from '@/lib/audioEffects';
 import alphaIcon from '/icon-512.png';
 
 const Connection = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const { ip, port, authToken, connectionStatus, bluetoothStatus, bluetoothDevice, error, setConnection, setOfflineMode, setBluetoothStatus, addLog } = useRobotStore();
+  const { ip, port, authToken, connectionStatus, bluetoothStatus, bluetoothDevice, error, setConnection, setOfflineMode } = useRobotStore();
   const { connect } = useWebSocket();
+  const { scanAndConnect } = useBluetoothSerial();
   const [localIp, setLocalIp] = useState(ip);
   const [localPort, setLocalPort] = useState(port);
   const [localToken, setLocalToken] = useState(authToken);
@@ -47,50 +49,9 @@ const Connection = () => {
   };
 
   const handleBluetoothConnect = async () => {
-    try {
-      const nav = navigator as any;
-      if (!nav.bluetooth) {
-        addLog(t('connection.bluetooth.notSupported'), 'error');
-        setBluetoothStatus('error');
-        return;
-      }
-
-      setBluetoothStatus('scanning');
-      addLog('Bluetooth: Buscando dispositivos...', 'info');
-
-      const device = await nav.bluetooth.requestDevice({
-        acceptAllDevices: true,
-        optionalServices: ['generic_access', 'battery_service'],
-      });
-
-      if (device) {
-        setBluetoothStatus('paired', device.name || 'Unknown Device');
-        addLog(`Bluetooth: Pareado com ${device.name || 'dispositivo'}`, 'success');
-
-        device.addEventListener('gattserverdisconnected', () => {
-          setBluetoothStatus('disconnected');
-          addLog('Bluetooth: Dispositivo desconectado', 'warning');
-        });
-
-        try {
-          await device.gatt?.connect();
-          setBluetoothStatus('connected', device.name || 'Unknown Device');
-          addLog(`Bluetooth: Conectado a ${device.name || 'dispositivo'}`, 'success');
-          setTimeout(() => navigate('/dashboard'), 800);
-        } catch {
-          // Paired but GATT not connected — still usable
-          addLog('Bluetooth: Pareado (GATT indisponível)', 'warning');
-          setTimeout(() => navigate('/dashboard'), 800);
-        }
-      }
-    } catch (err) {
-      if ((err as Error).name === 'NotFoundError') {
-        setBluetoothStatus('disconnected');
-        addLog('Bluetooth: Busca cancelada pelo usuário', 'info');
-      } else {
-        setBluetoothStatus('error');
-        addLog(`Bluetooth: ${(err as Error).message}`, 'error');
-      }
+    const success = await scanAndConnect();
+    if (success) {
+      setTimeout(() => navigate('/dashboard'), 800);
     }
   };
 
