@@ -342,7 +342,7 @@ const Connection = () => {
         </AnimatePresence>
       </motion.div>
 
-      <p className="text-xs text-muted-foreground mt-8">{t('connection.version')}</p>
+      <p className="text-[10px] text-muted-foreground mt-8 text-center">{t('connection.version')}</p>
     </div>
   );
 };

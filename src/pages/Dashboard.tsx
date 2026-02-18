@@ -320,6 +320,13 @@ const Dashboard = () => {
           </motion.button>
         ))}
       </div>
+
+      <div className="flex flex-col items-center gap-2 py-6">
+        <button onClick={() => navigate('/')} className="text-xs text-primary font-semibold active:opacity-70">
+          {t('dashboard.backToConnection', 'Voltar à tela de conexão')}
+        </button>
+        <p className="text-[10px] text-muted-foreground">AlphaBot Companion v1.1.12 • Iascom</p>
+      </div>
     </div>
   );
 };
