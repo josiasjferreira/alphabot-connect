@@ -32,7 +32,8 @@
       "deviceFound": "Device found",
       "noDevice": "No device found",
       "error": "Bluetooth connection error",
-      "notSupported": "Bluetooth not supported in this browser"
+      "notSupported": "Bluetooth not supported in this browser",
+      "reconnectLast": "Reconnect: {{name}}"
     },
     "guide": {
       "title": "📖 Admin Quick Guide",
