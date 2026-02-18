@@ -19,7 +19,7 @@
     "connectingButton": "CONECTANDO...",
     "offlineButton": "Modo Offline (Simulação)",
     "externalIpWarning": "Atenção: Você está conectando a um IP externo ({{ip}}). Isso pode expor comandos do robô a redes não confiáveis. Deseja continuar?",
-"version": "AlphaBot Companion v1.2.7 • Iascom",
+"version": "AlphaBot Companion v1.2.9 • Iascom",
     "bluetooth": {
       "title": "CONEXÃO BLUETOOTH",
       "scan": "Buscar Dispositivos",
@@ -274,7 +274,7 @@
       "videoUrlPlaceholder": "URL do vídeo (mp4, webm...)",
       "mediaLabel": "Rótulo"
     },
-"version": "AlphaBot Companion v1.2.7 • Iascom"
+"version": "AlphaBot Companion v1.2.9 • Iascom"
   },
   "map": {
     "title": "🗺️ Mapa de Navegação",
