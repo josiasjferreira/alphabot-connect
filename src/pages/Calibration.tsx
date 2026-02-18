@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
@@ -47,6 +47,16 @@ const Calibration = () => {
 
   const [selectedSensors, setSelectedSensors] = useState<SensorId[]>([...ALL_SENSORS]);
   const [showLogs, setShowLogs] = useState(false);
+
+  // HTTPS enforcement for Web Bluetooth
+  useEffect(() => {
+    if (window.location.protocol !== 'https:' && 
+        window.location.hostname !== 'localhost') {
+      console.error('❌ HTTPS obrigatório!');
+      alert('❌ Web Bluetooth requer HTTPS.\nRedirecionando...');
+      window.location.href = window.location.href.replace('http:', 'https:');
+    }
+  }, []);
 
   const toggleSensor = (id: SensorId) => {
     setSelectedSensors(prev =>
@@ -107,10 +117,29 @@ const Calibration = () => {
               )}
             </div>
             {!isConnected ? (
-              <Button onClick={connect} className="w-full gap-2">
-                <Bluetooth className="w-4 h-4" />
-                Conectar via Bluetooth
-              </Button>
+              <div className="space-y-2">
+                {/* Debug: Botão de teste direto da Web Bluetooth API */}
+                <button
+                  onClick={async () => {
+                    console.log('🧪 Teste Bluetooth iniciado');
+                    try {
+                      const device = await navigator.bluetooth.requestDevice({
+                        acceptAllDevices: true
+                      });
+                      alert('✅ Funcionou! Device: ' + device.name);
+                    } catch (e: any) {
+                      alert('❌ Erro: ' + e.message);
+                    }
+                  }}
+                  className="w-full bg-destructive text-destructive-foreground py-3 rounded-md text-sm font-medium"
+                >
+                  🧪 TESTE BLUETOOTH (Debug)
+                </button>
+                <Button onClick={() => { console.log('🔴 handleConnect chamado'); connect(); }} className="w-full gap-2">
+                  <Bluetooth className="w-4 h-4" />
+                  Conectar via Bluetooth
+                </Button>
+              </div>
             ) : (
               <Button onClick={disconnect} variant="outline" className="w-full gap-2">
                 <BluetoothOff className="w-4 h-4" />
@@ -345,7 +374,7 @@ const Calibration = () => {
 
         {/* Footer */}
         <p className="text-[10px] text-center text-muted-foreground pb-4">
-          AlphaBot Companion v1.2.7 • Iascom
+          AlphaBot Companion v1.2.9 • Iascom
         </p>
       </div>
     </div>
