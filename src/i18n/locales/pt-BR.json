@@ -19,7 +19,7 @@
     "connectingButton": "CONECTANDO...",
     "offlineButton": "Modo Offline (Simulação)",
     "externalIpWarning": "Atenção: Você está conectando a um IP externo ({{ip}}). Isso pode expor comandos do robô a redes não confiáveis. Deseja continuar?",
-    "version": "v1.0.9 • Iascom Ltda",
+    "version": "v1.1.1 • Iascom Ltda",
     "bluetooth": {
       "title": "CONEXÃO BLUETOOTH",
       "scan": "Buscar Dispositivos",
@@ -256,9 +256,15 @@
       "cancel": "Cancelar",
       "edit": "Editar",
       "delete": "Excluir",
-      "confirmDelete": "Confirmar exclusão"
+      "confirmDelete": "Confirmar exclusão",
+      "media": "Mídia (Áudio / Vídeo)",
+      "addAudio": "Áudio",
+      "addVideo": "Vídeo",
+      "audioUrlPlaceholder": "URL do áudio (mp3, wav...)",
+      "videoUrlPlaceholder": "URL do vídeo (mp4, webm...)",
+      "mediaLabel": "Rótulo"
     },
-    "version": "AlphaBot Companion v1.0.9 • Iascom Ltda"
+    "version": "AlphaBot Companion v1.1.1 • Iascom Ltda"
   },
   "map": {
     "title": "🗺️ Mapa de Navegação",
@@ -473,6 +479,7 @@
     "notSynced": "Pendente de sincronização",
     "clearAll": "Limpar Todos os Registros",
     "cancel": "Cancelar",
-    "confirmClear": "Confirmar Exclusão"
+    "confirmClear": "Confirmar Exclusão",
+    "chartTitle": "Interações por Produto"
   }
 }
