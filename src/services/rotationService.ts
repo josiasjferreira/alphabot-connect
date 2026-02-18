@@ -1,7 +1,11 @@
 /**
- * RotationService — Controls robot rotation via HTTP API and monitors orientation.
+ * RotationService — Controls robot rotation via HTTP API, command bridge, and monitors orientation.
  * Robot: CT300-H330-1029-01 | HTTP port 80
+ * 
+ * Now integrates with RobotCommandBridge for multi-channel dispatch (BT → WS → HTTP).
  */
+
+import { RobotCommandBridge, ROBOT_COMMANDS } from './robotCommandBridge';
 
 export interface RotationCommand {
   direction: 'left' | 'right' | 'stop';
@@ -25,10 +29,16 @@ export class RotationService {
   private _rotating = false;
   private onOrientationCb?: OrientationCallback;
   private pollInterval: ReturnType<typeof setInterval> | null = null;
+  private commandBridge: RobotCommandBridge | null = null;
 
   constructor(robotIP = '192.168.99.1', httpPort = 80) {
     this.robotIP = robotIP;
     this.httpPort = httpPort;
+  }
+
+  /** Attach the shared command bridge for multi-channel dispatch */
+  attachCommandBridge(bridge: RobotCommandBridge) {
+    this.commandBridge = bridge;
   }
 
   setRobotIP(ip: string, port = 80) {
@@ -66,6 +76,31 @@ export class RotationService {
 
   private async sendRotation(cmd: RotationCommand): Promise<boolean> {
     this._rotating = cmd.direction !== 'stop';
+
+    // If command bridge is attached, use multi-channel dispatch (BT → WS → HTTP)
+    if (this.commandBridge) {
+      let bridgeCmd;
+      if (cmd.direction === 'stop') {
+        bridgeCmd = ROBOT_COMMANDS.rotateStop();
+      } else if (cmd.angle !== undefined) {
+        bridgeCmd = ROBOT_COMMANDS.rotateToAngle(cmd.angle, cmd.speed);
+      } else if (cmd.direction === 'left') {
+        bridgeCmd = ROBOT_COMMANDS.rotateLeft(cmd.speed, cmd.duration);
+      } else {
+        bridgeCmd = ROBOT_COMMANDS.rotateRight(cmd.speed, cmd.duration);
+      }
+
+      const result = await this.commandBridge.sendCommand(bridgeCmd);
+
+      if (cmd.duration && cmd.direction !== 'stop') {
+        await new Promise(r => setTimeout(r, cmd.duration));
+        this._rotating = false;
+      }
+
+      return result.success;
+    }
+
+    // Fallback: direct HTTP (original behavior)
     try {
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 5000);
