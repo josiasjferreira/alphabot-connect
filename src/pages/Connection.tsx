@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Wifi, Loader2, CloudOff, KeyRound, BookOpen, ChevronDown, Bluetooth, BluetoothSearching, BluetoothConnected } from 'lucide-react';
+import { Wifi, Loader2, CloudOff, KeyRound, BookOpen, ChevronDown, Bluetooth, BluetoothSearching, BluetoothConnected, RotateCw } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useRobotStore } from '@/store/useRobotStore';
 import { useWebSocket } from '@/hooks/useWebSocket';
@@ -14,7 +14,7 @@ const Connection = () => {
   const navigate = useNavigate();
   const { ip, port, authToken, connectionStatus, bluetoothStatus, bluetoothDevice, error, setConnection, setOfflineMode } = useRobotStore();
   const { connect } = useWebSocket();
-  const { scanAndConnect } = useBluetoothSerial();
+  const { scanAndConnect, reconnectLastDevice, savedDevice } = useBluetoothSerial();
   const [localIp, setLocalIp] = useState(ip);
   const [localPort, setLocalPort] = useState(port);
   const [localToken, setLocalToken] = useState(authToken);
@@ -50,6 +50,13 @@ const Connection = () => {
 
   const handleBluetoothConnect = async () => {
     const success = await scanAndConnect();
+    if (success) {
+      setTimeout(() => navigate('/dashboard'), 800);
+    }
+  };
+
+  const handleBluetoothReconnect = async () => {
+    const success = await reconnectLastDevice();
     if (success) {
       setTimeout(() => navigate('/dashboard'), 800);
     }
@@ -238,6 +245,21 @@ const Connection = () => {
                 )}
                 {isBtScanning ? t('connection.bluetooth.scanning') : t('connection.bluetooth.connect')}
               </motion.button>
+
+              {/* Quick Reconnect to last device */}
+              {savedDevice && bluetoothStatus === 'disconnected' && (
+                <motion.button
+                  whileTap={{ scale: 0.97 }}
+                  onClick={handleBluetoothReconnect}
+                  disabled={isBtScanning}
+                  className="w-full min-h-[48px] rounded-xl border-2 border-primary/40 bg-primary/5 text-primary font-semibold text-sm
+                    flex items-center justify-center gap-2
+                    disabled:opacity-50 active:bg-primary/10 transition-colors"
+                >
+                  <RotateCw className="w-4 h-4" />
+                  {t('connection.bluetooth.reconnectLast', { name: savedDevice.name })}
+                </motion.button>
+              )}
             </motion.div>
           )}
         </AnimatePresence>
