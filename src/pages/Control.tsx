@@ -6,7 +6,8 @@ import EmergencyButton from '@/components/EmergencyButton';
 import { useWebSocket } from '@/hooks/useWebSocket';
 import { useBluetoothSerial } from '@/hooks/useBluetoothSerial';
 import { useRobotStore } from '@/store/useRobotStore';
-import { Bluetooth, BluetoothConnected, Wifi } from 'lucide-react';
+import { rotationService } from '@/services/rotationService';
+import { Bluetooth, BluetoothConnected, Wifi, RotateCcw, RotateCw, Compass } from 'lucide-react';
 
 const Control = () => {
   const { t } = useTranslation();
@@ -17,6 +18,8 @@ const Control = () => {
   const [rotation, setRotation] = useState(30);
   const [currentAngle, setCurrentAngle] = useState(0);
   const [currentDist, setCurrentDist] = useState(0);
+  const [rotationSpeed, setRotationSpeed] = useState(40);
+  const [isRotating, setIsRotating] = useState<'left' | 'right' | null>(null);
   const throttleRef = useRef<ReturnType<typeof setTimeout>>();
 
   const isBtActive = bluetoothStatus === 'paired' || bluetoothStatus === 'connected';
@@ -58,10 +61,27 @@ const Control = () => {
     send({ type: 'emergency_stop', timestamp: Date.now() });
     addLog(t('control.emergencyLog'), 'error');
     useRobotStore.getState().dispatchEvent('EMERGENCY_STOP');
+    rotationService.stop();
+    setIsRotating(null);
 
     if (isBtActive) {
       sendEmergencyStop();
     }
+  };
+
+  const handleRotateLeft = async () => {
+    setIsRotating('left');
+    await rotationService.rotateLeft(rotationSpeed);
+  };
+
+  const handleRotateRight = async () => {
+    setIsRotating('right');
+    await rotationService.rotateRight(rotationSpeed);
+  };
+
+  const handleRotateStop = async () => {
+    await rotationService.stop();
+    setIsRotating(null);
   };
 
   return (
@@ -91,27 +111,74 @@ const Control = () => {
         </div>
 
         <div className="flex gap-4 items-center justify-center">
-          <Joystick size={180} onMove={handleMove} onRelease={handleRelease} />
+          {/* Rotation buttons (left side) */}
+          <div className="flex flex-col items-center gap-2">
+            <button
+              onPointerDown={handleRotateLeft}
+              onPointerUp={handleRotateStop}
+              onPointerLeave={handleRotateStop}
+              className={`w-14 h-14 rounded-xl flex items-center justify-center transition-colors ${
+                isRotating === 'left'
+                  ? 'bg-primary text-primary-foreground shadow-lg'
+                  : 'bg-card border border-border text-foreground active:bg-muted'
+              }`}
+            >
+              <RotateCcw className="w-6 h-6" />
+            </button>
+            <span className="text-[10px] text-muted-foreground font-semibold">
+              {t('control.rotateLeft', 'Esquerda')}
+            </span>
+          </div>
 
-          <div className="flex-1 space-y-4 max-w-[160px]">
-            <div className="text-center">
-              <p className="text-xs text-muted-foreground font-semibold">{t('control.angle')}</p>
-              <p className="text-2xl font-bold text-foreground">{currentAngle}°</p>
-            </div>
-            <div className="text-center">
-              <p className="text-xs text-muted-foreground font-semibold">{t('control.power')}</p>
-              <p className="text-2xl font-bold text-primary">{currentDist}%</p>
-            </div>
+          <Joystick size={160} onMove={handleMove} onRelease={handleRelease} />
 
-            <div>
-              <label className="text-xs text-muted-foreground font-semibold">{t('control.maxSpeed', { value: speed })}</label>
-              <input type="range" min={10} max={100} value={speed} onChange={(e) => setSpeed(Number(e.target.value))} className="w-full accent-primary mt-1" />
-            </div>
+          {/* Rotation buttons (right side) */}
+          <div className="flex flex-col items-center gap-2">
+            <button
+              onPointerDown={handleRotateRight}
+              onPointerUp={handleRotateStop}
+              onPointerLeave={handleRotateStop}
+              className={`w-14 h-14 rounded-xl flex items-center justify-center transition-colors ${
+                isRotating === 'right'
+                  ? 'bg-primary text-primary-foreground shadow-lg'
+                  : 'bg-card border border-border text-foreground active:bg-muted'
+              }`}
+            >
+              <RotateCw className="w-6 h-6" />
+            </button>
+            <span className="text-[10px] text-muted-foreground font-semibold">
+              {t('control.rotateRight', 'Direita')}
+            </span>
+          </div>
+        </div>
 
-            <div>
-              <label className="text-xs text-muted-foreground font-semibold">{t('control.rotation', { value: rotation })}</label>
-              <input type="range" min={10} max={100} value={rotation} onChange={(e) => setRotation(Number(e.target.value))} className="w-full accent-secondary mt-1" />
-            </div>
+        {/* Stats + Sliders */}
+        <div className="grid grid-cols-2 gap-3">
+          <div className="bg-card rounded-xl border border-border p-3 text-center">
+            <p className="text-xs text-muted-foreground font-semibold">{t('control.angle')}</p>
+            <p className="text-2xl font-bold text-foreground">{currentAngle}°</p>
+          </div>
+          <div className="bg-card rounded-xl border border-border p-3 text-center">
+            <p className="text-xs text-muted-foreground font-semibold">{t('control.power')}</p>
+            <p className="text-2xl font-bold text-primary">{currentDist}%</p>
+          </div>
+        </div>
+
+        <div className="space-y-3">
+          <div>
+            <label className="text-xs text-muted-foreground font-semibold">{t('control.maxSpeed', { value: speed })}</label>
+            <input type="range" min={10} max={100} value={speed} onChange={(e) => setSpeed(Number(e.target.value))} className="w-full accent-primary mt-1" />
+          </div>
+          <div>
+            <label className="text-xs text-muted-foreground font-semibold">{t('control.rotation', { value: rotation })}</label>
+            <input type="range" min={10} max={100} value={rotation} onChange={(e) => setRotation(Number(e.target.value))} className="w-full accent-secondary mt-1" />
+          </div>
+          <div>
+            <label className="text-xs text-muted-foreground font-semibold flex items-center gap-1">
+              <Compass className="w-3 h-3" />
+              {t('control.rotationSpeed', { value: rotationSpeed, defaultValue: `Vel. Rotação: ${rotationSpeed}%` })}
+            </label>
+            <input type="range" min={10} max={100} value={rotationSpeed} onChange={(e) => setRotationSpeed(Number(e.target.value))} className="w-full accent-primary mt-1" />
           </div>
         </div>
 

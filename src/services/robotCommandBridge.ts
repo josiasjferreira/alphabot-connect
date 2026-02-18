@@ -70,6 +70,27 @@ export const ROBOT_COMMANDS = {
     params: { color, mode },
     timestamp: Date.now(),
   }),
+  // Rotation commands
+  rotateLeft: (speed = 50, duration?: number) => ({
+    action: 'rotate',
+    params: { direction: 'left', speed, duration },
+    timestamp: Date.now(),
+  }),
+  rotateRight: (speed = 50, duration?: number) => ({
+    action: 'rotate',
+    params: { direction: 'right', speed, duration },
+    timestamp: Date.now(),
+  }),
+  rotateToAngle: (angle: number, speed = 50) => ({
+    action: 'rotate',
+    params: { direction: 'to_angle', speed, angle },
+    timestamp: Date.now(),
+  }),
+  rotateStop: () => ({
+    action: 'rotate',
+    params: { direction: 'stop', speed: 0 },
+    timestamp: Date.now(),
+  }),
 } as const;
 
 export class RobotCommandBridge {
@@ -334,6 +355,12 @@ export class RobotCommandBridge {
   async returnToBase() { return this.sendCommand(ROBOT_COMMANDS.returnToBase()); }
   async queryStatus() { return this.sendCommand(ROBOT_COMMANDS.queryStatus()); }
   async queryPosition() { return this.sendCommand(ROBOT_COMMANDS.queryPosition()); }
+
+  // Rotation convenience methods
+  async rotateLeft(speed = 50, duration?: number) { return this.sendCommand(ROBOT_COMMANDS.rotateLeft(speed, duration)); }
+  async rotateRight(speed = 50, duration?: number) { return this.sendCommand(ROBOT_COMMANDS.rotateRight(speed, duration)); }
+  async rotateToAngle(angle: number, speed = 50) { return this.sendCommand(ROBOT_COMMANDS.rotateToAngle(angle, speed)); }
+  async rotateStop() { return this.sendCommand(ROBOT_COMMANDS.rotateStop()); }
 
   getHistory() { return [...this.commandHistory]; }
 
