@@ -91,7 +91,9 @@
       "settings": "Settings",
       "settingsDesc": "Advanced settings",
       "scanner": "Connection Scanner",
-      "scannerDesc": "Discover sensors & APIs"
+      "scannerDesc": "Discover sensors & APIs",
+      "deliveryTest": "Delivery Test",
+      "deliveryTestDesc": "Simulated E2E flow"
     }
   },
   "control": {
