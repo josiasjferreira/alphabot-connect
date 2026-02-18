@@ -82,6 +82,34 @@ const isNativeAvailable = async (): Promise<boolean> => {
   }
 };
 
+/**
+ * Request Bluetooth permissions on Android (required for Android 6+).
+ * Uses Capacitor Permissions API when available.
+ */
+const requestBluetoothPermissions = async (): Promise<boolean> => {
+  try {
+    // Try Capacitor Permissions plugin
+    const { Capacitor } = await import('@capacitor/core');
+    if (Capacitor.isNativePlatform()) {
+      const plugin = await loadNativePlugin();
+      if (plugin) {
+        // The BluetoothSerial plugin's enable() triggers system permission dialogs
+        try {
+          await plugin.enable();
+        } catch {
+          // User may have denied — but BT might already be on
+        }
+        // Verify BT is enabled after permission request
+        const result = await plugin.isEnabled();
+        return result?.enabled === true;
+      }
+    }
+    return true; // Web environment, no native permissions needed
+  } catch {
+    return true; // Fallback: assume permissions OK
+  }
+};
+
 export const useBluetoothSerial = () => {
   const deviceRef = useRef<any>(null);
   const txCharRef = useRef<any>(null);
@@ -239,7 +267,17 @@ export const useBluetoothSerial = () => {
   // ============ UNIFIED METHODS ============
 
   // Scan and connect — tries native SPP first, then Web BLE
-  const scanAndConnect = useCallback(async () => {
+  const scanAndConnect = useCallback(async (preferredName?: string) => {
+    // Step 1: Request Bluetooth permissions on Android
+    addLog('BT: Solicitando permissões...', 'info');
+    const permGranted = await requestBluetoothPermissions();
+    if (!permGranted) {
+      addLog('BT: Permissões Bluetooth negadas', 'error');
+      setBluetoothStatus('error');
+      return false;
+    }
+    addLog('BT: Permissões OK ✓', 'success');
+
     // Try native SPP first
     const nativeAvail = await isNativeAvailable();
     
@@ -249,34 +287,70 @@ export const useBluetoothSerial = () => {
       
       try {
         const devices = await listPairedSPPDevices();
-        
+        addLog(`SPP: ${devices.length} dispositivo(s) pareado(s)`, 'info');
+
+        // Log all paired devices for debugging
+        devices.forEach((d: any, i: number) => {
+          addLog(`  [${i}] "${d.name || '(sem nome)'}" — ${d.address}`, 'info');
+        });
+
         if (devices.length > 0) {
-          // Connect to first available paired device
-          const device = devices[0];
-          const success = await connectSPP(device.address, device.name || 'CT300');
+          // Try to find preferred device by name (partial match, case-insensitive)
+          let targetDevice = devices[0]; // fallback to first
+
+          if (preferredName) {
+            const match = devices.find((d: any) =>
+              (d.name || '').toLowerCase().includes(preferredName.toLowerCase())
+            );
+            if (match) {
+              targetDevice = match;
+              addLog(`SPP: Dispositivo preferido encontrado: "${match.name}"`, 'success');
+            } else {
+              addLog(`SPP: "${preferredName}" não encontrado, usando "${targetDevice.name}"`, 'warning');
+            }
+          } else {
+            // Look for common robot names (Ken, CT300, AlphaBot, etc.)
+            const robotMatch = devices.find((d: any) => {
+              const name = (d.name || '').toLowerCase();
+              return name.includes('ken') || name.includes('ct300') || name.includes('alpha') || name.includes('robot');
+            });
+            if (robotMatch) {
+              targetDevice = robotMatch;
+              addLog(`SPP: Robô detectado: "${robotMatch.name}"`, 'success');
+            }
+          }
+
+          addLog(`SPP: Conectando a "${targetDevice.name}" (${targetDevice.address})...`, 'info');
+          const success = await connectSPP(targetDevice.address, targetDevice.name || 'CT300');
           return success;
         } else {
           addLog('SPP: Nenhum dispositivo pareado encontrado', 'warning');
+          addLog('SPP: Verifique se o robô está pareado nas configurações do Android', 'warning');
           // Enable discovery
           try {
             const plugin = await loadNativePlugin();
             await plugin?.enable();
             const devices2 = await listPairedSPPDevices();
             if (devices2.length > 0) {
-              return await connectSPP(devices2[0].address, devices2[0].name || 'CT300');
+              const target = devices2.find((d: any) =>
+                (d.name || '').toLowerCase().includes('ken')
+              ) || devices2[0];
+              return await connectSPP(target.address, target.name || 'CT300');
             }
           } catch {}
         }
       } catch (err) {
         addLog(`SPP: ${(err as Error).message}`, 'error');
       }
+    } else {
+      addLog('SPP: Plugin nativo NÃO disponível (modo web)', 'warning');
     }
 
     // Fallback to Web Bluetooth BLE
     try {
       const nav = navigator as any;
       if (!nav.bluetooth) {
-        addLog('Bluetooth não suportado neste dispositivo', 'error');
+        addLog('Bluetooth não suportado neste dispositivo/navegador', 'error');
         setBluetoothStatus('error');
         return false;
       }
