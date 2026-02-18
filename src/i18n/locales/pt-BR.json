@@ -89,7 +89,9 @@
       "interactions": "Interações",
       "interactionsDesc": "Clientes e registros",
       "settings": "Configurações",
-      "settingsDesc": "Ajustes avançados"
+      "settingsDesc": "Ajustes avançados",
+      "scanner": "Scanner de Conexões",
+      "scannerDesc": "Descobrir sensores e APIs"
     }
   },
   "control": {
@@ -481,5 +483,8 @@
     "cancel": "Cancelar",
     "confirmClear": "Confirmar Exclusão",
     "chartTitle": "Interações por Produto"
+  },
+  "scanner": {
+    "title": "🔍 Scanner de Conexões do Robô"
   }
 }

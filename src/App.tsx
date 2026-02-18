@@ -21,6 +21,7 @@ import MqttMonitor from "./pages/MqttMonitor";
 import OtaUpdate from "./pages/OtaUpdate";
 import AdvancedLogs from "./pages/AdvancedLogs";
 import InteractionAdmin from "./pages/InteractionAdmin";
+import RobotConnectionScanner from "./pages/RobotConnectionScanner";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -50,6 +51,7 @@ const App = () => (
           <Route path="/ota" element={<OtaUpdate />} />
           <Route path="/logs" element={<AdvancedLogs />} />
           <Route path="/interactions" element={<InteractionAdmin />} />
+          <Route path="/scanner" element={<RobotConnectionScanner />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </HashRouter>

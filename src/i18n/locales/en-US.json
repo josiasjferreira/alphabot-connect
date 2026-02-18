@@ -89,7 +89,9 @@
       "interactions": "Interactions",
       "interactionsDesc": "Clients & records",
       "settings": "Settings",
-      "settingsDesc": "Advanced settings"
+      "settingsDesc": "Advanced settings",
+      "scanner": "Connection Scanner",
+      "scannerDesc": "Discover sensors & APIs"
     }
   },
   "control": {
@@ -481,5 +483,8 @@
     "cancel": "Cancel",
     "confirmClear": "Confirm Delete",
     "chartTitle": "Interactions by Product"
+  },
+  "scanner": {
+    "title": "🔍 Robot Connection Scanner"
   }
 }
