@@ -97,7 +97,9 @@
       "media": "Mídia do Robô",
       "mediaDesc": "Câmera, áudio e gravação",
       "rotation": "Controle de Rotação",
-      "rotationDesc": "Bússola e giro angular"
+      "rotationDesc": "Bússola e giro angular",
+      "calibration": "Calibração de Sensores",
+      "calibrationDesc": "Calibrar via Bluetooth BLE"
     }
   },
   "control": {

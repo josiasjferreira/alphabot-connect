@@ -97,7 +97,9 @@
       "media": "Robot Media",
       "mediaDesc": "Camera, audio & recording",
       "rotation": "Rotation Control",
-      "rotationDesc": "Compass & angular rotation"
+      "rotationDesc": "Compass & angular rotation",
+      "calibration": "Sensor Calibration",
+      "calibrationDesc": "Calibrate via Bluetooth BLE"
     }
   },
   "control": {
