@@ -95,7 +95,9 @@
       "deliveryTest": "Delivery Test",
       "deliveryTestDesc": "Simulated E2E flow",
       "media": "Robot Media",
-      "mediaDesc": "Camera, audio & recording"
+      "mediaDesc": "Camera, audio & recording",
+      "rotation": "Rotation Control",
+      "rotationDesc": "Compass & angular rotation"
     }
   },
   "control": {
@@ -490,5 +492,23 @@
   },
   "scanner": {
     "title": "🔍 Robot Connection Scanner"
+  },
+  "rotation": {
+    "title": "🧭 Rotation Control",
+    "left": "Left",
+    "right": "Right",
+    "stop": "Stop",
+    "angularSpeed": "Angular Speed: {{value}}%",
+    "gotoAngle": "Rotate to Angle",
+    "go": "Go",
+    "accuracy": "Accuracy",
+    "simulated": "Simulated",
+    "live": "Live Sensor",
+    "statusRotating": "Rotating...",
+    "statusReady": "Ready",
+    "logLeft": "↺ Rotate left (speed: {{speed}}%)",
+    "logRight": "↻ Rotate right (speed: {{speed}}%)",
+    "logStop": "⏹ Rotation stopped",
+    "logGoto": "➜ Rotate to {{angle}}°"
   }
 }

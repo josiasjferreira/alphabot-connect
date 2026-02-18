@@ -95,7 +95,9 @@
       "deliveryTest": "Teste de Delivery",
       "deliveryTestDesc": "Fluxo E2E simulado",
       "media": "Mídia do Robô",
-      "mediaDesc": "Câmera, áudio e gravação"
+      "mediaDesc": "Câmera, áudio e gravação",
+      "rotation": "Controle de Rotação",
+      "rotationDesc": "Bússola e giro angular"
     }
   },
   "control": {
@@ -490,5 +492,23 @@
   },
   "scanner": {
     "title": "🔍 Scanner de Conexões do Robô"
+  },
+  "rotation": {
+    "title": "🧭 Controle de Rotação",
+    "left": "Esq",
+    "right": "Dir",
+    "stop": "Parar",
+    "angularSpeed": "Velocidade Angular: {{value}}%",
+    "gotoAngle": "Girar para Ângulo",
+    "go": "Ir",
+    "accuracy": "Precisão",
+    "simulated": "Simulado",
+    "live": "Sensor Real",
+    "statusRotating": "Rotacionando...",
+    "statusReady": "Pronto",
+    "logLeft": "↺ Rotação esquerda (vel: {{speed}}%)",
+    "logRight": "↻ Rotação direita (vel: {{speed}}%)",
+    "logStop": "⏹ Rotação parada",
+    "logGoto": "➜ Girar para {{angle}}°"
   }
 }
