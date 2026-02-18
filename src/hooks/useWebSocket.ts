@@ -77,10 +77,15 @@ export const useWebSocket = () => {
   const reconnectRef = useRef<ReturnType<typeof setTimeout>>();
   const retriesRef = useRef(0);
   const manualDisconnectRef = useRef(false);
-  const { ip, port, authToken, setConnectionStatus, addLog, updateStatus, offlineMode } = useRobotStore();
+  const { setConnectionStatus, addLog, updateStatus } = useRobotStore();
 
   const attemptConnect = useCallback(() => {
     if (manualDisconnectRef.current) return;
+
+    // Read current values directly from store to avoid stale closures
+    const { ip, port, authToken, offlineMode } = useRobotStore.getState();
+
+    if (offlineMode) return;
 
     // Close any existing connection first
     if (wsRef.current) {
@@ -111,7 +116,7 @@ export const useWebSocket = () => {
           retriesRef.current += 1;
           addLog(`Conexão perdida. Reconectando em ${Math.round(delay / 1000)}s... (${retriesRef.current}/${MAX_RETRIES})`, 'warning');
           reconnectRef.current = setTimeout(() => {
-            if (!offlineMode && !manualDisconnectRef.current) attemptConnect();
+            if (!useRobotStore.getState().offlineMode && !manualDisconnectRef.current) attemptConnect();
           }, delay);
         } else {
           addLog('Limite de reconexões atingido. Reconecte manualmente.', 'error');
@@ -144,9 +149,10 @@ export const useWebSocket = () => {
       setConnectionStatus('error');
       addLog('Falha ao criar conexão WebSocket', 'error');
     }
-  }, [ip, port, authToken, offlineMode, setConnectionStatus, addLog, updateStatus]);
+  }, [setConnectionStatus, addLog, updateStatus]);
 
   const connect = useCallback(() => {
+    const { offlineMode } = useRobotStore.getState();
     if (offlineMode) {
       setConnectionStatus('connected');
       addLog('Modo offline ativado', 'info');
@@ -155,7 +161,7 @@ export const useWebSocket = () => {
     retriesRef.current = 0;
     manualDisconnectRef.current = false;
     attemptConnect();
-  }, [offlineMode, attemptConnect, setConnectionStatus, addLog]);
+  }, [attemptConnect, setConnectionStatus, addLog]);
 
   const disconnect = useCallback(() => {
     manualDisconnectRef.current = true;
@@ -168,7 +174,7 @@ export const useWebSocket = () => {
   }, [setConnectionStatus, addLog]);
 
   const send = useCallback((message: WebSocketMessage) => {
-    if (offlineMode) {
+    if (useRobotStore.getState().offlineMode) {
       addLog(`[Offline] Comando: ${message.type}`);
       return;
     }
@@ -180,7 +186,7 @@ export const useWebSocket = () => {
     } catch (err) {
       addLog(`Mensagem inválida bloqueada: ${message.type}`, 'warning');
     }
-  }, [offlineMode, addLog]);
+  }, [addLog]);
 
   useEffect(() => {
     return () => {
