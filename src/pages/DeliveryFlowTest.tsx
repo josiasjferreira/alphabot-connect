@@ -1,15 +1,15 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { motion } from 'framer-motion';
-import { Play, Square, ArrowLeft, CheckCircle2, XCircle, Loader2, Clock, Wifi, Radio, Monitor, Copy, Bluetooth, Zap, AlertTriangle, ToggleLeft, ToggleRight } from 'lucide-react';
+import { Play, Square, ArrowLeft, CheckCircle2, XCircle, Loader2, Clock, Wifi, Radio, Monitor, Copy, Bluetooth, Zap, AlertTriangle, ToggleLeft, ToggleRight, MapPin, RefreshCw, Activity } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { DeliveryFlowTestService, DEFAULT_FLOW_CONFIG, type DeliveryFlowStep, type DeliveryStatus, type DeliveryFlowConfig } from '@/services/deliveryFlowTestService';
-import { RobotCommandBridge, ROBOT_COMMANDS } from '@/services/robotCommandBridge';
+import { RobotCommandBridge, ROBOT_COMMANDS, type RobotPosition } from '@/services/robotCommandBridge';
 import { useBluetoothSerial } from '@/hooks/useBluetoothSerial';
 import { useWebSocket } from '@/hooks/useWebSocket';
 import { useRobotStore } from '@/store/useRobotStore';
@@ -64,13 +64,20 @@ const DeliveryFlowTest = () => {
   const [realMode, setRealMode] = useState(false);
   const [btConnected, setBtConnected] = useState(false);
 
+  // Real position from BT
+  const [realPosition, setRealPosition] = useState<RobotPosition | null>(null);
+  const [positionSource, setPositionSource] = useState<'simulated' | 'bluetooth' | 'websocket'>('simulated');
+
+  // Channel health
+  const [channelHealth, setChannelHealth] = useState<Record<string, { failures: number; healthy: boolean }>>({});
+
   // Config
   const [robotSN, setRobotSN] = useState(DEFAULT_FLOW_CONFIG.robotSN);
   const [robotIP, setRobotIP] = useState(DEFAULT_FLOW_CONFIG.robotIP);
   const [tableNumber, setTableNumber] = useState(DEFAULT_FLOW_CONFIG.tableNumber);
 
   // Real robot hooks
-  const { scanAndConnect, sendCommand: btSendCommand, sendStop, sendEmergencyStop, disconnectBt, isSerialReady } = useBluetoothSerial();
+  const { scanAndConnect, reconnectLastDevice, sendCommand: btSendCommand, sendStop, sendEmergencyStop, disconnectBt, isSerialReady } = useBluetoothSerial();
   const { connect: wsConnect, disconnect: wsDisconnect, send: wsSend } = useWebSocket();
   const { connectionStatus, bluetoothStatus } = useRobotStore();
 
@@ -78,24 +85,75 @@ const DeliveryFlowTest = () => {
     setLogs(prev => [{ msg, level, ts: Date.now() }, ...prev].slice(0, 300));
   }, []);
 
+  // Setup bridge with all channels + resilience
+  const setupBridge = useCallback(() => {
+    const bridge = new RobotCommandBridge();
+    bridge.setLogger(addLog);
+    bridge.setRetryConfig({ maxRetries: 3, baseDelayMs: 500, maxDelayMs: 5000 });
+
+    // Attach Bluetooth
+    if (isSerialReady) {
+      bridge.attachBluetooth(async (data: string) => {
+        try {
+          const cmd = JSON.parse(data);
+          return await btSendCommand({
+            type: cmd.action === 'goto' ? 'move' : cmd.action === 'emergency_stop' ? 'emergency_stop' : 'status_request',
+            angle: cmd.params?.target_theta || 0,
+            speed: (cmd.params?.speed || 0.5) * 100,
+            rotation: 0,
+            timestamp: Date.now(),
+          });
+        } catch { return false; }
+      });
+    }
+
+    // Attach reconnect functions
+    bridge.attachBluetoothReconnect(async () => {
+      const ok = await reconnectLastDevice();
+      setBtConnected(ok);
+      return ok;
+    });
+
+    bridge.attachWebSocketReconnect(() => wsConnect());
+
+    // Attach WebSocket
+    bridge.attachWebSocket((data: any) => {
+      wsSend({ type: 'navigate', data, timestamp: Date.now() });
+    });
+
+    // Attach HTTP fallback
+    bridge.attachHttp(robotIP);
+
+    // Position callback — replace simulated with real
+    bridge.onPosition((pos) => {
+      setRealPosition(pos);
+      setPositionSource(pos.source);
+      setPosition({ x: +pos.x.toFixed(1), y: +pos.y.toFixed(1), progress: 0 });
+      addLog(`📍 Posição REAL [${pos.source.toUpperCase()}]: (${pos.x.toFixed(1)}, ${pos.y.toFixed(1)}) θ=${pos.theta.toFixed(0)}°`, 'success');
+    });
+
+    bridgeRef.current = bridge;
+    return bridge;
+  }, [addLog, isSerialReady, btSendCommand, reconnectLastDevice, wsConnect, wsSend, robotIP]);
+
+  // Cleanup bridge on unmount
+  useEffect(() => {
+    return () => { bridgeRef.current?.destroy(); };
+  }, []);
+
   // Connect real channels
   const connectRealChannels = useCallback(async () => {
     addLog('🔗 Conectando canais reais...', 'info');
-
-    // Try Bluetooth
     addLog('📡 Tentando Bluetooth...', 'info');
     const btOk = await scanAndConnect();
     setBtConnected(btOk);
     if (btOk) {
       addLog('✓ Bluetooth conectado', 'success');
     } else {
-      addLog('⚠ Bluetooth indisponível — usando somente WebSocket/HTTP', 'warning');
+      addLog('⚠ Bluetooth indisponível — usando WS/HTTP como fallback', 'warning');
     }
-
-    // Connect WebSocket
     addLog('🌐 Conectando WebSocket...', 'info');
     wsConnect();
-
     return btOk;
   }, [scanAndConnect, wsConnect, addLog]);
 
@@ -106,56 +164,29 @@ const DeliveryFlowTest = () => {
     setReport(null);
     setDeliveryStatus('IDLE');
     setPosition({ x: 0, y: 0, progress: 0 });
+    setRealPosition(null);
+    setPositionSource('simulated');
 
     const config: Partial<DeliveryFlowConfig> = { robotSN, robotIP, tableNumber };
     const service = new DeliveryFlowTestService(config);
     serviceRef.current = service;
 
-    // Setup command bridge for real mode
-    const bridge = new RobotCommandBridge();
-    bridgeRef.current = bridge;
-    bridge.setLogger(addLog);
+    const bridge = setupBridge();
 
     if (realMode) {
-      addLog('🚀 MODO REAL — Comandos serão enviados ao robô!', 'warning');
-      
-      // Attach Bluetooth if available
-      if (isSerialReady) {
-        bridge.attachBluetooth(async (data: string) => {
-          try {
-            const cmd = JSON.parse(data);
-            return await btSendCommand({
-              type: cmd.action === 'goto' ? 'move' : cmd.action === 'emergency_stop' ? 'emergency_stop' : 'status_request',
-              angle: cmd.params?.target_theta || 0,
-              speed: (cmd.params?.speed || 0.5) * 100,
-              rotation: 0,
-              timestamp: Date.now(),
-            });
-          } catch {
-            return false;
-          }
-        });
-      }
-
-      // Attach WebSocket
-      bridge.attachWebSocket((data: any) => {
-        wsSend({ type: 'navigate', data, timestamp: Date.now() });
-      });
-
-      // Attach HTTP
-      bridge.attachHttp(robotIP);
-
+      addLog('🚀 MODO REAL — Comandos com retry e fallback BT→WS→HTTP', 'warning');
       addLog(`📡 Canais: ${bridge.getAvailableChannels().join(', ') || 'nenhum'}`, 'info');
+
+      // Start position polling from real sensors
+      bridge.startPositionPolling(1000);
     } else {
       addLog('🧪 MODO SIMULADO — Nenhum comando real será enviado', 'info');
     }
 
-    // Setup callbacks with real command injection
     service.setCallbacks({
-      onStep: (step) => setSteps(service.getSteps()),
+      onStep: () => setSteps(service.getSteps()),
       onStatus: (status) => {
         setDeliveryStatus(status);
-        // In real mode, send LED feedback
         if (realMode && bridge.hasAnyChannel()) {
           if (status === 'DELIVERING') bridge.sendCommand(ROBOT_COMMANDS.setLed('blue', 'solid'));
           if (status === 'ARRIVED') bridge.sendCommand(ROBOT_COMMANDS.setLed('green', 'blink'));
@@ -163,42 +194,40 @@ const DeliveryFlowTest = () => {
           if (status === 'COMPLETED') bridge.sendCommand(ROBOT_COMMANDS.setLed('green', 'solid'));
           if (status === 'FAILED') bridge.sendCommand(ROBOT_COMMANDS.setLed('red', 'blink'));
         }
+        // Update channel health
+        setChannelHealth(bridge.getChannelHealth());
       },
       onPosition: (pos) => {
+        // If we have real position from BT, prefer it
+        if (realMode && realPosition && realPosition.source !== 'simulated') {
+          // Real position is being updated via bridge.onPosition
+          return;
+        }
         setPosition(pos);
-        // In real mode, the position comes from simulation but real goto was sent at phase start
       },
       onLog: addLog,
     });
 
-    // In real mode, hook into phase transitions to send real commands
     if (realMode) {
-      const originalRun = service.runCompleteFlow.bind(service);
-      
-      // We'll intercept by sending real commands at key moments
-      // The simulation still runs for timing/UI, but real commands go out
-      const sendRealCommands = async () => {
-        // Pre-flight: query robot status
-        addLog('═══ MODO REAL: Enviando comandos ao robô ═══', 'warning');
-        await bridge.queryStatus();
-      };
-      
-      await sendRealCommands();
+      addLog('═══ MODO REAL: Enviando comandos com resiliência ═══', 'warning');
+      await bridge.queryStatus();
     }
 
-    // Run the simulation flow (provides timing and UI updates)
     await service.runCompleteFlow();
 
-    // At each phase transition, if real mode, send the real commands
-    // Phase 3 goto is the critical one
+    // Stop position polling
+    bridge.stopPositionPolling();
+
     if (realMode && bridge.hasAnyChannel()) {
-      // The flow already completed simulation, but we already sent commands inline
-      addLog('═══ Fluxo simulado concluído. Comandos reais foram enviados nas fases correspondentes. ═══', 'success');
+      addLog('═══ Fluxo concluído. Comandos reais enviados com fallback automático. ═══', 'success');
+      const health = bridge.getChannelHealth();
+      addLog(`📊 Saúde dos canais — BT: ${health.bluetooth.failures} falhas | WS: ${health.websocket.failures} falhas | HTTP: ${health.http.failures} falhas`, 'info');
     }
 
     const r = service.generateReport();
     setReport(r);
     setRunning(false);
+    setChannelHealth(bridge.getChannelHealth());
 
     const failed = service.getSteps().filter(s => s.status === 'FAILED').length;
     if (failed === 0) {
@@ -206,55 +235,41 @@ const DeliveryFlowTest = () => {
     } else {
       toast.error(`Fluxo concluído com ${failed} falha(s)`);
     }
-  }, [robotSN, robotIP, tableNumber, addLog, realMode, isSerialReady, btSendCommand, wsSend]);
+  }, [robotSN, robotIP, tableNumber, addLog, realMode, setupBridge, realPosition]);
 
-  // Real mode: send individual commands manually
+  // Manual commands
   const sendRealGoto = useCallback(async () => {
-    if (!bridgeRef.current) {
-      const bridge = new RobotCommandBridge();
-      bridge.setLogger(addLog);
-      if (isSerialReady) {
-        bridge.attachBluetooth(async (data: string) => {
-          try {
-            const cmd = JSON.parse(data);
-            return await btSendCommand({
-              type: 'move',
-              angle: cmd.params?.target_theta || 0,
-              speed: (cmd.params?.speed || 0.5) * 100,
-              rotation: 0,
-              timestamp: Date.now(),
-            });
-          } catch { return false; }
-        });
-      }
-      bridge.attachWebSocket((data: any) => wsSend({ type: 'navigate', data, timestamp: Date.now() }));
-      bridge.attachHttp(robotIP);
-      bridgeRef.current = bridge;
-    }
-    const bridge = bridgeRef.current;
+    const bridge = bridgeRef.current || setupBridge();
     const tableCoords = DEFAULT_FLOW_CONFIG.tableCoords;
     addLog(`🎯 GOTO REAL → Mesa ${tableNumber} (${tableCoords.x}, ${tableCoords.y})`, 'warning');
     await bridge.goto(tableCoords.x, tableCoords.y);
-  }, [addLog, robotIP, tableNumber, isSerialReady, btSendCommand, wsSend]);
+    setChannelHealth(bridge.getChannelHealth());
+  }, [addLog, tableNumber, setupBridge]);
 
   const sendRealStop = useCallback(async () => {
-    addLog('🛑 STOP REAL enviado', 'warning');
-    if (isSerialReady) await sendStop();
-    // Also via WS
-    wsSend({ type: 'emergency_stop', timestamp: Date.now() });
-  }, [addLog, isSerialReady, sendStop, wsSend]);
+    addLog('🛑 STOP REAL enviado (todos os canais)', 'warning');
+    const bridge = bridgeRef.current || setupBridge();
+    await bridge.emergencyStop();
+    setChannelHealth(bridge.getChannelHealth());
+  }, [addLog, setupBridge]);
 
   const sendRealReturn = useCallback(async () => {
-    if (!bridgeRef.current) return;
+    const bridge = bridgeRef.current || setupBridge();
     addLog('🏠 RETORNO REAL à base', 'warning');
-    await bridgeRef.current.returnToBase();
-  }, [addLog]);
+    await bridge.returnToBase();
+    setChannelHealth(bridge.getChannelHealth());
+  }, [addLog, setupBridge]);
+
+  const queryRealPosition = useCallback(async () => {
+    const bridge = bridgeRef.current || setupBridge();
+    addLog('📍 Consultando posição real...', 'info');
+    await bridge.queryPosition();
+  }, [addLog, setupBridge]);
 
   const abortTest = useCallback(() => {
     serviceRef.current?.abort();
-    if (realMode) {
-      sendRealStop();
-    }
+    bridgeRef.current?.stopPositionPolling();
+    if (realMode) sendRealStop();
     toast.warning('Teste abortado');
   }, [realMode, sendRealStop]);
 
@@ -281,7 +296,7 @@ const DeliveryFlowTest = () => {
             {realMode ? '🤖 Delivery REAL' : '🧪 Teste de Delivery'}
           </h1>
           <p className="text-[10px] text-muted-foreground">
-            {realMode ? 'Comandos reais via BT + WS + HTTP' : 'HTTP + MQTT + WebSocket — Simulação E2E'}
+            {realMode ? 'Retry automático + Fallback BT→WS→HTTP' : 'HTTP + MQTT + WebSocket — Simulação E2E'}
           </p>
         </div>
         <Badge className={STATUS_COLORS[deliveryStatus]}>{deliveryStatus}</Badge>
@@ -303,15 +318,11 @@ const DeliveryFlowTest = () => {
                     {realMode ? 'MODO REAL — O robô vai se mover!' : 'Modo Simulado'}
                   </p>
                   <p className="text-[10px] text-muted-foreground">
-                    {realMode ? 'Comandos serão enviados ao hardware' : 'Sem comunicação com o robô'}
+                    {realMode ? 'Retry 3x por canal + fallback automático' : 'Sem comunicação com o robô'}
                   </p>
                 </div>
               </div>
-              <button
-                onClick={() => setRealMode(!realMode)}
-                disabled={running}
-                className="p-1"
-              >
+              <button onClick={() => setRealMode(!realMode)} disabled={running} className="p-1">
                 {realMode ? (
                   <ToggleRight className="w-8 h-8 text-warning" />
                 ) : (
@@ -323,14 +334,21 @@ const DeliveryFlowTest = () => {
             {/* Channel status when real mode */}
             {realMode && (
               <div className="mt-3 space-y-2">
-                <div className="flex gap-2">
+                <div className="flex gap-2 flex-wrap">
                   <Badge variant={btReady ? 'default' : 'secondary'} className="text-[10px]">
                     <Bluetooth className="w-3 h-3 mr-1" />
-                    BT: {btReady ? 'Conectado' : 'Desconectado'}
+                    BT: {btReady ? 'OK' : 'Off'}
+                    {channelHealth.bluetooth && !channelHealth.bluetooth.healthy && ' ⚠'}
                   </Badge>
                   <Badge variant={wsReady ? 'default' : 'secondary'} className="text-[10px]">
                     <Monitor className="w-3 h-3 mr-1" />
-                    WS: {wsReady ? 'Conectado' : 'Desconectado'}
+                    WS: {wsReady ? 'OK' : 'Off'}
+                    {channelHealth.websocket && !channelHealth.websocket.healthy && ' ⚠'}
+                  </Badge>
+                  <Badge variant="outline" className="text-[10px]">
+                    <Wifi className="w-3 h-3 mr-1" />
+                    HTTP: Fallback
+                    {channelHealth.http && !channelHealth.http.healthy && ' ⚠'}
                   </Badge>
                 </div>
                 {!btReady && !wsReady && (
@@ -342,6 +360,46 @@ const DeliveryFlowTest = () => {
             )}
           </CardContent>
         </Card>
+
+        {/* Real Position Panel */}
+        {realMode && (
+          <Card className="border-primary/30">
+            <CardContent className="py-3 px-4">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  <MapPin className="w-4 h-4 text-primary" />
+                  <span className="text-xs font-semibold text-foreground">Posição do Robô</span>
+                </div>
+                <Badge variant="outline" className="text-[10px]">
+                  {positionSource === 'bluetooth' ? '📡 BT' : positionSource === 'websocket' ? '🌐 WS' : '🧪 Sim'}
+                </Badge>
+              </div>
+              <div className="grid grid-cols-3 gap-2 text-center">
+                <div className="bg-muted/50 rounded p-2">
+                  <p className="text-[10px] text-muted-foreground">X</p>
+                  <p className="text-sm font-mono font-bold text-foreground">
+                    {realPosition ? realPosition.x.toFixed(1) : position.x}
+                  </p>
+                </div>
+                <div className="bg-muted/50 rounded p-2">
+                  <p className="text-[10px] text-muted-foreground">Y</p>
+                  <p className="text-sm font-mono font-bold text-foreground">
+                    {realPosition ? realPosition.y.toFixed(1) : position.y}
+                  </p>
+                </div>
+                <div className="bg-muted/50 rounded p-2">
+                  <p className="text-[10px] text-muted-foreground">θ</p>
+                  <p className="text-sm font-mono font-bold text-foreground">
+                    {realPosition ? realPosition.theta.toFixed(0) + '°' : '—'}
+                  </p>
+                </div>
+              </div>
+              <Button size="sm" variant="ghost" onClick={queryRealPosition} disabled={running} className="w-full mt-2 text-[10px]">
+                <RefreshCw className="w-3 h-3 mr-1" /> Consultar Posição
+              </Button>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Config */}
         <Card>
@@ -365,9 +423,7 @@ const DeliveryFlowTest = () => {
             </div>
             <div className="flex gap-2">
               {!running ? (
-                <Button onClick={runTest} className="flex-1" size="sm"
-                  variant={realMode ? 'destructive' : 'default'}
-                >
+                <Button onClick={runTest} className="flex-1" size="sm" variant={realMode ? 'destructive' : 'default'}>
                   <Play className="w-4 h-4 mr-1" />
                   {realMode ? 'Executar REAL' : 'Executar Simulado'}
                 </Button>
@@ -411,12 +467,15 @@ const DeliveryFlowTest = () => {
                 <span className="text-[10px] text-muted-foreground">{passed}/{total} passos</span>
               </div>
               <Progress value={total > 0 ? (passed / Math.max(total, 1)) * 100 : 0} className="h-2" />
-              {deliveryStatus === 'DELIVERING' || deliveryStatus === 'RETURNING' ? (
+              {(deliveryStatus === 'DELIVERING' || deliveryStatus === 'RETURNING') && (
                 <div className="flex items-center justify-between text-[10px] text-muted-foreground">
-                  <span>Posição: ({position.x}, {position.y})</span>
+                  <span className="flex items-center gap-1">
+                    <Activity className="w-3 h-3" />
+                    Posição: ({realPosition && realMode ? `${realPosition.x.toFixed(1)}, ${realPosition.y.toFixed(1)}` : `${position.x}, ${position.y}`})
+                  </span>
                   <span>{position.progress}%</span>
                 </div>
-              ) : null}
+              )}
             </CardContent>
           </Card>
         )}
@@ -505,7 +564,7 @@ const DeliveryFlowTest = () => {
         <button onClick={() => navigate('/dashboard')} className="text-xs text-primary font-semibold active:opacity-70">
           Voltar ao Dashboard
         </button>
-        <p className="text-[10px] text-muted-foreground">AlphaBot Companion v1.1.12 • Iascom</p>
+        <p className="text-[10px] text-muted-foreground">AlphaBot Companion v1.2.4 • Iascom</p>
       </div>
     </div>
   );
