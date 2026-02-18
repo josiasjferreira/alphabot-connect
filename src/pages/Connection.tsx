@@ -49,7 +49,8 @@ const Connection = () => {
   };
 
   const handleBluetoothConnect = async () => {
-    const success = await scanAndConnect();
+    // Pass 'Ken' as preferred device name to match "Ken_pareado" etc.
+    const success = await scanAndConnect('Ken');
     if (success) {
       setTimeout(() => navigate('/dashboard'), 800);
     }
