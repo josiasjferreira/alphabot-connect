@@ -93,7 +93,9 @@
       "scanner": "Scanner de Conexões",
       "scannerDesc": "Descobrir sensores e APIs",
       "deliveryTest": "Teste de Delivery",
-      "deliveryTestDesc": "Fluxo E2E simulado"
+      "deliveryTestDesc": "Fluxo E2E simulado",
+      "media": "Mídia do Robô",
+      "mediaDesc": "Câmera, áudio e gravação"
     }
   },
   "control": {

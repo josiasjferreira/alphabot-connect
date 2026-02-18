@@ -1,7 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { motion } from 'framer-motion';
-import { Gamepad2, MessageCircle, Map, BarChart3, Mic, Settings, ShoppingBag, Stethoscope, Package, Shield, Sparkles, Layers, Radio, Download, ScrollText, Camera, VideoOff, Users, Search, FlaskConical } from 'lucide-react';
+import { Gamepad2, MessageCircle, Map, BarChart3, Mic, Settings, ShoppingBag, Stethoscope, Package, Shield, Sparkles, Layers, Radio, Download, ScrollText, Camera, VideoOff, Users, Search, FlaskConical, MonitorPlay } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import StatusHeader from '@/components/StatusHeader';
 import { useRobotStore } from '@/store/useRobotStore';
@@ -290,6 +290,7 @@ const Dashboard = () => {
     { icon: Users, titleKey: 'dashboard.menu.interactions', descKey: 'dashboard.menu.interactionsDesc', path: '/interactions', gradient: 'from-primary to-secondary/80' },
     { icon: Search, titleKey: 'dashboard.menu.scanner', descKey: 'dashboard.menu.scannerDesc', path: '/scanner', gradient: 'from-warning to-success/80' },
     { icon: FlaskConical, titleKey: 'dashboard.menu.deliveryTest', descKey: 'dashboard.menu.deliveryTestDesc', path: '/delivery-test', gradient: 'from-primary to-destructive/80' },
+    { icon: MonitorPlay, titleKey: 'dashboard.menu.media', descKey: 'dashboard.menu.mediaDesc', path: '/media', gradient: 'from-primary to-success/80' },
     { icon: Settings, titleKey: 'dashboard.menu.settings', descKey: 'dashboard.menu.settingsDesc', path: '/settings', gradient: 'from-muted-foreground to-muted-foreground/60' },
   ];
 
