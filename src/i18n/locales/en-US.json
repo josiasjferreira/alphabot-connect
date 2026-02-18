@@ -93,7 +93,9 @@
       "scanner": "Connection Scanner",
       "scannerDesc": "Discover sensors & APIs",
       "deliveryTest": "Delivery Test",
-      "deliveryTestDesc": "Simulated E2E flow"
+      "deliveryTestDesc": "Simulated E2E flow",
+      "media": "Robot Media",
+      "mediaDesc": "Camera, audio & recording"
     }
   },
   "control": {

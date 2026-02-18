@@ -23,6 +23,7 @@ import AdvancedLogs from "./pages/AdvancedLogs";
 import InteractionAdmin from "./pages/InteractionAdmin";
 import RobotConnectionScanner from "./pages/RobotConnectionScanner";
 import DeliveryFlowTest from "./pages/DeliveryFlowTest";
+import Media from "./pages/Media";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -54,6 +55,7 @@ const App = () => (
           <Route path="/interactions" element={<InteractionAdmin />} />
           <Route path="/scanner" element={<RobotConnectionScanner />} />
           <Route path="/delivery-test" element={<DeliveryFlowTest />} />
+          <Route path="/media" element={<Media />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </HashRouter>
