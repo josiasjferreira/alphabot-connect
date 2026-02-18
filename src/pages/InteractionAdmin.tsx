@@ -1,7 +1,8 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { Users, Download, Trash2, RefreshCw, Search, Phone, Package, Clock, CheckCircle, AlertCircle, ChevronDown } from 'lucide-react';
+import { Users, Download, Trash2, RefreshCw, Search, Phone, Package, Clock, CheckCircle, AlertCircle, ChevronDown, BarChart3 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import StatusHeader from '@/components/StatusHeader';
 import { getAllInteractions, getUnsyncedInteractions, clearAllInteractions, type InteractionRecord } from '@/db/interactionDatabase';
 
@@ -38,6 +39,27 @@ const InteractionAdmin = () => {
 
   // Group by unique clients (non-empty name)
   const uniqueClients = new Set(interactions.filter(r => r.clientName && r.clientName !== 'anônimo').map(r => r.clientName));
+
+  // Chart data: interactions per product
+  const CHART_COLORS = [
+    'hsl(var(--primary))',
+    'hsl(var(--secondary))',
+    'hsl(var(--warning))',
+    'hsl(var(--success))',
+    'hsl(var(--destructive))',
+    'hsl(var(--accent))',
+  ];
+
+  const productChartData = useMemo(() => {
+    const map = new Map<string, number>();
+    interactions.forEach(r => {
+      map.set(r.productId, (map.get(r.productId) || 0) + 1);
+    });
+    return Array.from(map.entries())
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 10);
+  }, [interactions]);
 
   const handleExportCSV = () => {
     const headers = ['ID', 'Data/Hora', 'Cliente', 'WhatsApp', 'Produto', 'Detalhes', 'Sincronizado'];
@@ -144,6 +166,41 @@ const InteractionAdmin = () => {
             {t('interactionAdmin.exportJSON')}
           </motion.button>
         </div>
+
+        {/* Product Chart */}
+        {productChartData.length > 0 && (
+          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}
+            className="bg-card rounded-2xl border border-border shadow-card p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <BarChart3 className="w-4 h-4 text-primary" />
+              <h3 className="text-sm font-semibold text-foreground">{t('interactionAdmin.chartTitle')}</h3>
+            </div>
+            <div className="h-48">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={productChartData} margin={{ top: 5, right: 5, bottom: 5, left: -15 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                  <XAxis dataKey="name" tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} />
+                  <YAxis allowDecimals={false} tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: 'hsl(var(--card))',
+                      border: '1px solid hsl(var(--border))',
+                      borderRadius: '8px',
+                      fontSize: '12px',
+                      color: 'hsl(var(--foreground))',
+                    }}
+                    labelStyle={{ color: 'hsl(var(--foreground))' }}
+                  />
+                  <Bar dataKey="count" radius={[6, 6, 0, 0]}>
+                    {productChartData.map((_, idx) => (
+                      <Cell key={idx} fill={CHART_COLORS[idx % CHART_COLORS.length]} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </motion.div>
+        )}
 
         {/* Interaction List */}
         <div className="space-y-2">

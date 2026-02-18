@@ -11,11 +11,18 @@ export interface ChatMessage {
   synced: boolean;
 }
 
+export interface MediaAttachment {
+  type: 'audio' | 'video';
+  url: string;
+  label?: string;
+}
+
 export interface KnowledgeItem {
   id: string;
   title: string;
   content: string;
   tags: string[];
+  media?: MediaAttachment[];
   version: number;
   source: string; // 'local' | 'remote' | 'seed'
   updatedAt: number;

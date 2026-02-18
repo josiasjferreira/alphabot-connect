@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion } from 'framer-motion';
-import { Wifi, WifiOff, Volume2, Gauge, Moon, Sun, RotateCcw, Trash2, Zap, Activity, Network, Brain, RefreshCw, Search, Tag, X, Plus, Pencil, Check } from 'lucide-react';
+import { Wifi, WifiOff, Volume2, Gauge, Moon, Sun, RotateCcw, Trash2, Zap, Activity, Network, Brain, RefreshCw, Search, Tag, X, Plus, Pencil, Check, Video, Music, Link } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import StatusHeader from '@/components/StatusHeader';
 import { Slider } from '@/components/ui/slider';
@@ -11,7 +11,7 @@ import { useRobotStore } from '@/store/useRobotStore';
 import { useWebSocket } from '@/hooks/useWebSocket';
 import { useSettingsStore } from '@/store/useSettingsStore';
 import { Progress } from '@/components/ui/progress';
-import { getAllKnowledge, searchKnowledge, seedKnowledgeIfEmpty, clearAllMessages, upsertKnowledge, deleteKnowledge, type KnowledgeItem } from '@/db/chatDatabase';
+import { getAllKnowledge, searchKnowledge, seedKnowledgeIfEmpty, clearAllMessages, upsertKnowledge, deleteKnowledge, type KnowledgeItem, type MediaAttachment } from '@/db/chatDatabase';
 import { useSyncStatus } from '@/hooks/useSyncStatus';
 
 const Settings = () => {
@@ -46,6 +46,7 @@ const Settings = () => {
   const [formTitle, setFormTitle] = useState('');
   const [formContent, setFormContent] = useState('');
   const [formTags, setFormTags] = useState('');
+  const [formMedia, setFormMedia] = useState<MediaAttachment[]>([]);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const { syncState, isSyncing, doSync, formatLastSync } = useSyncStatus();
 
@@ -70,6 +71,7 @@ const Settings = () => {
     setFormTitle('');
     setFormContent('');
     setFormTags('');
+    setFormMedia([]);
     setEditingItem(null);
     setShowAddForm(false);
   };
@@ -84,6 +86,7 @@ const Settings = () => {
     setFormTitle(item.title);
     setFormContent(item.content);
     setFormTags(item.tags.join(', '));
+    setFormMedia(item.media || []);
     setEditingItem(item);
     setShowAddForm(true);
     setExpandedItem(null);
@@ -95,9 +98,10 @@ const Settings = () => {
     if (!title || !content) return;
 
     const tags = formTags.split(',').map(t => t.trim()).filter(Boolean);
+    const validMedia = formMedia.filter(m => m.url.trim());
     const item: KnowledgeItem = editingItem
-      ? { ...editingItem, title, content, tags, version: editingItem.version + 1, updatedAt: Date.now(), synced: false }
-      : { id: `k-${Date.now()}`, title, content, tags, version: 1, source: 'local', updatedAt: Date.now(), synced: false };
+      ? { ...editingItem, title, content, tags, media: validMedia, version: editingItem.version + 1, updatedAt: Date.now(), synced: false }
+      : { id: `k-${Date.now()}`, title, content, tags, media: validMedia, version: 1, source: 'local', updatedAt: Date.now(), synced: false };
 
     await upsertKnowledge(item);
     resetForm();
@@ -471,6 +475,57 @@ const Settings = () => {
                     placeholder={t('settings.knowledge.tagsPlaceholder')}
                     className="w-full h-10 px-3 rounded-lg bg-background border border-border text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
                   />
+
+                  {/* Media Attachments */}
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <p className="text-[10px] font-semibold text-muted-foreground uppercase">{t('settings.knowledge.media')}</p>
+                      <div className="flex gap-1">
+                        <button type="button" onClick={() => setFormMedia([...formMedia, { type: 'audio', url: '' }])}
+                          className="h-6 px-2 rounded bg-muted text-muted-foreground text-[10px] font-medium flex items-center gap-1 hover:bg-muted/80">
+                          <Music className="w-3 h-3" /> {t('settings.knowledge.addAudio')}
+                        </button>
+                        <button type="button" onClick={() => setFormMedia([...formMedia, { type: 'video', url: '' }])}
+                          className="h-6 px-2 rounded bg-muted text-muted-foreground text-[10px] font-medium flex items-center gap-1 hover:bg-muted/80">
+                          <Video className="w-3 h-3" /> {t('settings.knowledge.addVideo')}
+                        </button>
+                      </div>
+                    </div>
+                    {formMedia.map((m, idx) => (
+                      <div key={idx} className="flex items-center gap-1.5">
+                        <span className="text-muted-foreground flex-shrink-0">
+                          {m.type === 'audio' ? <Music className="w-3.5 h-3.5" /> : <Video className="w-3.5 h-3.5" />}
+                        </span>
+                        <input
+                          type="url"
+                          value={m.url}
+                          onChange={(e) => {
+                            const updated = [...formMedia];
+                            updated[idx] = { ...m, url: e.target.value };
+                            setFormMedia(updated);
+                          }}
+                          placeholder={m.type === 'audio' ? t('settings.knowledge.audioUrlPlaceholder') : t('settings.knowledge.videoUrlPlaceholder')}
+                          className="flex-1 h-8 px-2 rounded bg-background border border-border text-foreground text-xs focus:outline-none focus:ring-1 focus:ring-primary/30"
+                        />
+                        <input
+                          type="text"
+                          value={m.label || ''}
+                          onChange={(e) => {
+                            const updated = [...formMedia];
+                            updated[idx] = { ...m, label: e.target.value };
+                            setFormMedia(updated);
+                          }}
+                          placeholder={t('settings.knowledge.mediaLabel')}
+                          className="w-24 h-8 px-2 rounded bg-background border border-border text-foreground text-xs focus:outline-none focus:ring-1 focus:ring-primary/30"
+                        />
+                        <button type="button" onClick={() => setFormMedia(formMedia.filter((_, i) => i !== idx))}
+                          className="text-destructive/60 hover:text-destructive">
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+
                   <div className="flex gap-2">
                     <button onClick={handleSaveItem} disabled={!formTitle.trim() || !formContent.trim()}
                       className="flex-1 h-10 rounded-lg gradient-primary text-primary-foreground font-semibold text-sm flex items-center justify-center gap-1.5 disabled:opacity-40">
@@ -537,6 +592,26 @@ const Settings = () => {
                       {expandedItem === item.id && (
                         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mt-2 pt-2 border-t border-border/30">
                           <p className="text-xs text-muted-foreground leading-relaxed">{item.content}</p>
+                          {item.media && item.media.length > 0 && (
+                            <div className="mt-2 space-y-1.5">
+                              {item.media.map((m, mi) => (
+                                <div key={mi} className="rounded-lg overflow-hidden border border-border/50">
+                                  {m.type === 'audio' ? (
+                                    <div className="flex items-center gap-2 p-2 bg-muted/20">
+                                      <Music className="w-3.5 h-3.5 text-primary flex-shrink-0" />
+                                      <span className="text-[10px] text-muted-foreground flex-1 truncate">{m.label || m.url}</span>
+                                      <audio controls preload="none" src={m.url} className="h-7 max-w-[160px]" />
+                                    </div>
+                                  ) : (
+                                    <div>
+                                      <video controls preload="none" src={m.url} className="w-full max-h-36 bg-black" />
+                                      {m.label && <p className="text-[10px] text-muted-foreground p-1.5">{m.label}</p>}
+                                    </div>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          )}
                           <p className="text-[10px] text-muted-foreground mt-2">
                             v{item.version} • {new Date(item.updatedAt).toLocaleDateString()}
                           </p>
