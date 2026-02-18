@@ -28,7 +28,7 @@ export const unlockAudio = (): void => {
   } catch {}
 };
 
-type ToneType = 'happy' | 'warm' | 'love' | 'celebrate' | 'magic';
+type ToneType = 'happy' | 'warm' | 'love' | 'celebrate' | 'magic' | 'arrival' | 'returnBase' | 'deliveryStart' | 'alert';
 
 const toneConfigs: Record<ToneType, { notes: number[]; duration: number; waveform: OscillatorType }> = {
   happy: { notes: [523, 659, 784, 659, 523], duration: 0.3, waveform: 'sine' },
@@ -36,6 +36,11 @@ const toneConfigs: Record<ToneType, { notes: number[]; duration: number; wavefor
   love: { notes: [440, 554, 659, 554, 440, 554, 659], duration: 0.35, waveform: 'sine' },
   celebrate: { notes: [523, 659, 784, 880, 1047, 880, 784], duration: 0.2, waveform: 'square' },
   magic: { notes: [659, 784, 880, 1047, 1319], duration: 0.25, waveform: 'sine' },
+  // Delivery-specific tones
+  arrival: { notes: [784, 988, 1175, 1319, 1175, 988], duration: 0.2, waveform: 'sine' },
+  returnBase: { notes: [659, 523, 440, 523, 659], duration: 0.25, waveform: 'triangle' },
+  deliveryStart: { notes: [440, 523, 659, 784], duration: 0.15, waveform: 'sine' },
+  alert: { notes: [880, 660, 880, 660], duration: 0.15, waveform: 'square' },
 };
 
 export const playBackgroundTone = (type: ToneType, volume = 0.15): (() => void) => {
@@ -70,6 +75,19 @@ export const playBackgroundTone = (type: ToneType, volume = 0.15): (() => void) 
   }
 };
 
+/** Send a browser push notification (requests permission if needed) */
+export const sendPushNotification = async (title: string, body: string, icon = '/icon-192.png'): Promise<void> => {
+  try {
+    if (!('Notification' in window)) return;
+    if (Notification.permission === 'default') {
+      await Notification.requestPermission();
+    }
+    if (Notification.permission === 'granted') {
+      new Notification(title, { body, icon, badge: icon });
+    }
+  } catch {}
+};
+
 export const animationSounds: Record<string, ToneType> = {
   wave: 'happy',
   welcome: 'warm',
@@ -77,4 +95,12 @@ export const animationSounds: Record<string, ToneType> = {
   celebrate: 'celebrate',
   star: 'magic',
   custom: 'happy',
+};
+
+export const deliverySounds: Record<string, ToneType> = {
+  start: 'deliveryStart',
+  arrived: 'arrival',
+  returned: 'returnBase',
+  failed: 'alert',
+  completed: 'celebrate',
 };

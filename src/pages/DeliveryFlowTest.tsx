@@ -1,8 +1,8 @@
-import { useState, useRef, useCallback, useEffect } from 'react';
+import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { motion } from 'framer-motion';
-import { Play, Square, ArrowLeft, CheckCircle2, XCircle, Loader2, Clock, Wifi, Radio, Monitor, Copy, Bluetooth, Zap, AlertTriangle, ToggleLeft, ToggleRight, MapPin, RefreshCw, Activity } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Play, Square, ArrowLeft, CheckCircle2, XCircle, Loader2, Clock, Wifi, Radio, Monitor, Copy, Bluetooth, Zap, AlertTriangle, ToggleLeft, ToggleRight, MapPin, RefreshCw, Activity, Volume2, VolumeX } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -13,6 +13,7 @@ import { RobotCommandBridge, ROBOT_COMMANDS, type RobotPosition } from '@/servic
 import { useBluetoothSerial } from '@/hooks/useBluetoothSerial';
 import { useWebSocket } from '@/hooks/useWebSocket';
 import { useRobotStore } from '@/store/useRobotStore';
+import { playBackgroundTone, sendPushNotification } from '@/lib/audioEffects';
 import { toast } from 'sonner';
 
 interface LogEntry {
@@ -47,6 +48,147 @@ const PROTOCOL_ICON: Record<string, typeof Wifi> = {
   INTERNAL: Clock,
 };
 
+// ─── 2D Delivery Map Component ───────────────────────────────────────────────
+
+interface DeliveryMap2DProps {
+  robotPos: { x: number; y: number };
+  tableCoords: { x: number; y: number };
+  baseCoords: { x: number; y: number };
+  status: DeliveryStatus;
+  positionHistory: Array<{ x: number; y: number }>;
+  positionSource: 'simulated' | 'bluetooth' | 'websocket';
+}
+
+const TABLES = [
+  { id: 1, x: 20, y: 30 },
+  { id: 3, x: 35, y: 50 },
+  { id: 5, x: 50, y: 75 },
+  { id: 8, x: 70, y: 40 },
+];
+
+const DeliveryMap2D = ({ robotPos, tableCoords, baseCoords, status, positionHistory, positionSource }: DeliveryMap2DProps) => {
+  const MAP_W = 100;
+  const MAP_H = 100;
+  const SVG_W = 320;
+  const SVG_H = 240;
+
+  const toSvg = (x: number, y: number) => ({
+    sx: (x / MAP_W) * SVG_W,
+    sy: SVG_H - (y / MAP_H) * SVG_H,
+  });
+
+  const robot = toSvg(robotPos.x, robotPos.y);
+  const table = toSvg(tableCoords.x, tableCoords.y);
+  const base = toSvg(baseCoords.x, baseCoords.y);
+
+  const pathPoints = positionHistory.map(p => {
+    const s = toSvg(p.x, p.y);
+    return `${s.sx},${s.sy}`;
+  }).join(' ');
+
+  const isMoving = status === 'DELIVERING' || status === 'RETURNING';
+
+  return (
+    <div className="relative w-full rounded-lg overflow-hidden bg-muted/30 border border-border">
+      <svg viewBox={`0 0 ${SVG_W} ${SVG_H}`} className="w-full h-auto" style={{ maxHeight: 220 }}>
+        {/* Grid */}
+        <defs>
+          <pattern id="grid" width="32" height="24" patternUnits="userSpaceOnUse">
+            <path d="M 32 0 L 0 0 0 24" fill="none" stroke="hsl(var(--border))" strokeWidth="0.5" opacity="0.3" />
+          </pattern>
+          {/* Robot glow */}
+          <radialGradient id="robotGlow">
+            <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity="0.4" />
+            <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity="0" />
+          </radialGradient>
+        </defs>
+        <rect width={SVG_W} height={SVG_H} fill="url(#grid)" />
+
+        {/* All tables */}
+        {TABLES.map(t => {
+          const tp = toSvg(t.x, t.y);
+          const isTarget = t.x === tableCoords.x && t.y === tableCoords.y;
+          return (
+            <g key={t.id}>
+              <rect
+                x={tp.sx - 8} y={tp.sy - 8} width={16} height={16} rx={3}
+                fill={isTarget ? 'hsl(var(--primary))' : 'hsl(var(--muted-foreground))'}
+                opacity={isTarget ? 0.8 : 0.2}
+                stroke={isTarget ? 'hsl(var(--primary))' : 'none'}
+                strokeWidth={isTarget ? 1.5 : 0}
+              />
+              <text x={tp.sx} y={tp.sy + 3.5} textAnchor="middle" fontSize="8" fontWeight="bold"
+                fill={isTarget ? 'hsl(var(--primary-foreground))' : 'hsl(var(--muted-foreground))'}
+              >
+                {t.id}
+              </text>
+            </g>
+          );
+        })}
+
+        {/* Base marker */}
+        <circle cx={base.sx} cy={base.sy} r={6} fill="hsl(var(--muted-foreground))" opacity="0.3" />
+        <text x={base.sx} y={base.sy - 9} textAnchor="middle" fontSize="7" fill="hsl(var(--muted-foreground))">
+          BASE
+        </text>
+        <circle cx={base.sx} cy={base.sy} r={3} fill="hsl(var(--foreground))" opacity="0.5" />
+
+        {/* Path trail */}
+        {positionHistory.length > 1 && (
+          <polyline
+            points={pathPoints}
+            fill="none"
+            stroke="hsl(var(--primary))"
+            strokeWidth="1.5"
+            strokeDasharray="4,2"
+            opacity="0.5"
+          />
+        )}
+
+        {/* Direct line from robot to target */}
+        {isMoving && (
+          <line
+            x1={robot.sx} y1={robot.sy}
+            x2={status === 'DELIVERING' ? table.sx : base.sx}
+            y2={status === 'DELIVERING' ? table.sy : base.sy}
+            stroke="hsl(var(--primary))"
+            strokeWidth="0.8"
+            strokeDasharray="3,3"
+            opacity="0.3"
+          />
+        )}
+
+        {/* Robot position */}
+        <circle cx={robot.sx} cy={robot.sy} r={14} fill="url(#robotGlow)" />
+        {isMoving && (
+          <circle cx={robot.sx} cy={robot.sy} r={10} fill="none" stroke="hsl(var(--primary))" strokeWidth="0.8" opacity="0.3">
+            <animate attributeName="r" from="6" to="14" dur="1.5s" repeatCount="indefinite" />
+            <animate attributeName="opacity" from="0.5" to="0" dur="1.5s" repeatCount="indefinite" />
+          </circle>
+        )}
+        <circle cx={robot.sx} cy={robot.sy} r={5}
+          fill={status === 'ARRIVED' ? 'hsl(var(--success))' : status === 'FAILED' ? 'hsl(var(--destructive))' : 'hsl(var(--primary))'}
+        />
+        <text x={robot.sx} y={robot.sy - 9} textAnchor="middle" fontSize="7" fontWeight="600" fill="hsl(var(--foreground))">
+          🤖
+        </text>
+      </svg>
+
+      {/* Overlay info */}
+      <div className="absolute bottom-1 left-1 flex gap-1">
+        <Badge variant="outline" className="text-[8px] py-0 px-1 bg-background/80">
+          {positionSource === 'bluetooth' ? '📡 BT' : positionSource === 'websocket' ? '🌐 WS' : '🧪 Sim'}
+        </Badge>
+        <Badge variant="outline" className="text-[8px] py-0 px-1 bg-background/80">
+          ({robotPos.x.toFixed(0)}, {robotPos.y.toFixed(0)})
+        </Badge>
+      </div>
+    </div>
+  );
+};
+
+// ─── Main Component ──────────────────────────────────────────────────────────
+
 const DeliveryFlowTest = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -71,6 +213,12 @@ const DeliveryFlowTest = () => {
   // Channel health
   const [channelHealth, setChannelHealth] = useState<Record<string, { failures: number; healthy: boolean }>>({});
 
+  // Position history for map trail
+  const [positionHistory, setPositionHistory] = useState<Array<{ x: number; y: number }>>([]);
+
+  // Audio toggle
+  const [audioEnabled, setAudioEnabled] = useState(true);
+
   // Config
   const [robotSN, setRobotSN] = useState(DEFAULT_FLOW_CONFIG.robotSN);
   const [robotIP, setRobotIP] = useState(DEFAULT_FLOW_CONFIG.robotIP);
@@ -81,9 +229,48 @@ const DeliveryFlowTest = () => {
   const { connect: wsConnect, disconnect: wsDisconnect, send: wsSend } = useWebSocket();
   const { connectionStatus, bluetoothStatus } = useRobotStore();
 
+  // Previous status for detecting transitions
+  const prevStatusRef = useRef<DeliveryStatus>('IDLE');
+
   const addLog = useCallback((msg: string, level: LogEntry['level']) => {
     setLogs(prev => [{ msg, level, ts: Date.now() }, ...prev].slice(0, 300));
   }, []);
+
+  // Audio + push notifications on status changes
+  const handleStatusNotification = useCallback((newStatus: DeliveryStatus) => {
+    const prev = prevStatusRef.current;
+    prevStatusRef.current = newStatus;
+    if (prev === newStatus) return;
+
+    if (newStatus === 'DELIVERING' && prev !== 'DELIVERING') {
+      if (audioEnabled) playBackgroundTone('deliveryStart', 0.2);
+      sendPushNotification('🚗 Entrega Iniciada', `Robô a caminho da mesa ${tableNumber}`);
+      toast.info('🚗 Entrega iniciada!');
+    }
+
+    if (newStatus === 'ARRIVED') {
+      if (audioEnabled) playBackgroundTone('arrival', 0.25);
+      sendPushNotification('🎯 Chegou na Mesa!', `O robô chegou na mesa ${tableNumber}. Retire os itens.`);
+      toast.success('🎯 Robô chegou na mesa!');
+    }
+
+    if (newStatus === 'COMPLETED') {
+      if (audioEnabled) playBackgroundTone('celebrate', 0.2);
+      sendPushNotification('✅ Entrega Completa', 'O robô retornou à base com sucesso.');
+      toast.success('✅ Entrega completa! Robô na base.');
+    }
+
+    if (newStatus === 'RETURNING') {
+      if (audioEnabled) playBackgroundTone('returnBase', 0.15);
+      sendPushNotification('🏠 Retornando à Base', 'O robô está voltando para a base.');
+    }
+
+    if (newStatus === 'FAILED') {
+      if (audioEnabled) playBackgroundTone('alert', 0.3);
+      sendPushNotification('❌ Falha na Entrega', 'O fluxo de entrega encontrou um erro.');
+      toast.error('❌ Falha na entrega!');
+    }
+  }, [audioEnabled, tableNumber]);
 
   // Setup bridge with all channels + resilience
   const setupBridge = useCallback(() => {
@@ -91,7 +278,6 @@ const DeliveryFlowTest = () => {
     bridge.setLogger(addLog);
     bridge.setRetryConfig({ maxRetries: 3, baseDelayMs: 500, maxDelayMs: 5000 });
 
-    // Attach Bluetooth
     if (isSerialReady) {
       bridge.attachBluetooth(async (data: string) => {
         try {
@@ -107,52 +293,37 @@ const DeliveryFlowTest = () => {
       });
     }
 
-    // Attach reconnect functions
     bridge.attachBluetoothReconnect(async () => {
       const ok = await reconnectLastDevice();
       setBtConnected(ok);
       return ok;
     });
-
     bridge.attachWebSocketReconnect(() => wsConnect());
-
-    // Attach WebSocket
     bridge.attachWebSocket((data: any) => {
       wsSend({ type: 'navigate', data, timestamp: Date.now() });
     });
-
-    // Attach HTTP fallback
     bridge.attachHttp(robotIP);
 
-    // Position callback — replace simulated with real
     bridge.onPosition((pos) => {
       setRealPosition(pos);
       setPositionSource(pos.source);
       setPosition({ x: +pos.x.toFixed(1), y: +pos.y.toFixed(1), progress: 0 });
-      addLog(`📍 Posição REAL [${pos.source.toUpperCase()}]: (${pos.x.toFixed(1)}, ${pos.y.toFixed(1)}) θ=${pos.theta.toFixed(0)}°`, 'success');
+      setPositionHistory(prev => [...prev, { x: pos.x, y: pos.y }].slice(-100));
     });
 
     bridgeRef.current = bridge;
     return bridge;
   }, [addLog, isSerialReady, btSendCommand, reconnectLastDevice, wsConnect, wsSend, robotIP]);
 
-  // Cleanup bridge on unmount
   useEffect(() => {
     return () => { bridgeRef.current?.destroy(); };
   }, []);
 
-  // Connect real channels
   const connectRealChannels = useCallback(async () => {
     addLog('🔗 Conectando canais reais...', 'info');
-    addLog('📡 Tentando Bluetooth...', 'info');
     const btOk = await scanAndConnect();
     setBtConnected(btOk);
-    if (btOk) {
-      addLog('✓ Bluetooth conectado', 'success');
-    } else {
-      addLog('⚠ Bluetooth indisponível — usando WS/HTTP como fallback', 'warning');
-    }
-    addLog('🌐 Conectando WebSocket...', 'info');
+    addLog(btOk ? '✓ Bluetooth conectado' : '⚠ Bluetooth indisponível', btOk ? 'success' : 'warning');
     wsConnect();
     return btOk;
   }, [scanAndConnect, wsConnect, addLog]);
@@ -166,27 +337,32 @@ const DeliveryFlowTest = () => {
     setPosition({ x: 0, y: 0, progress: 0 });
     setRealPosition(null);
     setPositionSource('simulated');
+    setPositionHistory([{ x: 0, y: 0 }]);
+    prevStatusRef.current = 'IDLE';
+
+    // Request notification permission
+    if ('Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission();
+    }
 
     const config: Partial<DeliveryFlowConfig> = { robotSN, robotIP, tableNumber };
     const service = new DeliveryFlowTestService(config);
     serviceRef.current = service;
-
     const bridge = setupBridge();
 
     if (realMode) {
-      addLog('🚀 MODO REAL — Comandos com retry e fallback BT→WS→HTTP', 'warning');
+      addLog('🚀 MODO REAL — Retry + Fallback BT→WS→HTTP', 'warning');
       addLog(`📡 Canais: ${bridge.getAvailableChannels().join(', ') || 'nenhum'}`, 'info');
-
-      // Start position polling from real sensors
       bridge.startPositionPolling(1000);
     } else {
-      addLog('🧪 MODO SIMULADO — Nenhum comando real será enviado', 'info');
+      addLog('🧪 MODO SIMULADO', 'info');
     }
 
     service.setCallbacks({
       onStep: () => setSteps(service.getSteps()),
       onStatus: (status) => {
         setDeliveryStatus(status);
+        handleStatusNotification(status);
         if (realMode && bridge.hasAnyChannel()) {
           if (status === 'DELIVERING') bridge.sendCommand(ROBOT_COMMANDS.setLed('blue', 'solid'));
           if (status === 'ARRIVED') bridge.sendCommand(ROBOT_COMMANDS.setLed('green', 'blink'));
@@ -194,60 +370,49 @@ const DeliveryFlowTest = () => {
           if (status === 'COMPLETED') bridge.sendCommand(ROBOT_COMMANDS.setLed('green', 'solid'));
           if (status === 'FAILED') bridge.sendCommand(ROBOT_COMMANDS.setLed('red', 'blink'));
         }
-        // Update channel health
         setChannelHealth(bridge.getChannelHealth());
       },
       onPosition: (pos) => {
-        // If we have real position from BT, prefer it
-        if (realMode && realPosition && realPosition.source !== 'simulated') {
-          // Real position is being updated via bridge.onPosition
-          return;
-        }
+        if (realMode && realPosition && realPosition.source !== 'simulated') return;
         setPosition(pos);
+        setPositionHistory(prev => [...prev, { x: pos.x, y: pos.y }].slice(-100));
       },
       onLog: addLog,
     });
 
     if (realMode) {
-      addLog('═══ MODO REAL: Enviando comandos com resiliência ═══', 'warning');
       await bridge.queryStatus();
     }
 
     await service.runCompleteFlow();
-
-    // Stop position polling
     bridge.stopPositionPolling();
 
     if (realMode && bridge.hasAnyChannel()) {
-      addLog('═══ Fluxo concluído. Comandos reais enviados com fallback automático. ═══', 'success');
       const health = bridge.getChannelHealth();
-      addLog(`📊 Saúde dos canais — BT: ${health.bluetooth.failures} falhas | WS: ${health.websocket.failures} falhas | HTTP: ${health.http.failures} falhas`, 'info');
+      addLog(`📊 Canais — BT: ${health.bluetooth.failures} falhas | WS: ${health.websocket.failures} falhas | HTTP: ${health.http.failures} falhas`, 'info');
     }
 
-    const r = service.generateReport();
-    setReport(r);
+    setReport(service.generateReport());
     setRunning(false);
     setChannelHealth(bridge.getChannelHealth());
 
-    const failed = service.getSteps().filter(s => s.status === 'FAILED').length;
-    if (failed === 0) {
+    const failedCount = service.getSteps().filter(s => s.status === 'FAILED').length;
+    if (failedCount === 0) {
       toast.success(realMode ? 'Fluxo real concluído!' : 'Fluxo simulado concluído!');
     } else {
-      toast.error(`Fluxo concluído com ${failed} falha(s)`);
+      toast.error(`Fluxo concluído com ${failedCount} falha(s)`);
     }
-  }, [robotSN, robotIP, tableNumber, addLog, realMode, setupBridge, realPosition]);
+  }, [robotSN, robotIP, tableNumber, addLog, realMode, setupBridge, handleStatusNotification, realPosition]);
 
-  // Manual commands
   const sendRealGoto = useCallback(async () => {
     const bridge = bridgeRef.current || setupBridge();
-    const tableCoords = DEFAULT_FLOW_CONFIG.tableCoords;
-    addLog(`🎯 GOTO REAL → Mesa ${tableNumber} (${tableCoords.x}, ${tableCoords.y})`, 'warning');
-    await bridge.goto(tableCoords.x, tableCoords.y);
+    addLog(`🎯 GOTO → Mesa ${tableNumber}`, 'warning');
+    await bridge.goto(DEFAULT_FLOW_CONFIG.tableCoords.x, DEFAULT_FLOW_CONFIG.tableCoords.y);
     setChannelHealth(bridge.getChannelHealth());
   }, [addLog, tableNumber, setupBridge]);
 
   const sendRealStop = useCallback(async () => {
-    addLog('🛑 STOP REAL enviado (todos os canais)', 'warning');
+    addLog('🛑 STOP enviado', 'warning');
     const bridge = bridgeRef.current || setupBridge();
     await bridge.emergencyStop();
     setChannelHealth(bridge.getChannelHealth());
@@ -255,16 +420,15 @@ const DeliveryFlowTest = () => {
 
   const sendRealReturn = useCallback(async () => {
     const bridge = bridgeRef.current || setupBridge();
-    addLog('🏠 RETORNO REAL à base', 'warning');
+    addLog('🏠 RETORNO à base', 'warning');
     await bridge.returnToBase();
     setChannelHealth(bridge.getChannelHealth());
   }, [addLog, setupBridge]);
 
   const queryRealPosition = useCallback(async () => {
     const bridge = bridgeRef.current || setupBridge();
-    addLog('📍 Consultando posição real...', 'info');
     await bridge.queryPosition();
-  }, [addLog, setupBridge]);
+  }, [setupBridge]);
 
   const abortTest = useCallback(() => {
     serviceRef.current?.abort();
@@ -284,6 +448,16 @@ const DeliveryFlowTest = () => {
   const btReady = isSerialReady || bluetoothStatus === 'connected';
   const wsReady = connectionStatus === 'connected';
 
+  const currentRobotPos = useMemo(() => {
+    if (realMode && realPosition) return { x: realPosition.x, y: realPosition.y };
+    return { x: position.x, y: position.y };
+  }, [realMode, realPosition, position]);
+
+  const currentTableCoords = useMemo(() => {
+    const t = TABLES.find(t => t.id === tableNumber);
+    return t ? { x: t.x, y: t.y } : { x: DEFAULT_FLOW_CONFIG.tableCoords.x, y: DEFAULT_FLOW_CONFIG.tableCoords.y };
+  }, [tableNumber]);
+
   return (
     <div className="min-h-screen bg-background safe-bottom flex flex-col">
       {/* Header */}
@@ -296,58 +470,75 @@ const DeliveryFlowTest = () => {
             {realMode ? '🤖 Delivery REAL' : '🧪 Teste de Delivery'}
           </h1>
           <p className="text-[10px] text-muted-foreground">
-            {realMode ? 'Retry automático + Fallback BT→WS→HTTP' : 'HTTP + MQTT + WebSocket — Simulação E2E'}
+            {realMode ? 'Retry + Fallback BT→WS→HTTP' : 'Simulação E2E'}
           </p>
         </div>
+        <button onClick={() => setAudioEnabled(!audioEnabled)} className="p-1.5 rounded-lg hover:bg-muted">
+          {audioEnabled ? <Volume2 className="w-4 h-4 text-foreground" /> : <VolumeX className="w-4 h-4 text-muted-foreground" />}
+        </button>
         <Badge className={STATUS_COLORS[deliveryStatus]}>{deliveryStatus}</Badge>
       </div>
 
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        {/* 2D Map — always visible during flow */}
+        {(running || steps.length > 0) && (
+          <Card>
+            <CardHeader className="py-2 px-4">
+              <CardTitle className="text-xs flex items-center justify-between">
+                <span className="flex items-center gap-1">
+                  <MapPin className="w-3.5 h-3.5" /> Mapa de Entrega
+                </span>
+                <Badge variant="outline" className="text-[8px]">
+                  {positionSource === 'bluetooth' ? '📡 BT Real' : positionSource === 'websocket' ? '🌐 WS Real' : '🧪 Simulado'}
+                </Badge>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="px-4 pb-3">
+              <DeliveryMap2D
+                robotPos={currentRobotPos}
+                tableCoords={currentTableCoords}
+                baseCoords={{ x: 0, y: 0 }}
+                status={deliveryStatus}
+                positionHistory={positionHistory}
+                positionSource={positionSource}
+              />
+            </CardContent>
+          </Card>
+        )}
+
         {/* Real Mode Toggle */}
         <Card className={realMode ? 'border-warning/50 bg-warning/5' : ''}>
           <CardContent className="py-3 px-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                {realMode ? (
-                  <AlertTriangle className="w-4 h-4 text-warning" />
-                ) : (
-                  <Zap className="w-4 h-4 text-muted-foreground" />
-                )}
+                {realMode ? <AlertTriangle className="w-4 h-4 text-warning" /> : <Zap className="w-4 h-4 text-muted-foreground" />}
                 <div>
                   <p className="text-xs font-semibold text-foreground">
                     {realMode ? 'MODO REAL — O robô vai se mover!' : 'Modo Simulado'}
                   </p>
                   <p className="text-[10px] text-muted-foreground">
-                    {realMode ? 'Retry 3x por canal + fallback automático' : 'Sem comunicação com o robô'}
+                    {realMode ? 'Retry 3x + fallback automático' : 'Sem comunicação com o robô'}
                   </p>
                 </div>
               </div>
               <button onClick={() => setRealMode(!realMode)} disabled={running} className="p-1">
-                {realMode ? (
-                  <ToggleRight className="w-8 h-8 text-warning" />
-                ) : (
-                  <ToggleLeft className="w-8 h-8 text-muted-foreground" />
-                )}
+                {realMode ? <ToggleRight className="w-8 h-8 text-warning" /> : <ToggleLeft className="w-8 h-8 text-muted-foreground" />}
               </button>
             </div>
 
-            {/* Channel status when real mode */}
             {realMode && (
               <div className="mt-3 space-y-2">
                 <div className="flex gap-2 flex-wrap">
                   <Badge variant={btReady ? 'default' : 'secondary'} className="text-[10px]">
-                    <Bluetooth className="w-3 h-3 mr-1" />
-                    BT: {btReady ? 'OK' : 'Off'}
+                    <Bluetooth className="w-3 h-3 mr-1" />BT: {btReady ? 'OK' : 'Off'}
                     {channelHealth.bluetooth && !channelHealth.bluetooth.healthy && ' ⚠'}
                   </Badge>
                   <Badge variant={wsReady ? 'default' : 'secondary'} className="text-[10px]">
-                    <Monitor className="w-3 h-3 mr-1" />
-                    WS: {wsReady ? 'OK' : 'Off'}
+                    <Monitor className="w-3 h-3 mr-1" />WS: {wsReady ? 'OK' : 'Off'}
                     {channelHealth.websocket && !channelHealth.websocket.healthy && ' ⚠'}
                   </Badge>
                   <Badge variant="outline" className="text-[10px]">
-                    <Wifi className="w-3 h-3 mr-1" />
-                    HTTP: Fallback
+                    <Wifi className="w-3 h-3 mr-1" />HTTP
                     {channelHealth.http && !channelHealth.http.healthy && ' ⚠'}
                   </Badge>
                 </div>
@@ -360,46 +551,6 @@ const DeliveryFlowTest = () => {
             )}
           </CardContent>
         </Card>
-
-        {/* Real Position Panel */}
-        {realMode && (
-          <Card className="border-primary/30">
-            <CardContent className="py-3 px-4">
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-2">
-                  <MapPin className="w-4 h-4 text-primary" />
-                  <span className="text-xs font-semibold text-foreground">Posição do Robô</span>
-                </div>
-                <Badge variant="outline" className="text-[10px]">
-                  {positionSource === 'bluetooth' ? '📡 BT' : positionSource === 'websocket' ? '🌐 WS' : '🧪 Sim'}
-                </Badge>
-              </div>
-              <div className="grid grid-cols-3 gap-2 text-center">
-                <div className="bg-muted/50 rounded p-2">
-                  <p className="text-[10px] text-muted-foreground">X</p>
-                  <p className="text-sm font-mono font-bold text-foreground">
-                    {realPosition ? realPosition.x.toFixed(1) : position.x}
-                  </p>
-                </div>
-                <div className="bg-muted/50 rounded p-2">
-                  <p className="text-[10px] text-muted-foreground">Y</p>
-                  <p className="text-sm font-mono font-bold text-foreground">
-                    {realPosition ? realPosition.y.toFixed(1) : position.y}
-                  </p>
-                </div>
-                <div className="bg-muted/50 rounded p-2">
-                  <p className="text-[10px] text-muted-foreground">θ</p>
-                  <p className="text-sm font-mono font-bold text-foreground">
-                    {realPosition ? realPosition.theta.toFixed(0) + '°' : '—'}
-                  </p>
-                </div>
-              </div>
-              <Button size="sm" variant="ghost" onClick={queryRealPosition} disabled={running} className="w-full mt-2 text-[10px]">
-                <RefreshCw className="w-3 h-3 mr-1" /> Consultar Posição
-              </Button>
-            </CardContent>
-          </Card>
-        )}
 
         {/* Config */}
         <Card>
@@ -436,23 +587,18 @@ const DeliveryFlowTest = () => {
           </CardContent>
         </Card>
 
-        {/* Real mode: direct command buttons */}
+        {/* Real mode: direct commands */}
         {realMode && !running && (
           <Card className="border-warning/30">
             <CardHeader className="py-3 px-4">
-              <CardTitle className="text-xs">🎮 Comandos Manuais (Real)</CardTitle>
+              <CardTitle className="text-xs">🎮 Comandos Manuais</CardTitle>
             </CardHeader>
             <CardContent className="px-4 pb-3">
-              <div className="grid grid-cols-3 gap-2">
-                <Button size="sm" variant="outline" onClick={sendRealGoto} className="text-[10px]">
-                  🗺️ Goto Mesa
-                </Button>
-                <Button size="sm" variant="destructive" onClick={sendRealStop} className="text-[10px]">
-                  🛑 STOP
-                </Button>
-                <Button size="sm" variant="outline" onClick={sendRealReturn} className="text-[10px]">
-                  🏠 Voltar Base
-                </Button>
+              <div className="grid grid-cols-4 gap-2">
+                <Button size="sm" variant="outline" onClick={sendRealGoto} className="text-[10px]">🗺️ Goto</Button>
+                <Button size="sm" variant="destructive" onClick={sendRealStop} className="text-[10px]">🛑 STOP</Button>
+                <Button size="sm" variant="outline" onClick={sendRealReturn} className="text-[10px]">🏠 Base</Button>
+                <Button size="sm" variant="ghost" onClick={queryRealPosition} className="text-[10px]">📍 Pos</Button>
               </div>
             </CardContent>
           </Card>
@@ -464,14 +610,14 @@ const DeliveryFlowTest = () => {
             <CardContent className="py-3 px-4 space-y-2">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-semibold">{PHASE_LABELS[currentPhase] || currentPhase}</span>
-                <span className="text-[10px] text-muted-foreground">{passed}/{total} passos</span>
+                <span className="text-[10px] text-muted-foreground">{passed}/{total}</span>
               </div>
               <Progress value={total > 0 ? (passed / Math.max(total, 1)) * 100 : 0} className="h-2" />
               {(deliveryStatus === 'DELIVERING' || deliveryStatus === 'RETURNING') && (
                 <div className="flex items-center justify-between text-[10px] text-muted-foreground">
                   <span className="flex items-center gap-1">
                     <Activity className="w-3 h-3" />
-                    Posição: ({realPosition && realMode ? `${realPosition.x.toFixed(1)}, ${realPosition.y.toFixed(1)}` : `${position.x}, ${position.y}`})
+                    ({currentRobotPos.x.toFixed(1)}, {currentRobotPos.y.toFixed(1)})
                   </span>
                   <span>{position.progress}%</span>
                 </div>
@@ -484,9 +630,7 @@ const DeliveryFlowTest = () => {
         {steps.length > 0 && (
           <Card>
             <CardHeader className="py-3 px-4">
-              <CardTitle className="text-xs flex items-center justify-between">
-                <span>📊 Passos ({passed}✓ / {failed}✗ / {total} total)</span>
-              </CardTitle>
+              <CardTitle className="text-xs">📊 Passos ({passed}✓ / {failed}✗ / {total})</CardTitle>
             </CardHeader>
             <CardContent className="px-4 pb-3">
               <div className="space-y-1 max-h-60 overflow-y-auto">
