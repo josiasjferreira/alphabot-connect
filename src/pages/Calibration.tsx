@@ -2,12 +2,12 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
-import { Bluetooth, BluetoothOff, Play, Square, RotateCcw, ChevronLeft, Activity, CheckCircle2, XCircle, AlertTriangle, Loader2, Wifi } from 'lucide-react';
+import { Bluetooth, BluetoothOff, Play, Square, RotateCcw, ChevronLeft, Activity, CheckCircle2, XCircle, Loader2, Wifi, Radio } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { useCalibration } from '@/hooks/useCalibration';
-import { ALL_SENSORS, type SensorId } from '@/services/bluetoothCalibrationBridge';
+import { ALL_SENSORS, type SensorId, type CalibrationChannel } from '@/services/bluetoothCalibrationBridge';
 
 const SENSOR_META: Record<SensorId, { label: string; icon: string; description: string }> = {
   imu: { label: 'IMU', icon: '🔄', description: 'Acelerômetro + Giroscópio' },
@@ -19,11 +19,18 @@ const SENSOR_META: Record<SensorId, { label: string; icon: string; description: 
   temperature: { label: 'Temperatura', icon: '🌡️', description: 'Sensor térmico' },
 };
 
+const CHANNEL_LABELS: Record<CalibrationChannel, { label: string; color: string; icon: typeof Bluetooth }> = {
+  ble: { label: 'BLE', color: 'bg-primary/10 text-primary', icon: Bluetooth },
+  spp: { label: 'SPP', color: 'bg-blue-500/10 text-blue-500', icon: Radio },
+  websocket: { label: 'WebSocket', color: 'bg-green-500/10 text-green-500', icon: Wifi },
+  http: { label: 'HTTP', color: 'bg-orange-500/10 text-orange-500', icon: Activity },
+  none: { label: 'Nenhum', color: 'bg-muted text-muted-foreground', icon: BluetoothOff },
+};
+
 const getSensorStatus = (sensorId: string, currentSensor: string | undefined, progressVal: number) => {
   if (!currentSensor) return 'idle';
-  const sensorOrder = ALL_SENSORS;
-  const currentIdx = sensorOrder.indexOf(currentSensor as SensorId);
-  const thisIdx = sensorOrder.indexOf(sensorId as SensorId);
+  const currentIdx = ALL_SENSORS.indexOf(currentSensor as SensorId);
+  const thisIdx = ALL_SENSORS.indexOf(sensorId as SensorId);
   if (thisIdx < currentIdx) return 'complete';
   if (thisIdx === currentIdx) return 'active';
   return 'idle';
@@ -33,7 +40,7 @@ const Calibration = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const {
-    bleAvailable, isConnected, progress, calibData, calibState,
+    bleAvailable, isConnected, progress, calibData, calibState, activeChannel,
     error, isCalibrating, logs, connect, disconnect,
     startCalibration, stopCalibration, resetCalibration, fetchData,
   } = useCalibration();
@@ -47,6 +54,9 @@ const Calibration = () => {
     );
   };
 
+  const channelInfo = CHANNEL_LABELS[activeChannel];
+  const ChannelIcon = channelInfo.icon;
+
   return (
     <div className="min-h-screen bg-background safe-bottom">
       {/* Header */}
@@ -57,9 +67,9 @@ const Calibration = () => {
           </button>
           <div className="flex-1">
             <h1 className="text-lg font-bold text-foreground">🔧 {t('calibration.title', 'Calibração de Sensores')}</h1>
-            <p className="text-xs text-muted-foreground">CSJBot BLE GATT</p>
+            <p className="text-xs text-muted-foreground">CSJBot • Multi-Canal</p>
           </div>
-          <div className={`w-3 h-3 rounded-full ${isConnected ? 'bg-success animate-pulse' : 'bg-muted-foreground'}`} />
+          <div className={`w-3 h-3 rounded-full ${isConnected ? 'bg-green-500 animate-pulse' : 'bg-muted-foreground'}`} />
         </div>
       </div>
 
@@ -72,7 +82,7 @@ const Calibration = () => {
               <div>
                 <p className="text-sm font-semibold text-destructive">Web Bluetooth indisponível</p>
                 <p className="text-xs text-muted-foreground mt-1">
-                  Use Chrome ou Edge em Android/Desktop. iOS não suporta Web Bluetooth.
+                  Fallback via SPP/WebSocket será usado se disponível.
                 </p>
               </div>
             </CardContent>
@@ -84,17 +94,20 @@ const Calibration = () => {
           <CardContent className="p-4">
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
-                <Bluetooth className={`w-5 h-5 ${isConnected ? 'text-success' : 'text-muted-foreground'}`} />
+                <Bluetooth className={`w-5 h-5 ${isConnected ? 'text-green-500' : 'text-muted-foreground'}`} />
                 <span className="font-semibold text-sm text-foreground">
                   {isConnected ? 'Conectado ao robô' : 'Desconectado'}
                 </span>
               </div>
               {isConnected && (
-                <span className="text-xs px-2 py-0.5 rounded-full bg-success/10 text-success font-medium">BLE</span>
+                <span className={`text-xs px-2 py-0.5 rounded-full font-medium flex items-center gap-1 ${channelInfo.color}`}>
+                  <ChannelIcon className="w-3 h-3" />
+                  {channelInfo.label}
+                </span>
               )}
             </div>
             {!isConnected ? (
-              <Button onClick={connect} disabled={!bleAvailable} className="w-full gap-2">
+              <Button onClick={connect} className="w-full gap-2">
                 <Bluetooth className="w-4 h-4" />
                 Conectar via Bluetooth
               </Button>
@@ -154,20 +167,10 @@ const Calibration = () => {
                 })}
               </div>
               <div className="flex gap-2 mt-3">
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  className="text-xs"
-                  onClick={() => setSelectedSensors([...ALL_SENSORS])}
-                >
+                <Button size="sm" variant="ghost" className="text-xs" onClick={() => setSelectedSensors([...ALL_SENSORS])}>
                   Selecionar todos
                 </Button>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  className="text-xs"
-                  onClick={() => setSelectedSensors([])}
-                >
+                <Button size="sm" variant="ghost" className="text-xs" onClick={() => setSelectedSensors([])}>
                   Limpar
                 </Button>
               </div>
@@ -198,14 +201,14 @@ const Calibration = () => {
                     <div
                       key={id}
                       className={`flex flex-col items-center p-2 rounded-lg text-center ${
-                        status === 'complete' ? 'bg-success/10' :
+                        status === 'complete' ? 'bg-green-500/10' :
                         status === 'active' ? 'bg-primary/10 animate-pulse' :
                         'bg-muted/30'
                       }`}
                     >
                       <span className="text-lg">{meta.icon}</span>
                       <span className="text-[9px] font-medium text-foreground mt-1">{meta.label}</span>
-                      {status === 'complete' && <CheckCircle2 className="w-3 h-3 text-success mt-0.5" />}
+                      {status === 'complete' && <CheckCircle2 className="w-3 h-3 text-green-500 mt-0.5" />}
                       {status === 'active' && <Loader2 className="w-3 h-3 animate-spin text-primary mt-0.5" />}
                     </div>
                   );
@@ -217,18 +220,18 @@ const Calibration = () => {
 
         {/* Calibration Data Results */}
         {calibData && !isCalibrating && (
-          <Card className="border-success/30">
+          <Card className="border-green-500/30">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm flex items-center gap-2">
-                <CheckCircle2 className="w-4 h-4 text-success" />
+                <CheckCircle2 className="w-4 h-4 text-green-500" />
                 Dados de Calibração
               </CardTitle>
             </CardHeader>
             <CardContent className="p-4 pt-0 space-y-3">
               <div className="flex items-center gap-2 text-xs">
                 <span className={`px-2 py-0.5 rounded-full font-medium ${
-                  calibData.status === 1 ? 'bg-success/10 text-success' :
-                  calibData.status === 2 ? 'bg-warning/10 text-warning' :
+                  calibData.status === 1 ? 'bg-green-500/10 text-green-500' :
+                  calibData.status === 2 ? 'bg-yellow-500/10 text-yellow-500' :
                   'bg-destructive/10 text-destructive'
                 }`}>
                   {calibData.status === 1 ? 'Válida' : calibData.status === 2 ? 'Recalibrar' : 'Inválida'}
@@ -237,8 +240,6 @@ const Calibration = () => {
                   #{calibData.calibrationCount} • {new Date(calibData.timestamp * 1000).toLocaleString()}
                 </span>
               </div>
-
-              {/* Sensor data cards */}
               <div className="space-y-2">
                 {calibData.imu && (
                   <DataRow icon="🔄" label="IMU" values={[
@@ -285,11 +286,7 @@ const Calibration = () => {
           <div className="grid grid-cols-2 gap-3">
             {!isCalibrating ? (
               <>
-                <Button
-                  onClick={() => startCalibration(selectedSensors)}
-                  disabled={selectedSensors.length === 0}
-                  className="gap-2"
-                >
+                <Button onClick={() => startCalibration(selectedSensors)} disabled={selectedSensors.length === 0} className="gap-2">
                   <Play className="w-4 h-4" />
                   Iniciar
                 </Button>
@@ -355,7 +352,6 @@ const Calibration = () => {
   );
 };
 
-// Helper component for data rows
 const DataRow = ({ icon, label, values }: { icon: string; label: string; values: string[] }) => (
   <div className="flex items-start gap-2 p-2 rounded-lg bg-muted/20">
     <span className="text-sm">{icon}</span>

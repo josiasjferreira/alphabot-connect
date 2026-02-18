@@ -6,7 +6,9 @@ import {
   CalibrationState,
   SensorId,
   ALL_SENSORS,
+  CalibrationChannel,
 } from '@/services/bluetoothCalibrationBridge';
+import { RobotCommandBridge } from '@/services/robotCommandBridge';
 
 export const useCalibration = () => {
   const bridgeRef = useRef<BluetoothCalibrationBridge | null>(null);
@@ -18,12 +20,12 @@ export const useCalibration = () => {
   const [isCalibrating, setIsCalibrating] = useState(false);
   const [logs, setLogs] = useState<string[]>([]);
   const [bleAvailable] = useState(() => BluetoothCalibrationBridge.isAvailable());
+  const [activeChannel, setActiveChannel] = useState<CalibrationChannel>('none');
 
   const addLog = useCallback((msg: string) => {
     setLogs(prev => [`[${new Date().toLocaleTimeString()}] ${msg}`, ...prev].slice(0, 100));
   }, []);
 
-  // Lazily create bridge
   const getBridge = useCallback(() => {
     if (!bridgeRef.current) {
       const b = new BluetoothCalibrationBridge();
@@ -32,9 +34,7 @@ export const useCalibration = () => {
         setProgress(p);
         setIsCalibrating(p.progress > 0 && p.progress < 100);
       };
-      b.onStateChange = (s) => {
-        setCalibState(s);
-      };
+      b.onStateChange = (s) => setCalibState(s);
       b.onComplete = (data) => {
         setCalibData(data);
         setIsCalibrating(false);
@@ -45,10 +45,24 @@ export const useCalibration = () => {
         setIsCalibrating(false);
         addLog(`Erro: ${err}`);
       };
+      b.onChannelChange = (ch) => {
+        setActiveChannel(ch);
+        addLog(`Canal ativo: ${ch.toUpperCase()}`);
+      };
+      b.onDisconnected = () => {
+        setIsConnected(false);
+        addLog('Desconectado');
+      };
       bridgeRef.current = b;
     }
     return bridgeRef.current;
   }, [addLog]);
+
+  /** Attach a RobotCommandBridge for SPP/WS/HTTP fallback */
+  const attachCommandBridge = useCallback((cmdBridge: RobotCommandBridge) => {
+    getBridge().attachCommandBridge(cmdBridge);
+    addLog('CommandBridge anexado — fallback SPP/WS/HTTP disponível');
+  }, [getBridge, addLog]);
 
   useEffect(() => {
     return () => {
@@ -75,6 +89,7 @@ export const useCalibration = () => {
     setProgress(null);
     setIsCalibrating(false);
     setCalibState(null);
+    setActiveChannel('none');
   }, []);
 
   const startCalibration = useCallback(async (sensors: SensorId[] = ALL_SENSORS) => {
@@ -129,11 +144,13 @@ export const useCalibration = () => {
     error,
     isCalibrating,
     logs,
+    activeChannel,
     connect,
     disconnect,
     startCalibration,
     stopCalibration,
     resetCalibration,
     fetchData,
+    attachCommandBridge,
   };
 };
