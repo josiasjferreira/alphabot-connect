@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Wifi, Loader2, CloudOff, KeyRound, BookOpen, ChevronDown, Bluetooth, BluetoothSearching, BluetoothConnected, RotateCw } from 'lucide-react';
+import { Wifi, Loader2, CloudOff, KeyRound, BookOpen, ChevronDown, Bluetooth, BluetoothSearching, BluetoothConnected, RotateCw, Lock, LockOpen } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useRobotStore } from '@/store/useRobotStore';
 import { useWebSocket } from '@/hooks/useWebSocket';
@@ -155,15 +155,25 @@ const Connection = () => {
             <motion.div key="wifi" initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }} className="space-y-4">
               <div>
                 <label className="text-xs font-semibold text-muted-foreground mb-1.5 block">{t('connection.ipLabel')}</label>
-                <input
-                  type="text"
-                  value={localIp}
-                  onChange={(e) => setLocalIp(e.target.value)}
-                  placeholder={t('connection.ipPlaceholder')}
-                  className={`w-full h-14 px-4 rounded-xl bg-card border-2 text-foreground text-base font-medium
-                    focus:outline-none focus:ring-2 focus:ring-primary/30
-                    ${isValidIp || !localIp ? 'border-border' : 'border-destructive'}`}
-                />
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={localIp}
+                    onChange={(e) => setLocalIp(e.target.value)}
+                    placeholder={t('connection.ipPlaceholder')}
+                    className={`w-full h-14 px-4 pr-12 rounded-xl bg-card border-2 text-foreground text-base font-medium
+                      focus:outline-none focus:ring-2 focus:ring-primary/30
+                      ${isValidIp || !localIp ? 'border-border' : 'border-destructive'}`}
+                  />
+                  {localIp && isValidIp && (
+                    <div className={`absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1 ${isPrivateIp(localIp) ? 'text-warning' : 'text-success'}`}
+                      title={isPrivateIp(localIp) ? 'ws:// (unencrypted)' : 'wss:// (encrypted)'}
+                    >
+                      {isPrivateIp(localIp) ? <LockOpen className="w-4 h-4" /> : <Lock className="w-4 h-4" />}
+                      <span className="text-[10px] font-bold">{isPrivateIp(localIp) ? 'WS' : 'WSS'}</span>
+                    </div>
+                  )}
+                </div>
               </div>
 
               <div>
