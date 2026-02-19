@@ -4,17 +4,17 @@
  * @version 1.0.0
  */
 
-/** IPs possíveis do robô na rede local */
+/** IPs possíveis do robô (conforme testes reais e engenharia reversa) */
 const ROBOT_IPS = [
-  '192.168.99.1',    // IP primário — HTTP REST porta 80
-  '192.168.99.101',  // IP alternativo
-  '192.168.99.100',  // Outro possível
-  '192.168.99.10',   // Outro possível
-  '192.168.99.2',    // Slamware — última opção
+  '192.168.0.1',     // ⭐ IP PADRÃO (Realtek - após reset) - PRIORIDADE 1
+  '192.168.99.1',    // IP customizado (firmware antigo/custom)
+  '192.168.99.101',  // IP alternativo (documentação)
+  '192.168.1.1',     // Outro padrão comum
+  '192.168.99.2',    // Slamware (sistema de navegação)
 ] as const;
 
 /** Nomes de rede WiFi do robô */
-export const ROBOT_WIFI_NETWORKS = ['CSJBot', 'CSJBot-CT300', 'AlphaBot', 'Ken-AlphaBot'] as const;
+export const ROBOT_WIFI_NETWORKS = ['RoboKen_Controle_5G', 'RoboKen_Controle', 'CSJBot', 'CSJBot-CT300', 'AlphaBot', 'Ken-AlphaBot'] as const;
 
 export interface RobotInfo {
   ip: string;
@@ -36,19 +36,51 @@ export interface ConnectionResult {
 /**
  * Tenta GET /api/ping num IP com timeout
  */
-async function pingRobot(ip: string, timeoutMs = 5000): Promise<{ ok: boolean; latencyMs: number }> {
+async function pingRobot(ip: string, timeoutMs = 3000): Promise<{ ok: boolean; latencyMs: number }> {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), timeoutMs);
   const start = performance.now();
 
+  // Tentar /api/ping
   try {
-    const res = await fetch(`http://${ip}/api/ping`, { signal: ctrl.signal, cache: 'no-store' });
+    console.log(`🔍 Testando: http://${ip}/api/ping`);
+    const res = await fetch(`http://${ip}/api/ping`, {
+      signal: ctrl.signal,
+      cache: 'no-store',
+      headers: { 'Accept': 'application/json', 'Cache-Control': 'no-cache' },
+    });
     clearTimeout(timer);
-    return { ok: res.ok, latencyMs: Math.round(performance.now() - start) };
-  } catch {
+    const elapsed = Math.round(performance.now() - start);
+    console.log(`📡 ${ip} respondeu em ${elapsed}ms com status: ${res.status}`);
+    if (res.ok) {
+      try {
+        const data = await res.json();
+        console.log(`✅ ROBÔ ENCONTRADO: ${ip}`, data);
+      } catch { console.log(`✅ ROBÔ ENCONTRADO: ${ip} (resposta não-JSON)`); }
+      return { ok: true, latencyMs: elapsed };
+    }
+    return { ok: false, latencyMs: elapsed };
+  } catch (err: any) {
     clearTimeout(timer);
-    return { ok: false, latencyMs: -1 };
+    if (err.name === 'AbortError') {
+      console.log(`⏱️ ${ip} - Timeout (${timeoutMs}ms)`);
+    } else {
+      console.log(`❌ ${ip} - ${err.name}: ${err.message}`);
+    }
   }
+
+  // Fallback: endpoint raiz
+  try {
+    const res = await fetch(`http://${ip}/`, { method: 'GET', signal: AbortSignal.timeout(2000) });
+    if (res.ok) {
+      console.log(`✅ ROBÔ ENCONTRADO (endpoint raiz): ${ip}`);
+      return { ok: true, latencyMs: Math.round(performance.now() - start) };
+    }
+  } catch {
+    console.log(`❌ ${ip} - endpoint raiz também falhou`);
+  }
+
+  return { ok: false, latencyMs: -1 };
 }
 
 /**
@@ -81,7 +113,8 @@ async function fetchRobotInfo(ip: string, timeoutMs = 8000): Promise<RobotInfo |
  * Detecta o IP do robô testando todos os candidatos em paralelo
  */
 export async function detectRobotIP(): Promise<ConnectionResult> {
-  console.log('🔍 [WiFi] Detectando robô na rede local...');
+  console.log('🔍 Iniciando detecção automática de IP do robô...');
+  console.log('📋 IPs que serão testados (em ordem):', [...ROBOT_IPS]);
 
   const results = await Promise.all(ROBOT_IPS.map(async (ip) => {
     const ping = await pingRobot(ip);
@@ -90,11 +123,18 @@ export async function detectRobotIP(): Promise<ConnectionResult> {
 
   const found = results.find((r) => r.ok);
   if (!found) {
+    console.log('\n❌ Robô não encontrado em nenhum IP');
+    console.log('📋 IPs testados:', ROBOT_IPS.join(', '));
+    console.log('\n💡 Dicas de troubleshooting:');
+    console.log('1. Confirme que está conectado na rede: RoboKen_Controle ou RoboKen_Controle_5G');
+    console.log('2. Verifique se o robô está ligado');
+    console.log('3. Tente reconectar no WiFi do robô');
+
     return {
       success: false,
       ip: null,
       robotInfo: null,
-      error: 'Robô não encontrado na rede.\n\nVerifique:\n1. Celular/tablet conectado ao WiFi do robô\n2. Robô está ligado\n3. Redes: ' + ROBOT_WIFI_NETWORKS.join(', '),
+      error: 'Robô não encontrado na rede.\n\nVerifique:\n1. Celular/tablet conectado ao WiFi do robô\n   (RoboKen_Controle_5G ou RoboKen_Controle)\n2. Robô está ligado\n3. Redes suportadas: ' + ROBOT_WIFI_NETWORKS.join(', '),
       latencyMs: -1,
     };
   }

@@ -247,7 +247,7 @@ const RobotCalibrationPanel = () => {
                     <li>Volte ao app e clique <strong className="text-foreground">Verificar Conexão</strong></li>
                     <li>O app detectará o robô automaticamente</li>
                   </ol>
-                  <p className="mt-2 text-[10px] text-muted-foreground">⚠️ Funciona 100% offline — não precisa de internet</p>
+                  <p className="mt-2 text-[10px] text-muted-foreground">⚠️ Funciona 100% offline — ao conectar no robô, você ficará sem internet (normal)</p>
                 </motion.div>
               )}
             </AnimatePresence>
