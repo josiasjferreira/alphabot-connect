@@ -26,6 +26,7 @@ import DeliveryFlowTest from "./pages/DeliveryFlowTest";
 import Media from "./pages/Media";
 import Rotation from "./pages/Rotation";
 import Calibration from "./pages/Calibration";
+import RobotCalibrationPanel from "./components/RobotCalibrationPanel";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -60,6 +61,7 @@ const App = () => (
           <Route path="/media" element={<Media />} />
           <Route path="/rotation" element={<Rotation />} />
           <Route path="/calibration" element={<Calibration />} />
+          <Route path="/calibration-wifi" element={<RobotCalibrationPanel />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </HashRouter>

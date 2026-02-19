@@ -98,8 +98,10 @@
       "mediaDesc": "Câmera, áudio e gravação",
       "rotation": "Controle de Rotação",
       "rotationDesc": "Bússola e giro angular",
-      "calibration": "Calibração de Sensores",
-      "calibrationDesc": "Calibrar via Bluetooth BLE"
+      "calibration": "Calibração BLE",
+      "calibrationDesc": "Calibrar via Bluetooth BLE",
+      "calibrationWifi": "Calibração WiFi",
+      "calibrationWifiDesc": "Calibrar via WiFi local (offline)"
     }
   },
   "control": {
