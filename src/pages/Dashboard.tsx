@@ -289,12 +289,12 @@ const Dashboard = () => {
     { icon: ScrollText, titleKey: 'dashboard.menu.logs', descKey: 'dashboard.menu.logsDesc', path: '/logs', gradient: 'from-muted-foreground to-secondary/60' },
     { icon: Users, titleKey: 'dashboard.menu.interactions', descKey: 'dashboard.menu.interactionsDesc', path: '/interactions', gradient: 'from-primary to-secondary/80' },
     { icon: Search, titleKey: 'dashboard.menu.scanner', descKey: 'dashboard.menu.scannerDesc', path: '/scanner', gradient: 'from-warning to-success/80' },
+    { icon: Network, titleKey: 'dashboard.menu.networkDiag', descKey: 'dashboard.menu.networkDiagDesc', path: '/network-diagnostics', gradient: 'from-primary to-cyan-500/80' },
     { icon: FlaskConical, titleKey: 'dashboard.menu.deliveryTest', descKey: 'dashboard.menu.deliveryTestDesc', path: '/delivery-test', gradient: 'from-primary to-destructive/80' },
     { icon: MonitorPlay, titleKey: 'dashboard.menu.media', descKey: 'dashboard.menu.mediaDesc', path: '/media', gradient: 'from-primary to-success/80' },
     { icon: Compass, titleKey: 'dashboard.menu.rotation', descKey: 'dashboard.menu.rotationDesc', path: '/rotation', gradient: 'from-secondary to-warning/80' },
     { icon: Wrench, titleKey: 'dashboard.menu.calibration', descKey: 'dashboard.menu.calibrationDesc', path: '/calibration', gradient: 'from-warning to-secondary/80' },
     { icon: Wifi, titleKey: 'dashboard.menu.calibrationWifi', descKey: 'dashboard.menu.calibrationWifiDesc', path: '/calibration-wifi', gradient: 'from-green-500 to-primary/80' },
-    { icon: Network, titleKey: 'dashboard.menu.networkDiag', descKey: 'dashboard.menu.networkDiagDesc', path: '/network-diagnostics', gradient: 'from-primary to-cyan-500/80' },
     { icon: Settings, titleKey: 'dashboard.menu.settings', descKey: 'dashboard.menu.settingsDesc', path: '/settings', gradient: 'from-muted-foreground to-muted-foreground/60' },
   ];
 
@@ -331,7 +331,7 @@ const Dashboard = () => {
         <button onClick={() => navigate('/')} className="text-xs text-primary font-semibold active:opacity-70">
           {t('dashboard.backToConnection', 'Voltar à tela de conexão')}
         </button>
-        <p className="text-[10px] text-muted-foreground">AlphaBot Companion v1.3.1 • Iascom</p>
+        <p className="text-[10px] text-muted-foreground">AlphaBot Companion v1.3.3 • Iascom</p>
       </div>
     </div>
   );

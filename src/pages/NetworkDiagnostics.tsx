@@ -1,13 +1,15 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   ChevronLeft, Play, RotateCcw, CheckCircle2, XCircle, Loader2,
   Wifi, Globe, Radio, Zap, Server, Thermometer, Battery, Eye,
+  Share2, WifiOff,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
+import { Badge } from '@/components/ui/badge';
 import { ROBOT_NETWORK_CONFIG } from '@/services/RobotWiFiConnection';
 
 // ─── Endpoint definitions ───────────────────────────────────────────────────
@@ -38,6 +40,8 @@ const ENDPOINTS: EndpointDef[] = [
   { id: 'logs',        label: 'Logs Recentes',     path: '/api/logs/recent',       method: 'GET',  icon: <Server className="w-4 h-4" />,      category: 'Sistema' },
 ];
 
+const WS_URL = `ws://${ROBOT_NETWORK_CONFIG.router}:${ROBOT_NETWORK_CONFIG.ports.ws}`;
+
 // ─── Result types ────────────────────────────────────────────────────────────
 
 interface EndpointResult {
@@ -47,6 +51,12 @@ interface EndpointResult {
   ms: number | null;
   preview: string | null;
   error: string | null;
+}
+
+interface WsResult {
+  status: 'idle' | 'loading' | 'ok' | 'error';
+  ms: number | null;
+  message: string | null;
 }
 
 const initResults = (): Record<string, EndpointResult> =>
@@ -61,6 +71,8 @@ const NetworkDiagnostics = () => {
   const [progress, setProgress] = useState(0);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [fullResponse, setFullResponse] = useState<Record<string, string>>({});
+  const [wsResult, setWsResult] = useState<WsResult>({ status: 'idle', ms: null, message: null });
+  const wsTestRef = useRef<WebSocket | null>(null);
 
   const updateResult = useCallback((id: string, patch: Partial<EndpointResult>) => {
     setResults(prev => ({ ...prev, [id]: { ...prev[id], ...patch } }));
@@ -110,11 +122,59 @@ const NetworkDiagnostics = () => {
     }
   }, [updateResult]);
 
+  const testWebSocket = useCallback(() => {
+    setWsResult({ status: 'loading', ms: null, message: null });
+    wsTestRef.current?.close();
+    const start = performance.now();
+    let settled = false;
+
+    const timeout = setTimeout(() => {
+      if (!settled) {
+        settled = true;
+        wsTestRef.current?.close();
+        setWsResult({ status: 'error', ms: Math.round(performance.now() - start), message: 'Timeout (6s) — sem resposta' });
+      }
+    }, 6000);
+
+    try {
+      const ws = new WebSocket(WS_URL);
+      wsTestRef.current = ws;
+
+      ws.onopen = () => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timeout);
+        const ms = Math.round(performance.now() - start);
+        setWsResult({ status: 'ok', ms, message: `Conexão estabelecida em ${ms}ms` });
+        ws.close();
+      };
+
+      ws.onerror = (e) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timeout);
+        setWsResult({ status: 'error', ms: Math.round(performance.now() - start), message: 'Erro de conexão — verifique se o serviço WS está ativo' });
+      };
+
+      ws.onclose = (e) => {
+        if (!settled) {
+          settled = true;
+          clearTimeout(timeout);
+          setWsResult({ status: 'error', ms: Math.round(performance.now() - start), message: `Conexão fechada (código ${e.code})` });
+        }
+      };
+    } catch (err: any) {
+      clearTimeout(timeout);
+      setWsResult({ status: 'error', ms: Math.round(performance.now() - start), message: err.message });
+    }
+  }, []);
+
   const runAll = useCallback(async () => {
     setRunning(true);
     setProgress(0);
     setResults(initResults());
     setFullResponse({});
+    setWsResult({ status: 'idle', ms: null, message: null });
 
     for (let i = 0; i < ENDPOINTS.length; i++) {
       await testEndpoint(ENDPOINTS[i]);
@@ -129,16 +189,52 @@ const NetworkDiagnostics = () => {
     setProgress(0);
     setFullResponse({});
     setExpandedId(null);
+    setWsResult({ status: 'idle', ms: null, message: null });
   }, []);
+
+  const shareReport = useCallback(() => {
+    const report = {
+      timestamp: new Date().toISOString(),
+      baseUrl: BASE,
+      wsUrl: WS_URL,
+      network: ROBOT_NETWORK_CONFIG,
+      websocket: wsResult,
+      endpoints: ENDPOINTS.map(ep => {
+        const r = results[ep.id];
+        return {
+          id: ep.id,
+          label: ep.label,
+          path: ep.path,
+          method: ep.method,
+          status: r.status,
+          httpStatus: r.httpStatus,
+          ms: r.ms,
+          error: r.error,
+          preview: r.preview,
+          fullResponse: fullResponse[ep.id] ?? null,
+        };
+      }),
+    };
+
+    const text = JSON.stringify(report, null, 2);
+    const blob = new Blob([text], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `diagnostico-rede-${new Date().toISOString().replace(/[:.]/g, '-')}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }, [results, fullResponse, wsResult]);
 
   const categories = [...new Set(ENDPOINTS.map(e => e.category))];
   const okCount = Object.values(results).filter(r => r.status === 'ok').length;
   const errCount = Object.values(results).filter(r => r.status === 'error').length;
   const doneCount = okCount + errCount;
+  const hasAnyResult = doneCount > 0 || wsResult.status !== 'idle';
 
   const statusIcon = (r: EndpointResult) => {
     if (r.status === 'loading') return <Loader2 className="w-4 h-4 animate-spin text-primary" />;
-    if (r.status === 'ok')      return <CheckCircle2 className="w-4 h-4 text-green-500" />;
+    if (r.status === 'ok')      return <CheckCircle2 className="w-4 h-4 text-success" />;
     if (r.status === 'error')   return <XCircle className="w-4 h-4 text-destructive" />;
     return <div className="w-4 h-4 rounded-full border-2 border-muted-foreground/30" />;
   };
@@ -157,7 +253,7 @@ const NetworkDiagnostics = () => {
           </div>
           {doneCount > 0 && (
             <div className="flex gap-1 text-[10px]">
-              <span className="px-1.5 py-0.5 rounded bg-green-500/10 text-green-500 font-bold">{okCount}✓</span>
+              <span className="px-1.5 py-0.5 rounded bg-success/10 text-success font-bold">{okCount}✓</span>
               {errCount > 0 && <span className="px-1.5 py-0.5 rounded bg-destructive/10 text-destructive font-bold">{errCount}✗</span>}
             </div>
           )}
@@ -187,14 +283,19 @@ const NetworkDiagnostics = () => {
         </Card>
 
         {/* Controls */}
-        <div className="flex gap-3">
+        <div className="flex gap-2">
           <Button onClick={runAll} disabled={running} className="flex-1 gap-2">
             {running ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
-            {running ? `Testando... ${progress}%` : 'Testar Todos Endpoints'}
+            {running ? `Testando... ${progress}%` : 'Testar Endpoints HTTP'}
           </Button>
           <Button onClick={reset} variant="outline" size="icon" disabled={running}>
             <RotateCcw className="w-4 h-4" />
           </Button>
+          {hasAnyResult && (
+            <Button onClick={shareReport} variant="outline" size="icon" title="Compartilhar Relatório">
+              <Share2 className="w-4 h-4" />
+            </Button>
+          )}
         </div>
 
         {/* Progress */}
@@ -206,6 +307,54 @@ const NetworkDiagnostics = () => {
             </CardContent>
           </Card>
         )}
+
+        {/* WebSocket Test */}
+        <Card>
+          <CardHeader className="pb-2 pt-4 px-4">
+            <CardTitle className="text-xs text-muted-foreground uppercase tracking-wider">WebSocket</CardTitle>
+          </CardHeader>
+          <CardContent className="p-0">
+            <div className="px-4 py-3">
+              <div className="flex items-center gap-3">
+                <div className={`p-1.5 rounded-lg ${wsResult.status === 'ok' ? 'bg-success/10' : wsResult.status === 'error' ? 'bg-destructive/10' : 'bg-muted/50'}`}>
+                  <Wifi className="w-4 h-4 text-muted-foreground" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-semibold text-foreground">Conexão WebSocket</span>
+                    {wsResult.ms != null && (
+                      <span className="text-[10px] text-muted-foreground font-mono">{wsResult.ms}ms</span>
+                    )}
+                  </div>
+                  <p className="text-[10px] font-mono text-muted-foreground truncate">{WS_URL}</p>
+                  {wsResult.message && (
+                    <p className={`text-[10px] mt-0.5 ${wsResult.status === 'ok' ? 'text-success' : 'text-destructive'}`}>
+                      {wsResult.message}
+                    </p>
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={testWebSocket}
+                    disabled={wsResult.status === 'loading'}
+                    className="text-xs gap-1 shrink-0"
+                  >
+                    {wsResult.status === 'loading'
+                      ? <Loader2 className="w-3 h-3 animate-spin" />
+                      : <WifiOff className="w-3 h-3" />}
+                    Testar WS
+                  </Button>
+                  {wsResult.status === 'loading' && <Loader2 className="w-4 h-4 animate-spin text-primary" />}
+                  {wsResult.status === 'ok' && <CheckCircle2 className="w-4 h-4 text-success" />}
+                  {wsResult.status === 'error' && <XCircle className="w-4 h-4 text-destructive" />}
+                  {wsResult.status === 'idle' && <div className="w-4 h-4 rounded-full border-2 border-muted-foreground/30" />}
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Results by category */}
         {categories.map(cat => {
@@ -223,16 +372,16 @@ const NetworkDiagnostics = () => {
                   return (
                     <div key={ep.id} className={`px-4 py-3 ${idx < catEndpoints.length - 1 ? 'border-b border-border' : ''}`}>
                       <div className="flex items-center gap-3">
-                        <div className={`p-1.5 rounded-lg ${r.status === 'ok' ? 'bg-green-500/10' : r.status === 'error' ? 'bg-destructive/10' : 'bg-muted/50'}`}>
+                        <div className={`p-1.5 rounded-lg ${r.status === 'ok' ? 'bg-success/10' : r.status === 'error' ? 'bg-destructive/10' : 'bg-muted/50'}`}>
                           {ep.icon}
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2">
                             <span className="text-sm font-semibold text-foreground">{ep.label}</span>
                             {r.httpStatus != null && (
-                              <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold font-mono ${r.status === 'ok' ? 'bg-green-500/10 text-green-500' : 'bg-destructive/10 text-destructive'}`}>
+                              <Badge variant={r.status === 'ok' ? 'default' : 'destructive'} className="text-[10px] px-1.5 py-0 font-mono">
                                 {r.httpStatus}
-                              </span>
+                              </Badge>
                             )}
                             {r.ms != null && (
                               <span className="text-[10px] text-muted-foreground font-mono">{r.ms}ms</span>
@@ -288,8 +437,8 @@ const NetworkDiagnostics = () => {
         {/* Summary */}
         {doneCount === ENDPOINTS.length && !running && (
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
-            <Card className={okCount > 0 ? 'border-green-500/30 bg-green-500/5' : 'border-destructive/30 bg-destructive/5'}>
-              <CardContent className="p-4 text-center space-y-1">
+            <Card className={okCount > 0 ? 'border-success/30 bg-success/5' : 'border-destructive/30 bg-destructive/5'}>
+              <CardContent className="p-4 text-center space-y-2">
                 <p className="text-2xl">{okCount > 0 ? '✅' : '❌'}</p>
                 <p className="text-sm font-bold text-foreground">
                   {okCount} de {ENDPOINTS.length} endpoints acessíveis
@@ -301,6 +450,10 @@ const NetworkDiagnostics = () => {
                       ? `${errCount} endpoint(s) falharam — podem não estar implementados no firmware`
                       : 'Todos os endpoints responderam com sucesso!'}
                 </p>
+                <Button onClick={shareReport} variant="outline" size="sm" className="gap-2 w-full">
+                  <Share2 className="w-4 h-4" />
+                  Compartilhar Relatório (.json)
+                </Button>
               </CardContent>
             </Card>
           </motion.div>
@@ -315,3 +468,4 @@ const NetworkDiagnostics = () => {
 };
 
 export default NetworkDiagnostics;
+
