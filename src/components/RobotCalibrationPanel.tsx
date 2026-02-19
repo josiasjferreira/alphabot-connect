@@ -52,6 +52,7 @@ const RobotCalibrationPanel = () => {
   const [showLogs, setShowLogs] = useState(false);
   const [showInstructions, setShowInstructions] = useState(false);
   const [showData, setShowData] = useState(false);
+  const [showSuccessDialog, setShowSuccessDialog] = useState(false);
 
   const addLog = useCallback((msg: string) => {
     setLogs(prev => [`[${new Date().toLocaleTimeString()}] ${msg}`, ...prev].slice(0, 100));
@@ -108,7 +109,7 @@ const RobotCalibrationPanel = () => {
     clientRef.current?.destroy();
     clientRef.current = client;
     setPhase('connected');
-    toast({ title: '✅ Conectado!', description: `IP: ${result.ip} • ${result.latencyMs}ms` });
+    setShowSuccessDialog(true);
   };
 
   const handleDisconnect = () => {
@@ -220,6 +221,41 @@ const RobotCalibrationPanel = () => {
           <div className={`w-3 h-3 rounded-full transition-colors ${phase === 'connected' ? 'bg-green-500 animate-pulse' : phase === 'scanning' ? 'bg-warning animate-pulse' : 'bg-muted-foreground'}`} />
         </div>
       </div>
+
+      {/* Success Dialog */}
+      <AnimatePresence>
+        {showSuccessDialog && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+          >
+            <motion.div
+              initial={{ scale: 0.8, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.8, opacity: 0 }}
+              className="w-full max-w-sm bg-card rounded-2xl border border-border shadow-2xl p-6 text-center space-y-4"
+            >
+              <div className="w-16 h-16 mx-auto rounded-full bg-green-500/10 flex items-center justify-center">
+                <CheckCircle2 className="w-10 h-10 text-green-500" />
+              </div>
+              <h2 className="text-xl font-bold text-foreground">🎉 Parabéns!!</h2>
+              <p className="text-sm text-foreground font-medium">Conectado ao Robô com sucesso :)</p>
+              {robotInfo && (
+                <div className="text-xs text-muted-foreground space-y-1 bg-muted/30 rounded-lg p-3">
+                  <p><span className="font-semibold text-foreground">IP:</span> <span className="font-mono">{robotInfo.ip}</span></p>
+                  <p><span className="font-semibold text-foreground">Modelo:</span> {robotInfo.model}</p>
+                  <p><span className="font-semibold text-foreground">Latência:</span> {latency}ms</p>
+                </div>
+              )}
+              <Button onClick={() => setShowSuccessDialog(false)} className="w-full gap-2 text-base font-bold">
+                OK
+              </Button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <div className="p-4 space-y-4">
         {/* WiFi Instructions */}
