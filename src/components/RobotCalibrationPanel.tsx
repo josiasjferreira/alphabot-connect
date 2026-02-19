@@ -86,16 +86,17 @@ const RobotCalibrationPanel = () => {
     setError(null);
     addLog('Buscando robô na rede WiFi...');
 
-    const IP_FIXO = '192.168.0.1:99';
+    const IP_FIXO = '192.168.0.1';
     const pingUrl = `http://${IP_FIXO}/api/ping`;
     addLog(`Testando: ${pingUrl}`);
 
+    // Log HTTP ping attempt
     try {
       await addHttpLog(pingUrl, 'GET', () =>
         fetch(pingUrl, { headers: { Accept: 'application/json' }, signal: AbortSignal.timeout(5000), cache: 'no-store' })
       );
     } catch {
-      // log captured via addHttpLog
+      // log captured via addHttpLog, continue with detectRobotIP
     }
 
     const result: ConnectionResult = await detectRobotIP();
@@ -104,11 +105,11 @@ const RobotCalibrationPanel = () => {
       setPhase('disconnected');
       setError(result.error);
       addLog(`Falha: ${result.error}`);
-      toast({ title: '❌ Robô não encontrado', description: 'Verifique a conexão WiFi', variant: 'destructive' });
+      toast({ title: '❌ Robô não encontrado', description: 'Verifique a conexão WiFi (RoboKen_Controle)', variant: 'destructive' });
       return;
     }
 
-    addLog(`Robô encontrado em ${result.ip} (${result.latencyMs}ms)`);
+    addLog(`✅ Robô encontrado em ${result.ip} (${result.latencyMs}ms)`);
     setRobotInfo(result.robotInfo);
     setLatency(result.latencyMs);
 
@@ -135,12 +136,23 @@ const RobotCalibrationPanel = () => {
       },
       onLog: (msg) => {
         addLog(msg);
-        // capture HTTP-style logs from client
         if (msg.startsWith('[HTTP]')) {
-          const url = `http://${result.ip}/...`;
-          setHttpLogs(prev => [{ ts: new Date().toLocaleTimeString(), url, method: 'GET', status: null, ms: null, ok: null, err: msg }, ...prev].slice(0, 50));
+          setHttpLogs(prev => [{ ts: new Date().toLocaleTimeString(), url: `http://${result.ip}/...`, method: 'GET', status: null, ms: null, ok: null, err: msg }, ...prev].slice(0, 50));
         }
       },
+    });
+
+    // Connect WebSocket for real-time updates
+    client.connectWebSocket({
+      onOpen: () => addLog('✅ WebSocket conectado: ws://192.168.0.1:8080'),
+      onMessage: (data: any) => {
+        addLog(`📡 WS: ${JSON.stringify(data).slice(0, 80)}`);
+        if (data?.type === 'calibration_progress') {
+          setProgress(data.progress);
+        }
+      },
+      onError: () => addLog('⚠️ Erro no WebSocket'),
+      onClose: () => addLog('🔌 WebSocket desconectado'),
     });
 
     clientRef.current?.destroy();
@@ -345,10 +357,12 @@ const RobotCalibrationPanel = () => {
             {/* Robot info */}
             {robotInfo && phase === 'connected' && (
               <div className="grid grid-cols-2 gap-2 mb-3 p-2 rounded-lg bg-muted/30 text-[10px]">
-                <div><span className="text-muted-foreground">IP:</span> <span className="font-mono text-foreground">{robotInfo.ip}</span></div>
+                <div><span className="text-muted-foreground">HTTP:</span> <span className="font-mono text-foreground">{robotInfo.ip}</span></div>
                 <div><span className="text-muted-foreground">Modelo:</span> <span className="text-foreground">{robotInfo.model}</span></div>
                 <div><span className="text-muted-foreground">Serial:</span> <span className="font-mono text-foreground">{robotInfo.serial}</span></div>
                 <div><span className="text-muted-foreground">Firmware:</span> <span className="text-foreground">{robotInfo.firmware}</span></div>
+                <div className="col-span-2"><span className="text-muted-foreground">WebSocket:</span> <span className="font-mono text-foreground">ws://192.168.0.1:8080</span></div>
+                <div className="col-span-2"><span className="text-muted-foreground">SLAM:</span> <span className="font-mono text-foreground">192.168.99.2</span></div>
               </div>
             )}
 

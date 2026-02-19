@@ -6,7 +6,9 @@
 
 /** IPs possíveis do robô — port forwarding via roteador Tenda */
 const ROBOT_IPS = [
-  '192.168.0.1:99',  // ⭐ Roteador Tenda → Tablet 192.168.0.199:80 (port forwarding configurado)
+  '192.168.0.1',       // ⭐ Roteador Tenda → Tablet 192.168.0.199:80 (CONFIRMADO: porta 80 padrão)
+  '192.168.99.101',    // Fallback IP direto do robô (interno)
+  '192.168.99.1',      // Fallback IP alternativo
 ] as const;
 
 /**
