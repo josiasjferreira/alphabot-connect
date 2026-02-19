@@ -34,6 +34,8 @@ export interface MovementParams {
  */
 export class RobotHTTPClient {
   private ip: string;
+  private wsUrl: string;
+  private ws: WebSocket | null = null;
   private pollingId: ReturnType<typeof setInterval> | null = null;
   private heartbeatId: ReturnType<typeof setInterval> | null = null;
   private _connected = false;
@@ -45,51 +47,118 @@ export class RobotHTTPClient {
   public onLog: RobotHTTPClientOptions['onLog'];
 
   constructor(opts: RobotHTTPClientOptions) {
-    this.ip = opts.ip ?? '192.168.0.1:99';
+    // IP pode ser '192.168.0.1' ou '192.168.0.1:99' — suporte a ambos
+    this.ip = opts.ip ?? '192.168.0.1';
+    const host = this.ip.split(':')[0];
+    this.wsUrl = `ws://${host}:8080`;
     this.onProgressUpdate = opts.onProgressUpdate;
     this.onComplete = opts.onComplete;
     this.onError = opts.onError;
     this.onDisconnected = opts.onDisconnected;
     this.onLog = opts.onLog;
     this._connected = true;
-    console.log('🎯 RobotHTTPClient inicializado:', `http://${this.ip}`);
+    console.log('🎯 RobotHTTPClient inicializado:', { http: `http://${this.ip}`, websocket: this.wsUrl });
     this.startHeartbeat();
   }
 
   /**
-   * Detecta o robô via port forwarding em 192.168.0.1:99
+   * Detecta o robô testando IPs em ordem (192.168.0.1 primeiro — confirmado)
    */
   static async detectRobotIP(): Promise<string | null> {
-    const IP_COM_PORTA = '192.168.0.1:99';
-    console.log('🔍 Testando IP via port forwarding:', IP_COM_PORTA);
+    console.log('🔍 Detectando robô via port forwarding...');
 
-    try {
-      const response = await fetch(`http://${IP_COM_PORTA}/api/ping`, {
-        method: 'GET',
-        headers: { 'Content-Type': 'application/json' },
-        signal: AbortSignal.timeout(5000),
-        cache: 'no-store',
-      });
+    const CANDIDATE_IPS = ['192.168.0.1', '192.168.99.101', '192.168.99.1'];
 
-      if (response.ok) {
-        try {
-          const data = await response.json();
-          console.log('✅ Resposta do robô via port forwarding:', data);
-          if (data.pong || data.status === 'ok' || data.alive) {
-            console.log('🎉 ROBÔ ENCONTRADO via port forwarding!');
-            return IP_COM_PORTA;
+    for (const ip of CANDIDATE_IPS) {
+      console.log(`🎯 Testando: http://${ip}/api/ping`);
+      try {
+        const startTime = Date.now();
+        const response = await fetch(`http://${ip}/api/ping`, {
+          method: 'GET',
+          headers: { 'Accept': 'application/json' },
+          signal: AbortSignal.timeout(5000),
+          cache: 'no-store',
+        });
+        const responseTime = Date.now() - startTime;
+        console.log(`📊 Resposta de ${ip}: status=${response.status}, tempo=${responseTime}ms`);
+
+        if (response.ok) {
+          try {
+            const data = await response.json();
+            console.log(`✅ ROBÔ ENCONTRADO em ${ip}!`, data);
+          } catch {
+            console.log(`✅ ROBÔ ENCONTRADO em ${ip} (resposta não-JSON)`);
           }
-        } catch {
-          console.log('✅ Robô respondeu (não-JSON) via port forwarding');
-          return IP_COM_PORTA;
+          return ip;
         }
+      } catch (error: any) {
+        console.error(`❌ Erro ao testar ${ip}:`, error.message);
       }
-    } catch (error) {
-      console.error('❌ Erro ao detectar robô:', error);
     }
 
+    console.error('❌ Nenhum robô encontrado em nenhum IP testado.');
     return null;
   }
+
+  /**
+   * Conecta WebSocket para atualizações em tempo real
+   */
+  connectWebSocket(callbacks: {
+    onMessage?: (data: unknown) => void;
+    onError?: (error: Event) => void;
+    onClose?: () => void;
+    onOpen?: () => void;
+  } = {}) {
+    console.log('🔌 Conectando WebSocket:', this.wsUrl);
+    this.disconnectWebSocket();
+
+    try {
+      this.ws = new WebSocket(this.wsUrl);
+
+      this.ws.onopen = () => {
+        console.log('✅ WebSocket conectado!');
+        callbacks.onOpen?.();
+      };
+
+      this.ws.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          console.log('📡 Mensagem WebSocket recebida:', data);
+          callbacks.onMessage?.(data);
+        } catch {
+          callbacks.onMessage?.(event.data);
+        }
+      };
+
+      this.ws.onerror = (error) => {
+        console.error('❌ Erro no WebSocket:', error);
+        callbacks.onError?.(error);
+      };
+
+      this.ws.onclose = () => {
+        console.log('🔌 WebSocket desconectado');
+        this.ws = null;
+        callbacks.onClose?.();
+      };
+    } catch (err: any) {
+      console.error('❌ Não foi possível criar WebSocket:', err.message);
+    }
+  }
+
+  disconnectWebSocket() {
+    if (this.ws) {
+      this.ws.close();
+      this.ws = null;
+    }
+  }
+
+  sendWebSocket(data: unknown) {
+    if (this.ws?.readyState === WebSocket.OPEN) {
+      this.ws.send(JSON.stringify(data));
+    }
+  }
+
+  get wsConnected() { return this.ws?.readyState === WebSocket.OPEN; }
 
   get connected() { return this._connected; }
   get baseUrl() { return `http://${this.ip}`; }
@@ -252,6 +321,7 @@ export class RobotHTTPClient {
   destroy() {
     this.stopPolling();
     if (this.heartbeatId) { clearInterval(this.heartbeatId); this.heartbeatId = null; }
+    this.disconnectWebSocket();
     this._connected = false;
     this.log('Client destroyed');
   }
