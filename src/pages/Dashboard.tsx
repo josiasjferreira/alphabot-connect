@@ -1,7 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { motion } from 'framer-motion';
-import { Gamepad2, MessageCircle, Map, BarChart3, Mic, Settings, ShoppingBag, Stethoscope, Package, Shield, Sparkles, Layers, Radio, Download, ScrollText, Camera, VideoOff, Users, Search, FlaskConical, MonitorPlay, Compass, Wrench, Wifi } from 'lucide-react';
+import { Gamepad2, MessageCircle, Map, BarChart3, Mic, Settings, ShoppingBag, Stethoscope, Package, Shield, Sparkles, Layers, Radio, Download, ScrollText, Camera, VideoOff, Users, Search, FlaskConical, MonitorPlay, Compass, Wrench, Wifi, Network } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import StatusHeader from '@/components/StatusHeader';
 import { useRobotStore } from '@/store/useRobotStore';
@@ -294,6 +294,7 @@ const Dashboard = () => {
     { icon: Compass, titleKey: 'dashboard.menu.rotation', descKey: 'dashboard.menu.rotationDesc', path: '/rotation', gradient: 'from-secondary to-warning/80' },
     { icon: Wrench, titleKey: 'dashboard.menu.calibration', descKey: 'dashboard.menu.calibrationDesc', path: '/calibration', gradient: 'from-warning to-secondary/80' },
     { icon: Wifi, titleKey: 'dashboard.menu.calibrationWifi', descKey: 'dashboard.menu.calibrationWifiDesc', path: '/calibration-wifi', gradient: 'from-green-500 to-primary/80' },
+    { icon: Network, titleKey: 'dashboard.menu.networkDiag', descKey: 'dashboard.menu.networkDiagDesc', path: '/network-diagnostics', gradient: 'from-primary to-cyan-500/80' },
     { icon: Settings, titleKey: 'dashboard.menu.settings', descKey: 'dashboard.menu.settingsDesc', path: '/settings', gradient: 'from-muted-foreground to-muted-foreground/60' },
   ];
 
