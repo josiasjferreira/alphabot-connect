@@ -14,8 +14,8 @@ import { ROBOT_NETWORK_CONFIG } from '@/services/RobotWiFiConnection';
 
 // ─── Endpoint definitions ───────────────────────────────────────────────────
 
-// Porta 80 é padrão HTTP — não especificar porta na URL
-const BASE = `http://${ROBOT_NETWORK_CONFIG.router}`;
+// CRÍTICO: porta 80 EXPLÍCITA — tablet responde em :80 mas não no padrão implícito
+const BASE = `http://${ROBOT_NETWORK_CONFIG.router}:${ROBOT_NETWORK_CONFIG.ports.http}`;
 
 interface EndpointDef {
   id: string;

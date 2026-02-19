@@ -47,8 +47,11 @@ export class RobotHTTPClient {
   public onLog: RobotHTTPClientOptions['onLog'];
 
   constructor(opts: RobotHTTPClientOptions) {
-    // IP pode ser '192.168.0.1' ou '192.168.0.1:99' — suporte a ambos
-    this.ip = opts.ip ?? '192.168.0.1';
+    // CRÍTICO: IP pode incluir porta explícita (ex: '192.168.0.1:80' ou '192.168.0.199:80')
+    // O tablet responde SOMENTE com porta :80 especificada — não usar porta padrão implícita.
+    const rawIp = opts.ip ?? '192.168.0.1:80';
+    // Garantir que porta 80 está sempre explícita
+    this.ip = rawIp.includes(':') ? rawIp : `${rawIp}:80`;
     const host = this.ip.split(':')[0];
     this.wsUrl = `ws://${host}:8080`;
     this.onProgressUpdate = opts.onProgressUpdate;
