@@ -5,7 +5,13 @@
  */
 
 /** IPs possíveis do robô na rede local */
-const ROBOT_IPS = ['192.168.99.1', '192.168.99.101', '192.168.99.2'] as const;
+const ROBOT_IPS = [
+  '192.168.99.1',    // IP primário — HTTP REST porta 80
+  '192.168.99.101',  // IP alternativo
+  '192.168.99.100',  // Outro possível
+  '192.168.99.10',   // Outro possível
+  '192.168.99.2',    // Slamware — última opção
+] as const;
 
 /** Nomes de rede WiFi do robô */
 export const ROBOT_WIFI_NETWORKS = ['CSJBot', 'CSJBot-CT300', 'AlphaBot', 'Ken-AlphaBot'] as const;
