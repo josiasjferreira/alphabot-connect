@@ -52,7 +52,7 @@ export class RobotHTTPClient {
     this.onDisconnected = opts.onDisconnected;
     this.onLog = opts.onLog;
     this._connected = true;
-    console.log('🔧 Cliente HTTP criado:', `http://${this.ip}`);
+    console.log('🎯 RobotHTTPClient inicializado:', `http://${this.ip}`);
     this.startHeartbeat();
   }
 

@@ -101,7 +101,9 @@
       "calibration": "Calibração BLE",
       "calibrationDesc": "Calibrar via Bluetooth BLE",
       "calibrationWifi": "Calibração WiFi",
-      "calibrationWifiDesc": "Calibrar via WiFi local (offline)"
+      "calibrationWifiDesc": "Calibrar via WiFi local (offline)",
+      "networkDiag": "Diagnóstico de Rede",
+      "networkDiagDesc": "Testar endpoints do robô via port forwarding"
     }
   },
   "control": {

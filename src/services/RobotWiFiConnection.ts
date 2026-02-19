@@ -4,10 +4,29 @@
  * @version 1.0.0
  */
 
-/** IPs possíveis do robô (conforme testes reais e engenharia reversa) */
+/** IPs possíveis do robô — port forwarding via roteador Tenda */
 const ROBOT_IPS = [
-  '192.168.0.1:99',  // ⭐ IP do roteador com DMZ ativo (port forwarding :99 → robô)
+  '192.168.0.1:99',  // ⭐ Roteador Tenda → Tablet 192.168.0.199:80 (port forwarding configurado)
 ] as const;
+
+/**
+ * Configuração da rede (port forwarding):
+ * Tablet:   192.168.0.199
+ * Roteador: 192.168.0.1  (Tenda)
+ * Porta 99  → 192.168.0.199:80  (HTTP REST)
+ * Porta 1883→ 192.168.0.199:1883 (MQTT)
+ * Porta 8080→ 192.168.0.199:8080 (WebSocket)
+ */
+export const ROBOT_NETWORK_CONFIG = {
+  router: '192.168.0.1',
+  tablet: '192.168.0.199',
+  robotInternal: '192.168.99.101',
+  ports: {
+    http: 99,
+    mqtt: 1883,
+    ws: 8080,
+  },
+} as const;
 
 /** Nomes de rede WiFi do robô */
 export const ROBOT_WIFI_NETWORKS = ['RoboKen_Controle_5G', 'RoboKen_Controle', 'CSJBot', 'CSJBot-CT300', 'AlphaBot', 'Ken-AlphaBot'] as const;
