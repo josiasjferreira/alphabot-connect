@@ -1,28 +1,14 @@
 /**
  * @file RobotWiFiConnection.ts
  * @brief Detecção e gerenciamento de conexão WiFi local com robô CSJBot
- * @version 1.0.0
+ * @version 1.4.0
  */
-
-/**
- * IPs possíveis do robô com porta EXPLÍCITA (:80)
- * CRÍTICO: o tablet responde em http://192.168.0.199:80 mas NÃO em http://192.168.0.199
- * Por isso a porta 80 deve ser sempre especificada explicitamente na URL.
- */
-const ROBOT_IPS = [
-  '192.168.0.1:80',      // ⭐ Roteador Tenda com port forwarding — CONFIRMADO
-  '192.168.0.199:80',    // IP direto do tablet — CONFIRMADO
-  '192.168.99.101:80',   // Fallback IP interno do robô
-  '192.168.99.1:80',     // Fallback IP alternativo
-] as const;
 
 /**
  * Configuração da rede (port forwarding):
- * Tablet:   192.168.0.199
  * Roteador: 192.168.0.1  (Tenda)
- * Porta 80  → 192.168.0.199:80  (HTTP REST — porta padrão, CONFIRMADO)
- * Porta 1883→ 192.168.0.199:1883 (MQTT)
- * Porta 8080→ 192.168.0.199:8080 (WebSocket)
+ * Tablet:   192.168.0.199
+ * Porta 80  → HTTP REST | Porta 8080 → WebSocket | Porta 1883 → MQTT bridge
  */
 export const ROBOT_NETWORK_CONFIG = {
   router: '192.168.0.1',
@@ -56,64 +42,76 @@ export interface ConnectionResult {
 }
 
 /**
- * Tenta GET /api/ping num IP com timeout
+ * IPs testados — confirmado via teste manual que ambas as formas funcionam:
+ *   http://192.168.0.1/api/ping  ✅
+ *   http://192.168.0.199/api/ping ✅
+ * SOLUÇÃO DEFINITIVA: mode cors + cache no-cache + timeout 15s + fallback :80 explícito
  */
+const ROBOT_IPS = [
+  '192.168.0.1',      // ⭐ Roteador Tenda — CONFIRMADO funcionando
+  '192.168.0.199',    // IP direto do tablet — CONFIRMADO funcionando
+  '192.168.99.101',   // Fallback IP interno do robô
+] as const;
+
+const TIMEOUT_MS = 15000; // 15 segundos — tablet pode demorar para responder
+
+
 /**
- * Ping com porta EXPLÍCITA — timeout aumentado para 10s pois tablet pode demorar
- * CRÍTICO: sempre usar http://ip:porta/path (nunca omitir :80)
+ * Ping com CORS explícito, cache desabilitado e timeout de 15s.
+ * Testa também a variante com :80 explícito se a implícita falhar.
  */
-async function pingRobot(ip: string, timeoutMs = 10000): Promise<{ ok: boolean; latencyMs: number }> {
-  const ctrl = new AbortController();
-  const timer = setTimeout(() => {
-    console.warn(`⏰ Timeout (${timeoutMs}ms) em ${ip}`);
-    ctrl.abort();
-  }, timeoutMs);
-  const start = performance.now();
+async function pingRobot(ip: string, timeoutMs = TIMEOUT_MS): Promise<{ ok: boolean; latencyMs: number }> {
+  const startGlobal = performance.now();
 
-  // CRÍTICO: URL com porta explícita (ip já inclui :80)
-  const pingUrl = `http://${ip}/api/ping`;
-  console.log(`🔍 Testando: ${pingUrl}`);
+  // Tentar primeiro sem porta (navegador usa 80 por padrão) e depois com :80 explícito
+  const urls = [`http://${ip}/api/ping`, `http://${ip}:80/api/ping`];
 
-  try {
-    const res = await fetch(pingUrl, {
-      signal: ctrl.signal,
-      cache: 'no-store',
-      headers: { 'Accept': 'application/json', 'Cache-Control': 'no-cache' },
-    });
-    clearTimeout(timer);
-    const elapsed = Math.round(performance.now() - start);
-    console.log(`📡 ${ip} respondeu em ${elapsed}ms | status: ${res.status}`);
-    if (res.ok) {
-      try {
-        const data = await res.json();
-        console.log(`✅ ROBÔ ENCONTRADO: ${ip}`, data);
-      } catch { console.log(`✅ ROBÔ ENCONTRADO: ${ip} (resposta não-JSON)`); }
-      return { ok: true, latencyMs: elapsed };
-    }
-    return { ok: false, latencyMs: elapsed };
-  } catch (err: any) {
-    clearTimeout(timer);
-    if (err.name === 'AbortError') {
-      console.error(`❌ ${ip} — TIMEOUT (${timeoutMs}ms) — tablet dormindo ou servidor HTTP inativo`);
-    } else {
-      console.error(`❌ ${ip} — ${err.name}: ${err.message}`);
+  for (const pingUrl of urls) {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => {
+      console.warn(`⏰ Timeout (${timeoutMs}ms) em ${pingUrl}`);
+      ctrl.abort();
+    }, timeoutMs);
+    const start = performance.now();
+
+    console.log(`🔍 Testando: ${pingUrl}`);
+
+    try {
+      const res = await fetch(pingUrl, {
+        method: 'GET',
+        mode: 'cors',
+        cache: 'no-cache',
+        signal: ctrl.signal,
+        headers: {
+          'Accept': 'application/json',
+          'Cache-Control': 'no-cache',
+          'Pragma': 'no-cache',
+        },
+      });
+      clearTimeout(timer);
+      const elapsed = Math.round(performance.now() - start);
+      console.log(`📡 ${pingUrl} → ${res.status} (${elapsed}ms)`);
+
+      if (res.ok) {
+        try {
+          const data = await res.json();
+          console.log(`✅ ROBÔ ENCONTRADO: ${pingUrl}`, data);
+        } catch {
+          console.log(`✅ ROBÔ ENCONTRADO: ${pingUrl} (resposta não-JSON)`);
+        }
+        return { ok: true, latencyMs: elapsed };
+      }
+    } catch (err: any) {
+      clearTimeout(timer);
+      if (err.name === 'AbortError') {
+        console.error(`❌ ${pingUrl} — TIMEOUT (${timeoutMs}ms)`);
+      } else {
+        console.error(`❌ ${pingUrl} — ${err.name}: ${err.message}`);
+      }
     }
   }
 
-  // Fallback: endpoint raiz com porta explícita
-  try {
-    const rootUrl = `http://${ip}/`;
-    console.log(`🔄 Fallback raiz: ${rootUrl}`);
-    const res = await fetch(rootUrl, { method: 'GET', signal: AbortSignal.timeout(3000) });
-    if (res.ok) {
-      console.log(`✅ ROBÔ ENCONTRADO (raiz): ${ip}`);
-      return { ok: true, latencyMs: Math.round(performance.now() - start) };
-    }
-  } catch {
-    console.log(`❌ ${ip} — fallback raiz também falhou`);
-  }
-
-  return { ok: false, latencyMs: -1 };
+  return { ok: false, latencyMs: Math.round(performance.now() - startGlobal) };
 }
 
 /**
