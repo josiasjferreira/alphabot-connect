@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import StatusHeader from '@/components/StatusHeader';
 import Joystick from '@/components/Joystick';
@@ -20,7 +20,17 @@ const Control = () => {
   const [currentDist, setCurrentDist] = useState(0);
   const [rotationSpeed, setRotationSpeed] = useState(40);
   const [isRotating, setIsRotating] = useState<'left' | 'right' | null>(null);
+  const [heading, setHeading] = useState(0);
   const throttleRef = useRef<ReturnType<typeof setTimeout>>();
+
+  // Track heading from rotation service
+  useEffect(() => {
+    rotationService.onOrientationChange((o) => {
+      setHeading(Math.round(o.angle));
+    });
+    rotationService.getOrientation().catch(() => {});
+    return () => { rotationService.destroy(); };
+  }, []);
 
   const isBtActive = bluetoothStatus === 'paired' || bluetoothStatus === 'connected';
 
@@ -102,12 +112,47 @@ const Control = () => {
           </div>
         </div>
 
-        <div className="w-full aspect-video rounded-2xl bg-card border border-border flex items-center justify-center shadow-card">
-          <div className="text-center text-muted-foreground">
-            <div className="text-4xl mb-2">📹</div>
-            <p className="text-sm font-medium">{t('control.videoStream')}</p>
-            <p className="text-xs">{t('control.waitingFeed')}</p>
+        <div className="flex gap-3">
+          {/* Mini Compass */}
+          <div className="w-24 h-24 shrink-0">
+            <svg viewBox="0 0 100 100" className="w-full h-full">
+              <circle cx="50" cy="50" r="46" fill="none" stroke="hsl(var(--border))" strokeWidth="1.5" />
+              <circle cx="50" cy="50" r="40" fill="none" stroke="hsl(var(--border))" strokeWidth="0.5" strokeDasharray="3 3" />
+              {/* Cardinal labels */}
+              {[{ l: 'N', a: 0 }, { l: 'E', a: 90 }, { l: 'S', a: 180 }, { l: 'W', a: 270 }].map(d => {
+                const r = 34;
+                const rad = d.a * (Math.PI / 180);
+                return (
+                  <text key={d.l} x={50 + r * Math.sin(rad)} y={50 - r * Math.cos(rad)}
+                    textAnchor="middle" dominantBaseline="central"
+                    className="fill-muted-foreground text-[8px] font-bold">{d.l}</text>
+                );
+              })}
+              {/* Needle */}
+              <g transform={`rotate(${heading}, 50, 50)`}>
+                <polygon points="50,12 47,50 53,50" fill="hsl(var(--destructive))" opacity="0.85" />
+                <polygon points="50,88 47,50 53,50" fill="hsl(var(--muted-foreground))" opacity="0.3" />
+              </g>
+              <circle cx="50" cy="50" r="4" fill="hsl(var(--primary))" />
+              <circle cx="50" cy="50" r="2" fill="hsl(var(--background))" />
+            </svg>
           </div>
+
+          {/* Video Stream */}
+          <div className="flex-1 aspect-video rounded-2xl bg-card border border-border flex items-center justify-center shadow-card">
+            <div className="text-center text-muted-foreground">
+              <div className="text-3xl mb-1">📹</div>
+              <p className="text-xs font-medium">{t('control.videoStream')}</p>
+              <p className="text-[10px]">{t('control.waitingFeed')}</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Heading readout */}
+        <div className="flex items-center justify-center gap-2">
+          <Compass className="w-3.5 h-3.5 text-primary" />
+          <span className="text-sm font-bold text-foreground">{heading}°</span>
+          <span className="text-[10px] text-muted-foreground">heading</span>
         </div>
 
         <div className="flex gap-4 items-center justify-center">
