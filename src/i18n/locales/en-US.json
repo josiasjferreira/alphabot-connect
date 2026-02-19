@@ -98,8 +98,10 @@
       "mediaDesc": "Camera, audio & recording",
       "rotation": "Rotation Control",
       "rotationDesc": "Compass & angular rotation",
-      "calibration": "Sensor Calibration",
-      "calibrationDesc": "Calibrate via Bluetooth BLE"
+      "calibration": "BLE Calibration",
+      "calibrationDesc": "Calibrate via Bluetooth BLE",
+      "calibrationWifi": "WiFi Calibration",
+      "calibrationWifiDesc": "Calibrate via local WiFi (offline)"
     }
   },
   "control": {
