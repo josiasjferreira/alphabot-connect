@@ -14,7 +14,8 @@ import { ROBOT_NETWORK_CONFIG } from '@/services/RobotWiFiConnection';
 
 // ─── Endpoint definitions ───────────────────────────────────────────────────
 
-const BASE = `http://${ROBOT_NETWORK_CONFIG.router}:${ROBOT_NETWORK_CONFIG.ports.http}`;
+// Porta 80 é padrão HTTP — não especificar porta na URL
+const BASE = `http://${ROBOT_NETWORK_CONFIG.router}`;
 
 interface EndpointDef {
   id: string;
@@ -40,7 +41,8 @@ const ENDPOINTS: EndpointDef[] = [
   { id: 'logs',        label: 'Logs Recentes',     path: '/api/logs/recent',       method: 'GET',  icon: <Server className="w-4 h-4" />,      category: 'Sistema' },
 ];
 
-const WS_URL = `ws://${ROBOT_NETWORK_CONFIG.router}:${ROBOT_NETWORK_CONFIG.ports.ws}`;
+const WS_URL   = `ws://${ROBOT_NETWORK_CONFIG.router}:${ROBOT_NETWORK_CONFIG.ports.ws}`;
+const MQTT_URL = `ws://${ROBOT_NETWORK_CONFIG.router}:${ROBOT_NETWORK_CONFIG.ports.mqtt}`;
 
 // ─── Result types ────────────────────────────────────────────────────────────
 
@@ -71,8 +73,10 @@ const NetworkDiagnostics = () => {
   const [progress, setProgress] = useState(0);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [fullResponse, setFullResponse] = useState<Record<string, string>>({});
-  const [wsResult, setWsResult] = useState<WsResult>({ status: 'idle', ms: null, message: null });
-  const wsTestRef = useRef<WebSocket | null>(null);
+  const [wsResult, setWsResult]     = useState<WsResult>({ status: 'idle', ms: null, message: null });
+  const [mqttResult, setMqttResult] = useState<WsResult>({ status: 'idle', ms: null, message: null });
+  const wsTestRef   = useRef<WebSocket | null>(null);
+  const mqttTestRef = useRef<WebSocket | null>(null);
 
   const updateResult = useCallback((id: string, patch: Partial<EndpointResult>) => {
     setResults(prev => ({ ...prev, [id]: { ...prev[id], ...patch } }));
@@ -169,12 +173,60 @@ const NetworkDiagnostics = () => {
     }
   }, []);
 
+  const testMqtt = useCallback(() => {
+    setMqttResult({ status: 'loading', ms: null, message: null });
+    mqttTestRef.current?.close();
+    const start = performance.now();
+    let settled = false;
+
+    const timeout = setTimeout(() => {
+      if (!settled) {
+        settled = true;
+        mqttTestRef.current?.close();
+        setMqttResult({ status: 'error', ms: Math.round(performance.now() - start), message: 'Timeout (6s) — broker MQTT não respondeu' });
+      }
+    }, 6000);
+
+    try {
+      const ws = new WebSocket(MQTT_URL);
+      mqttTestRef.current = ws;
+
+      ws.onopen = () => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timeout);
+        const ms = Math.round(performance.now() - start);
+        setMqttResult({ status: 'ok', ms, message: `Bridge MQTT conectado em ${ms}ms` });
+        ws.close();
+      };
+
+      ws.onerror = () => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timeout);
+        setMqttResult({ status: 'error', ms: Math.round(performance.now() - start), message: 'Erro de conexão — verifique se o bridge MQTT está ativo' });
+      };
+
+      ws.onclose = (e) => {
+        if (!settled) {
+          settled = true;
+          clearTimeout(timeout);
+          setMqttResult({ status: 'error', ms: Math.round(performance.now() - start), message: `Conexão fechada (código ${e.code})` });
+        }
+      };
+    } catch (err: any) {
+      clearTimeout(timeout);
+      setMqttResult({ status: 'error', ms: Math.round(performance.now() - start), message: err.message });
+    }
+  }, []);
+
   const runAll = useCallback(async () => {
     setRunning(true);
     setProgress(0);
     setResults(initResults());
     setFullResponse({});
     setWsResult({ status: 'idle', ms: null, message: null });
+    setMqttResult({ status: 'idle', ms: null, message: null });
 
     for (let i = 0; i < ENDPOINTS.length; i++) {
       await testEndpoint(ENDPOINTS[i]);
@@ -190,6 +242,7 @@ const NetworkDiagnostics = () => {
     setFullResponse({});
     setExpandedId(null);
     setWsResult({ status: 'idle', ms: null, message: null });
+    setMqttResult({ status: 'idle', ms: null, message: null });
   }, []);
 
   const shareReport = useCallback(() => {
@@ -197,8 +250,10 @@ const NetworkDiagnostics = () => {
       timestamp: new Date().toISOString(),
       baseUrl: BASE,
       wsUrl: WS_URL,
+      mqttUrl: MQTT_URL,
       network: ROBOT_NETWORK_CONFIG,
       websocket: wsResult,
+      mqtt: mqttResult,
       endpoints: ENDPOINTS.map(ep => {
         const r = results[ep.id];
         return {
@@ -224,13 +279,13 @@ const NetworkDiagnostics = () => {
     a.download = `diagnostico-rede-${new Date().toISOString().replace(/[:.]/g, '-')}.json`;
     a.click();
     URL.revokeObjectURL(url);
-  }, [results, fullResponse, wsResult]);
+  }, [results, fullResponse, wsResult, mqttResult]);
 
   const categories = [...new Set(ENDPOINTS.map(e => e.category))];
   const okCount = Object.values(results).filter(r => r.status === 'ok').length;
   const errCount = Object.values(results).filter(r => r.status === 'error').length;
   const doneCount = okCount + errCount;
-  const hasAnyResult = doneCount > 0 || wsResult.status !== 'idle';
+  const hasAnyResult = doneCount > 0 || wsResult.status !== 'idle' || mqttResult.status !== 'idle';
 
   const statusIcon = (r: EndpointResult) => {
     if (r.status === 'loading') return <Loader2 className="w-4 h-4 animate-spin text-primary" />;
@@ -272,8 +327,8 @@ const NetworkDiagnostics = () => {
               <div className="font-mono text-foreground">{ROBOT_NETWORK_CONFIG.tablet}</div>
               <div className="text-muted-foreground">Robô (interno):</div>
               <div className="font-mono text-foreground">{ROBOT_NETWORK_CONFIG.robotInternal}</div>
-              <div className="text-muted-foreground">HTTP (porta {ROBOT_NETWORK_CONFIG.ports.http}):</div>
-              <div className="font-mono text-foreground">{ROBOT_NETWORK_CONFIG.router}:{ROBOT_NETWORK_CONFIG.ports.http} → {ROBOT_NETWORK_CONFIG.tablet}:80</div>
+              <div className="text-muted-foreground">HTTP (porta {ROBOT_NETWORK_CONFIG.ports.http} padrão):</div>
+              <div className="font-mono text-foreground">{ROBOT_NETWORK_CONFIG.router} → {ROBOT_NETWORK_CONFIG.tablet}:80</div>
               <div className="text-muted-foreground">MQTT (porta {ROBOT_NETWORK_CONFIG.ports.mqtt}):</div>
               <div className="font-mono text-foreground">{ROBOT_NETWORK_CONFIG.router}:{ROBOT_NETWORK_CONFIG.ports.mqtt} → {ROBOT_NETWORK_CONFIG.tablet}:{ROBOT_NETWORK_CONFIG.ports.mqtt}</div>
               <div className="text-muted-foreground">WebSocket (porta {ROBOT_NETWORK_CONFIG.ports.ws}):</div>
@@ -350,6 +405,54 @@ const NetworkDiagnostics = () => {
                   {wsResult.status === 'ok' && <CheckCircle2 className="w-4 h-4 text-success" />}
                   {wsResult.status === 'error' && <XCircle className="w-4 h-4 text-destructive" />}
                   {wsResult.status === 'idle' && <div className="w-4 h-4 rounded-full border-2 border-muted-foreground/30" />}
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* MQTT Test */}
+        <Card>
+          <CardHeader className="pb-2 pt-4 px-4">
+            <CardTitle className="text-xs text-muted-foreground uppercase tracking-wider">MQTT Bridge</CardTitle>
+          </CardHeader>
+          <CardContent className="p-0">
+            <div className="px-4 py-3">
+              <div className="flex items-center gap-3">
+                <div className={`p-1.5 rounded-lg ${mqttResult.status === 'ok' ? 'bg-success/10' : mqttResult.status === 'error' ? 'bg-destructive/10' : 'bg-muted/50'}`}>
+                  <Radio className="w-4 h-4 text-muted-foreground" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-semibold text-foreground">Bridge MQTT</span>
+                    {mqttResult.ms != null && (
+                      <span className="text-[10px] text-muted-foreground font-mono">{mqttResult.ms}ms</span>
+                    )}
+                  </div>
+                  <p className="text-[10px] font-mono text-muted-foreground truncate">{MQTT_URL}</p>
+                  {mqttResult.message && (
+                    <p className={`text-[10px] mt-0.5 ${mqttResult.status === 'ok' ? 'text-success' : 'text-destructive'}`}>
+                      {mqttResult.message}
+                    </p>
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={testMqtt}
+                    disabled={mqttResult.status === 'loading'}
+                    className="text-xs gap-1 shrink-0"
+                  >
+                    {mqttResult.status === 'loading'
+                      ? <Loader2 className="w-3 h-3 animate-spin" />
+                      : <Radio className="w-3 h-3" />}
+                    Testar MQTT
+                  </Button>
+                  {mqttResult.status === 'loading' && <Loader2 className="w-4 h-4 animate-spin text-primary" />}
+                  {mqttResult.status === 'ok' && <CheckCircle2 className="w-4 h-4 text-success" />}
+                  {mqttResult.status === 'error' && <XCircle className="w-4 h-4 text-destructive" />}
+                  {mqttResult.status === 'idle' && <div className="w-4 h-4 rounded-full border-2 border-muted-foreground/30" />}
                 </div>
               </div>
             </div>
@@ -460,7 +563,7 @@ const NetworkDiagnostics = () => {
         )}
 
         <p className="text-[10px] text-center text-muted-foreground pb-4">
-          AlphaBot Companion v1.3.3 • Iascom
+          AlphaBot Companion v1.3.7 • Iascom
         </p>
       </div>
     </div>
