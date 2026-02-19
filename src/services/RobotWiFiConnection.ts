@@ -15,7 +15,7 @@ const ROBOT_IPS = [
  * Configuração da rede (port forwarding):
  * Tablet:   192.168.0.199
  * Roteador: 192.168.0.1  (Tenda)
- * Porta 99  → 192.168.0.199:80  (HTTP REST)
+ * Porta 80  → 192.168.0.199:80  (HTTP REST — porta padrão, CONFIRMADO)
  * Porta 1883→ 192.168.0.199:1883 (MQTT)
  * Porta 8080→ 192.168.0.199:8080 (WebSocket)
  */
@@ -24,7 +24,7 @@ export const ROBOT_NETWORK_CONFIG = {
   tablet: '192.168.0.199',
   robotInternal: '192.168.99.101',
   ports: {
-    http: 99,
+    http: 80,
     mqtt: 1883,
     ws: 8080,
   },
