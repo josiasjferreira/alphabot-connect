@@ -7,10 +7,6 @@
 /** IPs possíveis do robô (conforme testes reais e engenharia reversa) */
 const ROBOT_IPS = [
   '192.168.0.1',     // ⭐ IP PADRÃO (Realtek - após reset) - PRIORIDADE 1
-  '192.168.99.1',    // IP customizado (firmware antigo/custom)
-  '192.168.99.101',  // IP alternativo (documentação)
-  '192.168.1.1',     // Outro padrão comum
-  '192.168.99.2',    // Slamware (sistema de navegação)
 ] as const;
 
 /** Nomes de rede WiFi do robô */
