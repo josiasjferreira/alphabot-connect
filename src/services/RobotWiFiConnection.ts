@@ -5,6 +5,27 @@
  */
 
 /**
+ * Detecta se o app está rodando em contexto HTTPS (página servida via https://).
+ * Navegadores bloqueiam requisições HTTP de páginas HTTPS (Mixed Content).
+ */
+export function isHttpsContext(): boolean {
+  return typeof window !== 'undefined' && window.location.protocol === 'https:';
+}
+
+/**
+ * Detecta se o app está instalado como PWA (standalone).
+ * PWAs instalados contornam a restrição de Mixed Content e conseguem acessar HTTP local.
+ */
+export function isPWA(): boolean {
+  if (typeof window === 'undefined') return false;
+  return (
+    window.matchMedia('(display-mode: standalone)').matches ||
+    (window.navigator as any).standalone === true ||
+    document.referrer.includes('android-app://')
+  );
+}
+
+/**
  * Configuração da rede (port forwarding):
  * Roteador: 192.168.0.1  (Tenda)
  * Tablet:   192.168.0.199
@@ -146,6 +167,15 @@ async function fetchRobotInfo(ip: string, timeoutMs = 8000): Promise<RobotInfo |
 export async function detectRobotIP(): Promise<ConnectionResult> {
   console.log('🔍 Iniciando detecção automática de IP do robô...');
   console.log('📋 IPs testados com porta EXPLÍCITA :80:', [...ROBOT_IPS]);
+
+  // Aviso crítico se estiver em HTTPS sem ser PWA
+  if (isHttpsContext() && !isPWA()) {
+    console.warn('⚠️ ==========================================');
+    console.warn('⚠️ AVISO: Rodando em HTTPS sem ser PWA!');
+    console.warn('⚠️ Navegadores BLOQUEIAM requisições HTTP de páginas HTTPS.');
+    console.warn('⚠️ SOLUÇÃO: Instale o app como PWA (Menu → Adicionar à tela inicial)');
+    console.warn('⚠️ ==========================================');
+  }
 
   // Testar sequencialmente — parar no primeiro que responder
   let found: { ip: string; ok: boolean; latencyMs: number } | null = null;

@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
-import { detectRobotIP, ROBOT_WIFI_NETWORKS, type RobotInfo, type ConnectionResult } from '@/services/RobotWiFiConnection';
+import { detectRobotIP, ROBOT_WIFI_NETWORKS, isHttpsContext, isPWA, type RobotInfo, type ConnectionResult } from '@/services/RobotWiFiConnection';
 import { RobotHTTPClient } from '@/services/RobotHTTPClient';
 import type { CalibrationProgress, CalibrationData } from '@/services/bluetoothCalibrationBridge';
 import { ALL_SENSORS, type SensorId } from '@/services/bluetoothCalibrationBridge';
@@ -56,6 +56,7 @@ const RobotCalibrationPanel = () => {
   const [showInstructions, setShowInstructions] = useState(false);
   const [showData, setShowData] = useState(false);
   const [showSuccessDialog, setShowSuccessDialog] = useState(false);
+  const [showPwaWarning, setShowPwaWarning] = useState(() => isHttpsContext() && !isPWA());
 
   const addLog = useCallback((msg: string) => {
     setLogs(prev => [`[${new Date().toLocaleTimeString()}] ${msg}`, ...prev].slice(0, 100));
@@ -307,6 +308,44 @@ const RobotCalibrationPanel = () => {
       </AnimatePresence>
 
       <div className="p-4 space-y-4">
+
+        {/* PWA Warning — shown when in HTTPS without PWA install */}
+        {showPwaWarning && (
+          <Card className="border-destructive/60 bg-destructive/5">
+            <CardContent className="p-4">
+              <div className="flex items-start gap-3 mb-3">
+                <span className="text-2xl shrink-0">🚨</span>
+                <div>
+                  <p className="text-sm font-bold text-destructive mb-1">Instale o app como PWA</p>
+                  <p className="text-xs text-muted-foreground">
+                    Seu navegador <strong className="text-foreground">bloqueia requisições HTTP</strong> de páginas HTTPS.
+                    Para conectar ao robô, instale o app na tela inicial.
+                  </p>
+                </div>
+              </div>
+              <div className="bg-card rounded-lg p-3 mb-3 border border-border">
+                <p className="text-xs font-semibold text-foreground mb-1.5">📱 Chrome / Edge:</p>
+                <ol className="text-[11px] text-muted-foreground space-y-1 list-decimal list-inside">
+                  <li>Menu <strong className="text-foreground">⋮</strong> → <strong className="text-foreground">Adicionar à tela inicial</strong></li>
+                  <li>Confirme a instalação</li>
+                  <li className="text-primary font-medium">Abra o app pelo ícone instalado (não pelo browser)</li>
+                </ol>
+                <p className="text-xs font-semibold text-foreground mt-2 mb-1.5">🍎 Safari / iOS:</p>
+                <ol className="text-[11px] text-muted-foreground space-y-1 list-decimal list-inside">
+                  <li>Botão Compartilhar <strong className="text-foreground">□↑</strong> → <strong className="text-foreground">Adicionar à Tela de Início</strong></li>
+                  <li>Abra o app pelo ícone instalado</li>
+                </ol>
+              </div>
+              <button
+                onClick={() => setShowPwaWarning(false)}
+                className="text-[11px] text-muted-foreground underline"
+              >
+                Entendi, esconder aviso
+              </button>
+            </CardContent>
+          </Card>
+        )}
+
         {/* WiFi Instructions */}
         <Card>
           <CardContent className="p-4">
