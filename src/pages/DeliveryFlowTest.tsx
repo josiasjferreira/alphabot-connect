@@ -708,7 +708,7 @@ const DeliveryFlowTest = () => {
         <button onClick={() => navigate('/dashboard')} className="text-xs text-primary font-semibold active:opacity-70">
           Voltar ao Dashboard
         </button>
-        <p className="text-[10px] text-muted-foreground">AlphaBot Companion v1.3.7 • Iascom</p>
+        <p className="text-[10px] text-muted-foreground">AlphaBot Companion v1.4.0 • Iascom</p>
       </div>
     </div>
   );

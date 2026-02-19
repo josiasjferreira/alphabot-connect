@@ -19,7 +19,7 @@
     "connectingButton": "CONNECTING...",
     "offlineButton": "Offline Mode (Simulation)",
     "externalIpWarning": "Warning: You are connecting to an external IP ({{ip}}). This may expose robot commands to untrusted networks. Continue?",
-"version": "AlphaBot Companion v1.3.1 • Iascom",
+"version": "AlphaBot Companion v1.4.0 • Iascom",
     "bluetooth": {
       "title": "BLUETOOTH CONNECTION",
       "scan": "Scan Devices",

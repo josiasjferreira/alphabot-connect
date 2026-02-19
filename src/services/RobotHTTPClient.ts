@@ -47,12 +47,12 @@ export class RobotHTTPClient {
   public onLog: RobotHTTPClientOptions['onLog'];
 
   constructor(opts: RobotHTTPClientOptions) {
-    // CRÍTICO: IP pode incluir porta explícita (ex: '192.168.0.1:80' ou '192.168.0.199:80')
-    // O tablet responde SOMENTE com porta :80 especificada — não usar porta padrão implícita.
-    const rawIp = opts.ip ?? '192.168.0.1:80';
-    // Garantir que porta 80 está sempre explícita
-    this.ip = rawIp.includes(':') ? rawIp : `${rawIp}:80`;
-    const host = this.ip.split(':')[0];
+    // IP sem porta — o detectRobotIP() agora retorna IPs sem porta (ex: '192.168.0.1')
+    // Testes manuais confirmaram que http://192.168.0.1/api/ping funciona sem :80 explícito
+    const rawIp = opts.ip ?? '192.168.0.1';
+    // Extrair só o host (sem porta) para construir as URLs
+    const host = rawIp.includes(':') ? rawIp.split(':')[0] : rawIp;
+    this.ip = host; // guardar sem porta
     this.wsUrl = `ws://${host}:8080`;
     this.onProgressUpdate = opts.onProgressUpdate;
     this.onComplete = opts.onComplete;
@@ -164,7 +164,7 @@ export class RobotHTTPClient {
   get wsConnected() { return this.ws?.readyState === WebSocket.OPEN; }
 
   get connected() { return this._connected; }
-  get baseUrl() { return `http://${this.ip}`; }
+  get baseUrl() { return `http://${this.ip}`; } // sem porta — usa 80 padrão HTTP
 
   // ───── Generic request ─────
 
