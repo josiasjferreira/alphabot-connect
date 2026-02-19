@@ -6,7 +6,7 @@
 
 /** IPs possíveis do robô (conforme testes reais e engenharia reversa) */
 const ROBOT_IPS = [
-  '192.168.0.1',     // ⭐ IP PADRÃO (Realtek - após reset) - PRIORIDADE 1
+  '192.168.0.1:99',  // ⭐ IP do roteador com DMZ ativo (port forwarding :99 → robô)
 ] as const;
 
 /** Nomes de rede WiFi do robô */

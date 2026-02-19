@@ -45,53 +45,47 @@ export class RobotHTTPClient {
   public onLog: RobotHTTPClientOptions['onLog'];
 
   constructor(opts: RobotHTTPClientOptions) {
-    this.ip = opts.ip ?? '192.168.0.1';
+    this.ip = opts.ip ?? '192.168.0.1:99';
     this.onProgressUpdate = opts.onProgressUpdate;
     this.onComplete = opts.onComplete;
     this.onError = opts.onError;
     this.onDisconnected = opts.onDisconnected;
     this.onLog = opts.onLog;
     this._connected = true;
-    console.log('🔧 Cliente HTTP criado com DMZ:', `http://${this.ip}`);
+    console.log('🔧 Cliente HTTP criado:', `http://${this.ip}`);
     this.startHeartbeat();
   }
 
   /**
-   * Detecta o robô via DMZ no IP padrão 192.168.0.1
+   * Detecta o robô via port forwarding em 192.168.0.1:99
    */
   static async detectRobotIP(): Promise<string | null> {
-    const IP_ROTEADOR = '192.168.0.1';
-    console.log('🔍 Testando IP via DMZ:', IP_ROTEADOR);
+    const IP_COM_PORTA = '192.168.0.1:99';
+    console.log('🔍 Testando IP via port forwarding:', IP_COM_PORTA);
 
     try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 5000);
-
-      const response = await fetch(`http://${IP_ROTEADOR}/api/ping`, {
+      const response = await fetch(`http://${IP_COM_PORTA}/api/ping`, {
         method: 'GET',
         headers: { 'Content-Type': 'application/json' },
-        signal: controller.signal,
+        signal: AbortSignal.timeout(5000),
         cache: 'no-store',
       });
-
-      clearTimeout(timeoutId);
 
       if (response.ok) {
         try {
           const data = await response.json();
-          console.log('✅ Resposta do robô via DMZ:', data);
+          console.log('✅ Resposta do robô via port forwarding:', data);
           if (data.pong || data.status === 'ok' || data.alive) {
-            console.log('🎉 ROBÔ ENCONTRADO via DMZ!');
-            return IP_ROTEADOR;
+            console.log('🎉 ROBÔ ENCONTRADO via port forwarding!');
+            return IP_COM_PORTA;
           }
         } catch {
-          // Resposta não-JSON mas status OK também é válido
-          console.log('✅ Robô respondeu (não-JSON) via DMZ');
-          return IP_ROTEADOR;
+          console.log('✅ Robô respondeu (não-JSON) via port forwarding');
+          return IP_COM_PORTA;
         }
       }
     } catch (error) {
-      console.error('❌ Erro ao detectar robô via DMZ:', error);
+      console.error('❌ Erro ao detectar robô:', error);
     }
 
     return null;
