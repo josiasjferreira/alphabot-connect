@@ -48,14 +48,32 @@ const RobotCalibrationPanel = () => {
   const [progress, setProgress] = useState<CalibrationProgress | null>(null);
   const [calibData, setCalibData] = useState<CalibrationData | null>(null);
 
+  interface HttpLog { ts: string; url: string; method: string; status: number | null; ms: number | null; ok: boolean | null; err?: string; }
   const [logs, setLogs] = useState<string[]>([]);
+  const [httpLogs, setHttpLogs] = useState<{ ts: string; url: string; method: string; status: number | null; ms: number | null; ok: boolean | null; err?: string }[]>([]);
   const [showLogs, setShowLogs] = useState(false);
+  const [showHttpPanel, setShowHttpPanel] = useState(false);
   const [showInstructions, setShowInstructions] = useState(false);
   const [showData, setShowData] = useState(false);
   const [showSuccessDialog, setShowSuccessDialog] = useState(false);
 
   const addLog = useCallback((msg: string) => {
     setLogs(prev => [`[${new Date().toLocaleTimeString()}] ${msg}`, ...prev].slice(0, 100));
+  }, []);
+
+  const addHttpLog = useCallback(async (url: string, method: string, fetchFn: () => Promise<Response>) => {
+    const ts = new Date().toLocaleTimeString();
+    const start = performance.now();
+    try {
+      const res = await fetchFn();
+      const ms = Math.round(performance.now() - start);
+      setHttpLogs(prev => [{ ts, url, method, status: res.status, ms, ok: res.ok }, ...prev].slice(0, 50));
+      return res;
+    } catch (err: any) {
+      const ms = Math.round(performance.now() - start);
+      setHttpLogs(prev => [{ ts, url, method, status: null, ms, ok: false, err: err.message }, ...prev].slice(0, 50));
+      throw err;
+    }
   }, []);
 
   // Cleanup
@@ -67,6 +85,18 @@ const RobotCalibrationPanel = () => {
     setPhase('scanning');
     setError(null);
     addLog('Buscando robô na rede WiFi...');
+
+    const IP_FIXO = '192.168.0.1:99';
+    const pingUrl = `http://${IP_FIXO}/api/ping`;
+    addLog(`Testando: ${pingUrl}`);
+
+    try {
+      await addHttpLog(pingUrl, 'GET', () =>
+        fetch(pingUrl, { headers: { Accept: 'application/json' }, signal: AbortSignal.timeout(5000), cache: 'no-store' })
+      );
+    } catch {
+      // log captured via addHttpLog
+    }
 
     const result: ConnectionResult = await detectRobotIP();
 
@@ -103,7 +133,14 @@ const RobotCalibrationPanel = () => {
         addLog('Conexão perdida');
         toast({ title: '🔴 Desconectado', description: 'Conexão WiFi perdida', variant: 'destructive' });
       },
-      onLog: addLog,
+      onLog: (msg) => {
+        addLog(msg);
+        // capture HTTP-style logs from client
+        if (msg.startsWith('[HTTP]')) {
+          const url = `http://${result.ip}/...`;
+          setHttpLogs(prev => [{ ts: new Date().toLocaleTimeString(), url, method: 'GET', status: null, ms: null, ok: null, err: msg }, ...prev].slice(0, 50));
+        }
+      },
     });
 
     clientRef.current?.destroy();
@@ -481,6 +518,56 @@ const RobotCalibrationPanel = () => {
           </div>
         )}
 
+        {/* HTTP Debug Panel */}
+        <Card>
+          <CardContent className="p-4">
+            <button onClick={() => setShowHttpPanel(!showHttpPanel)} className="w-full flex items-center justify-between text-sm font-semibold text-foreground">
+              <span>🌐 Requisições HTTP ({httpLogs.length})</span>
+              <span className="text-xs text-muted-foreground">{showHttpPanel ? 'Ocultar' : 'Mostrar'}</span>
+            </button>
+            <AnimatePresence>
+              {showHttpPanel && (
+                <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
+                  <div className="mt-3 max-h-64 overflow-y-auto space-y-1.5 bg-muted/20 rounded-lg p-2">
+                    {httpLogs.length === 0
+                      ? <p className="text-xs text-muted-foreground text-center py-4">Nenhuma requisição ainda</p>
+                      : httpLogs.map((h, i) => (
+                        <div key={i} className={`rounded-lg p-2 border text-[10px] font-mono ${h.ok === true ? 'bg-green-500/5 border-green-500/20' : h.ok === false ? 'bg-destructive/5 border-destructive/20' : 'bg-muted/30 border-border'}`}>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className={`font-bold px-1 rounded ${h.ok === true ? 'text-green-500' : h.ok === false ? 'text-destructive' : 'text-muted-foreground'}`}>
+                              {h.ok === true ? '✅' : h.ok === false ? '❌' : '⏳'}
+                            </span>
+                            <span className="text-primary font-bold">{h.method}</span>
+                            <span className="text-foreground truncate max-w-[200px]">{h.url}</span>
+                            {h.status != null && (
+                              <span className={`px-1.5 py-0.5 rounded font-bold ${h.ok ? 'bg-green-500/10 text-green-500' : 'bg-destructive/10 text-destructive'}`}>
+                                {h.status}
+                              </span>
+                            )}
+                            {h.ms != null && <span className="text-muted-foreground">{h.ms}ms</span>}
+                            <span className="text-muted-foreground ml-auto">{h.ts}</span>
+                          </div>
+                          {h.err && <p className="text-destructive mt-1 truncate">{h.err}</p>}
+                        </div>
+                      ))
+                    }
+                  </div>
+                  {/* Port Forwarding Info */}
+                  <div className="mt-3 p-3 rounded-lg bg-primary/5 border border-primary/20">
+                    <p className="text-xs font-bold text-primary mb-1.5">ℹ️ Acesso via Port Forwarding</p>
+                    <div className="space-y-0.5 text-[10px] text-muted-foreground">
+                      <p>• Roteador: <code className="bg-muted px-1 rounded text-foreground">192.168.0.1</code></p>
+                      <p>• Tablet: <code className="bg-muted px-1 rounded text-foreground">192.168.0.199</code></p>
+                      <p>• Robô (interno): <code className="bg-muted px-1 rounded text-foreground">192.168.99.101</code></p>
+                      <p>• Endpoint: <code className="bg-muted px-1 rounded text-foreground">http://192.168.0.1:99/api</code></p>
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </CardContent>
+        </Card>
+
         {/* Logs */}
         <Card>
           <CardContent className="p-4">
@@ -504,7 +591,7 @@ const RobotCalibrationPanel = () => {
         </Card>
 
         <p className="text-[10px] text-center text-muted-foreground pb-4">
-          AlphaBot Companion v1.3.1 • Iascom
+          AlphaBot Companion v1.3.3 • Iascom
         </p>
       </div>
     </div>
