@@ -4,11 +4,16 @@
  * @version 1.0.0
  */
 
-/** IPs possíveis do robô — port forwarding via roteador Tenda */
+/**
+ * IPs possíveis do robô com porta EXPLÍCITA (:80)
+ * CRÍTICO: o tablet responde em http://192.168.0.199:80 mas NÃO em http://192.168.0.199
+ * Por isso a porta 80 deve ser sempre especificada explicitamente na URL.
+ */
 const ROBOT_IPS = [
-  '192.168.0.1',       // ⭐ Roteador Tenda → Tablet 192.168.0.199:80 (CONFIRMADO: porta 80 padrão)
-  '192.168.99.101',    // Fallback IP direto do robô (interno)
-  '192.168.99.1',      // Fallback IP alternativo
+  '192.168.0.1:80',      // ⭐ Roteador Tenda com port forwarding — CONFIRMADO
+  '192.168.0.199:80',    // IP direto do tablet — CONFIRMADO
+  '192.168.99.101:80',   // Fallback IP interno do robô
+  '192.168.99.1:80',     // Fallback IP alternativo
 ] as const;
 
 /**
@@ -53,22 +58,31 @@ export interface ConnectionResult {
 /**
  * Tenta GET /api/ping num IP com timeout
  */
-async function pingRobot(ip: string, timeoutMs = 3000): Promise<{ ok: boolean; latencyMs: number }> {
+/**
+ * Ping com porta EXPLÍCITA — timeout aumentado para 10s pois tablet pode demorar
+ * CRÍTICO: sempre usar http://ip:porta/path (nunca omitir :80)
+ */
+async function pingRobot(ip: string, timeoutMs = 10000): Promise<{ ok: boolean; latencyMs: number }> {
   const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+  const timer = setTimeout(() => {
+    console.warn(`⏰ Timeout (${timeoutMs}ms) em ${ip}`);
+    ctrl.abort();
+  }, timeoutMs);
   const start = performance.now();
 
-  // Tentar /api/ping
+  // CRÍTICO: URL com porta explícita (ip já inclui :80)
+  const pingUrl = `http://${ip}/api/ping`;
+  console.log(`🔍 Testando: ${pingUrl}`);
+
   try {
-    console.log(`🔍 Testando: http://${ip}/api/ping`);
-    const res = await fetch(`http://${ip}/api/ping`, {
+    const res = await fetch(pingUrl, {
       signal: ctrl.signal,
       cache: 'no-store',
       headers: { 'Accept': 'application/json', 'Cache-Control': 'no-cache' },
     });
     clearTimeout(timer);
     const elapsed = Math.round(performance.now() - start);
-    console.log(`📡 ${ip} respondeu em ${elapsed}ms com status: ${res.status}`);
+    console.log(`📡 ${ip} respondeu em ${elapsed}ms | status: ${res.status}`);
     if (res.ok) {
       try {
         const data = await res.json();
@@ -80,21 +94,23 @@ async function pingRobot(ip: string, timeoutMs = 3000): Promise<{ ok: boolean; l
   } catch (err: any) {
     clearTimeout(timer);
     if (err.name === 'AbortError') {
-      console.log(`⏱️ ${ip} - Timeout (${timeoutMs}ms)`);
+      console.error(`❌ ${ip} — TIMEOUT (${timeoutMs}ms) — tablet dormindo ou servidor HTTP inativo`);
     } else {
-      console.log(`❌ ${ip} - ${err.name}: ${err.message}`);
+      console.error(`❌ ${ip} — ${err.name}: ${err.message}`);
     }
   }
 
-  // Fallback: endpoint raiz
+  // Fallback: endpoint raiz com porta explícita
   try {
-    const res = await fetch(`http://${ip}/`, { method: 'GET', signal: AbortSignal.timeout(2000) });
+    const rootUrl = `http://${ip}/`;
+    console.log(`🔄 Fallback raiz: ${rootUrl}`);
+    const res = await fetch(rootUrl, { method: 'GET', signal: AbortSignal.timeout(3000) });
     if (res.ok) {
-      console.log(`✅ ROBÔ ENCONTRADO (endpoint raiz): ${ip}`);
+      console.log(`✅ ROBÔ ENCONTRADO (raiz): ${ip}`);
       return { ok: true, latencyMs: Math.round(performance.now() - start) };
     }
   } catch {
-    console.log(`❌ ${ip} - endpoint raiz também falhou`);
+    console.log(`❌ ${ip} — fallback raiz também falhou`);
   }
 
   return { ok: false, latencyMs: -1 };
@@ -131,32 +147,38 @@ async function fetchRobotInfo(ip: string, timeoutMs = 8000): Promise<RobotInfo |
  */
 export async function detectRobotIP(): Promise<ConnectionResult> {
   console.log('🔍 Iniciando detecção automática de IP do robô...');
-  console.log('📋 IPs que serão testados (em ordem):', [...ROBOT_IPS]);
+  console.log('📋 IPs testados com porta EXPLÍCITA :80:', [...ROBOT_IPS]);
 
-  const results = await Promise.all(ROBOT_IPS.map(async (ip) => {
+  // Testar sequencialmente — parar no primeiro que responder
+  let found: { ip: string; ok: boolean; latencyMs: number } | null = null;
+  for (const ip of ROBOT_IPS) {
     const ping = await pingRobot(ip);
-    return { ip, ...ping };
-  }));
+    if (ping.ok) {
+      found = { ip, ...ping };
+      console.log(`🎉 ROBÔ ENCONTRADO em ${ip} (${ping.latencyMs}ms) — parando busca`);
+      break;
+    }
+  }
 
-  const found = results.find((r) => r.ok);
   if (!found) {
-    console.log('\n❌ Robô não encontrado em nenhum IP');
-    console.log('📋 IPs testados:', ROBOT_IPS.join(', '));
-    console.log('\n💡 Dicas de troubleshooting:');
-    console.log('1. Confirme que está conectado na rede: RoboKen_Controle ou RoboKen_Controle_5G');
-    console.log('2. Verifique se o robô está ligado');
-    console.log('3. Tente reconectar no WiFi do robô');
+    console.error('\n❌ Robô não encontrado em nenhum IP testado');
+    console.error('📋 IPs tentados:', ROBOT_IPS.join(', '));
+    console.error('\n💡 Troubleshooting:');
+    console.error('1. Conecte ao Wi-Fi: RoboKen_Controle ou RoboKen_Controle_5G');
+    console.error('2. Verifique se o tablet está ligado e o app do robô está ativo');
+    console.error('3. Teste manual no browser: http://192.168.0.199:80/api/ping');
+    console.error('4. Verifique se o servidor HTTP está rodando no tablet (porta 80 EXPLÍCITA)');
 
     return {
       success: false,
       ip: null,
       robotInfo: null,
-      error: 'Robô não encontrado na rede.\n\nVerifique:\n1. Celular/tablet conectado ao WiFi do robô\n   (RoboKen_Controle_5G ou RoboKen_Controle)\n2. Robô está ligado\n3. Redes suportadas: ' + ROBOT_WIFI_NETWORKS.join(', '),
+      error: 'Robô não encontrado.\n\nVerifique:\n1. Wi-Fi: RoboKen_Controle ou RoboKen_Controle_5G\n2. Tablet ligado com app do robô ativo\n3. Teste manual: http://192.168.0.199:80/api/ping\n\nRedes suportadas: ' + ROBOT_WIFI_NETWORKS.join(', '),
       latencyMs: -1,
     };
   }
 
-  console.log(`✅ [WiFi] Robô encontrado em ${found.ip} (${found.latencyMs}ms)`);
+  console.log(`✅ [WiFi] Robô detectado em ${found.ip} (${found.latencyMs}ms)`);
   const robotInfo = await fetchRobotInfo(found.ip);
 
   return {

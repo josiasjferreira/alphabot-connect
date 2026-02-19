@@ -380,6 +380,26 @@ const RobotCalibrationPanel = () => {
           </CardContent>
         </Card>
 
+        {/* Troubleshooting Checklist — shown when disconnected */}
+        {phase === 'disconnected' && (
+          <Card className="border-warning/40 bg-warning/5">
+            <CardContent className="p-4">
+              <p className="text-xs font-bold text-warning mb-2 flex items-center gap-1">⚠️ Checklist de Diagnóstico</p>
+              <ul className="space-y-1.5 text-[11px] text-muted-foreground">
+                <li className="flex items-start gap-2"><span className="text-green-500 shrink-0">✅</span><span>Conectado ao Wi-Fi: <span className="text-foreground font-medium">RoboKen_Controle</span> ou <span className="text-foreground font-medium">RoboKen_Controle_5G</span></span></li>
+                <li className="flex items-start gap-2"><span className="text-warning shrink-0">❓</span><span>Tablet do robô está ligado?</span></li>
+                <li className="flex items-start gap-2"><span className="text-warning shrink-0">❓</span><span>App do robô está aberto no tablet?</span></li>
+                <li className="flex items-start gap-2"><span className="text-warning shrink-0">❓</span><span>Servidor HTTP ativo no tablet (porta 80)?</span></li>
+              </ul>
+              <div className="mt-3 pt-3 border-t border-warning/20">
+                <p className="text-[10px] text-muted-foreground font-medium mb-1">🧪 Teste manual no browser do celular:</p>
+                <code className="text-[10px] bg-muted px-2 py-1 rounded block font-mono">http://192.168.0.199:80/api/ping</code>
+                <code className="text-[10px] bg-muted px-2 py-1 rounded block font-mono mt-1">http://192.168.0.1:80/api/ping</code>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Error */}
         <AnimatePresence>
           {error && (
