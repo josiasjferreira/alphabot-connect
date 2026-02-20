@@ -2,15 +2,15 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Wifi, WifiOff, Play, Square, RotateCcw, ChevronLeft, Activity, CheckCircle2,
-  XCircle, Loader2, Download, Upload, Info, ChevronDown, ChevronUp, RefreshCw,
+  WifiOff, Play, Square, RotateCcw, ChevronLeft, CheckCircle2,
+  XCircle, Loader2, Download, Upload, Info, ChevronDown, ChevronUp, Radio,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
-import { detectRobotIP, ROBOT_WIFI_NETWORKS, isHttpsContext, isPWA, type RobotInfo, type ConnectionResult } from '@/services/RobotWiFiConnection';
-import { RobotHTTPClient } from '@/services/RobotHTTPClient';
+import { ROBOT_WIFI_NETWORKS, isHttpsContext, isPWA } from '@/services/RobotWiFiConnection';
+import { RobotMQTTClient, type MQTTMessage } from '@/services/RobotMQTTClient';
 import type { CalibrationProgress, CalibrationData } from '@/services/bluetoothCalibrationBridge';
 import { ALL_SENSORS, type SensorId } from '@/services/bluetoothCalibrationBridge';
 
@@ -36,23 +36,21 @@ const getSensorStatus = (sensorId: string, currentSensor?: string): 'idle' | 'ac
 const RobotCalibrationPanel = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const clientRef = useRef<RobotHTTPClient | null>(null);
+  const mqttRef = useRef<RobotMQTTClient | null>(null);
 
-  const [phase, setPhase] = useState<'disconnected' | 'scanning' | 'connected'>('disconnected');
-  const [robotInfo, setRobotInfo] = useState<RobotInfo | null>(null);
-  const [latency, setLatency] = useState(-1);
+  const [phase, setPhase] = useState<'disconnected' | 'connecting' | 'connected'>('disconnected');
+  const [connectedBroker, setConnectedBroker] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
 
   const [selectedSensors, setSelectedSensors] = useState<SensorId[]>([...ALL_SENSORS]);
   const [isCalibrating, setIsCalibrating] = useState(false);
   const [progress, setProgress] = useState<CalibrationProgress | null>(null);
   const [calibData, setCalibData] = useState<CalibrationData | null>(null);
+  const [mqttMessages, setMqttMessages] = useState<MQTTMessage[]>([]);
 
-  interface HttpLog { ts: string; url: string; method: string; status: number | null; ms: number | null; ok: boolean | null; err?: string; }
   const [logs, setLogs] = useState<string[]>([]);
-  const [httpLogs, setHttpLogs] = useState<{ ts: string; url: string; method: string; status: number | null; ms: number | null; ok: boolean | null; err?: string }[]>([]);
   const [showLogs, setShowLogs] = useState(false);
-  const [showHttpPanel, setShowHttpPanel] = useState(false);
+  const [showMqttPanel, setShowMqttPanel] = useState(false);
   const [showInstructions, setShowInstructions] = useState(false);
   const [showData, setShowData] = useState(false);
   const [showSuccessDialog, setShowSuccessDialog] = useState(false);
@@ -62,111 +60,92 @@ const RobotCalibrationPanel = () => {
     setLogs(prev => [`[${new Date().toLocaleTimeString()}] ${msg}`, ...prev].slice(0, 100));
   }, []);
 
-  const addHttpLog = useCallback(async (url: string, method: string, fetchFn: () => Promise<Response>) => {
-    const ts = new Date().toLocaleTimeString();
-    const start = performance.now();
-    try {
-      const res = await fetchFn();
-      const ms = Math.round(performance.now() - start);
-      setHttpLogs(prev => [{ ts, url, method, status: res.status, ms, ok: res.ok }, ...prev].slice(0, 50));
-      return res;
-    } catch (err: any) {
-      const ms = Math.round(performance.now() - start);
-      setHttpLogs(prev => [{ ts, url, method, status: null, ms, ok: false, err: err.message }, ...prev].slice(0, 50));
-      throw err;
-    }
-  }, []);
-
   // Cleanup
-  useEffect(() => () => { clientRef.current?.destroy(); }, []);
+  useEffect(() => () => { mqttRef.current?.disconnect(); }, []);
 
-  // ─── Connection ───
+  // ─── MQTT Connection ───
 
   const handleScan = async () => {
-    setPhase('scanning');
+    setPhase('connecting');
     setError(null);
-    addLog('Buscando robô na rede WiFi...');
+    addLog('Conectando ao broker MQTT do robô...');
 
-    const IP_FIXO = '192.168.0.1';
-    const pingUrl = `http://${IP_FIXO}/api/ping`;
-    addLog(`Testando: ${pingUrl}`);
+    const brokerUrl = 'ws://192.168.0.1:1883';
+    addLog(`Broker: ${brokerUrl}`);
 
-    // Log HTTP ping attempt
     try {
-      await addHttpLog(pingUrl, 'GET', () =>
-        fetch(pingUrl, { headers: { Accept: 'application/json' }, signal: AbortSignal.timeout(5000), cache: 'no-store' })
-      );
-    } catch {
-      // log captured via addHttpLog, continue with detectRobotIP
-    }
+      const client = new RobotMQTTClient();
 
-    const result: ConnectionResult = await detectRobotIP();
+      await client.connect(brokerUrl, {
+        onConnect: () => {
+          addLog('✅ MQTT conectado!');
+          setPhase('connected');
+          setConnectedBroker(brokerUrl);
+          setShowSuccessDialog(true);
+          toast({ title: '✅ MQTT Conectado!', description: `Broker: ${brokerUrl}` });
+          // Send ping to discover robot
+          setTimeout(() => client.ping(), 800);
+        },
 
-    if (!result.success || !result.ip) {
+        onMessage: (topic, payload) => {
+          const ts = new Date().toLocaleTimeString();
+          addLog(`📨 [${topic}]: ${JSON.stringify(payload).slice(0, 60)}`);
+          setMqttMessages(prev => [{ topic, payload, ts }, ...prev].slice(0, 50));
+
+          // Handle calibration topics
+          if (typeof payload === 'object' && payload !== null) {
+            const p = payload as Record<string, any>;
+            if (topic.includes('/calibration/progress')) {
+              const prog: CalibrationProgress = {
+                progress: p.progress ?? 0,
+                currentSensor: p.sensor ?? p.currentSensor ?? '',
+                message: p.message ?? `Calibrando ${p.sensor ?? ''}...`,
+              };
+              setProgress(prog);
+              setIsCalibrating(prog.progress > 0 && prog.progress < 100);
+            }
+            if (topic.includes('/calibration/complete')) {
+              setIsCalibrating(false);
+              setProgress(null);
+              setCalibData(p as unknown as CalibrationData);
+              toast({ title: '✅ Calibração Concluída!' });
+              addLog('Calibração completa!');
+            }
+          }
+        },
+
+        onError: (err) => {
+          addLog(`❌ Erro MQTT: ${err.message}`);
+          setError(`Erro MQTT: ${err.message}`);
+          setPhase('disconnected');
+        },
+
+        onClose: () => {
+          if (phase === 'connected') {
+            addLog('🔌 Conexão MQTT perdida');
+            setPhase('disconnected');
+            setIsCalibrating(false);
+            toast({ title: '🔴 MQTT Desconectado', variant: 'destructive' });
+          }
+        },
+      });
+
+      mqttRef.current?.disconnect();
+      mqttRef.current = client;
+
+    } catch (err: any) {
       setPhase('disconnected');
-      setError(result.error);
-      addLog(`Falha: ${result.error}`);
-      toast({ title: '❌ Robô não encontrado', description: 'Verifique a conexão WiFi (RoboKen_Controle)', variant: 'destructive' });
-      return;
+      setError(err.message);
+      addLog(`Falha: ${err.message}`);
+      toast({ title: '❌ Falha na conexão MQTT', description: err.message, variant: 'destructive' });
     }
-
-    addLog(`✅ Robô encontrado em ${result.ip} (${result.latencyMs}ms)`);
-    setRobotInfo(result.robotInfo);
-    setLatency(result.latencyMs);
-
-    // Create HTTP client
-    const client = new RobotHTTPClient({
-      ip: result.ip,
-      onProgressUpdate: (p) => { setProgress(p); setIsCalibrating(p.progress > 0 && p.progress < 100); },
-      onComplete: (d) => {
-        setCalibData(d);
-        setIsCalibrating(false);
-        addLog('Calibração completa!');
-        toast({ title: '✅ Calibração Concluída!' });
-      },
-      onError: (msg) => {
-        setError(msg);
-        setIsCalibrating(false);
-        addLog(`Erro: ${msg}`);
-      },
-      onDisconnected: () => {
-        setPhase('disconnected');
-        setIsCalibrating(false);
-        addLog('Conexão perdida');
-        toast({ title: '🔴 Desconectado', description: 'Conexão WiFi perdida', variant: 'destructive' });
-      },
-      onLog: (msg) => {
-        addLog(msg);
-        if (msg.startsWith('[HTTP]')) {
-          setHttpLogs(prev => [{ ts: new Date().toLocaleTimeString(), url: `http://${result.ip}/...`, method: 'GET', status: null, ms: null, ok: null, err: msg }, ...prev].slice(0, 50));
-        }
-      },
-    });
-
-    // Connect WebSocket for real-time updates
-    client.connectWebSocket({
-      onOpen: () => addLog('✅ WebSocket conectado: ws://192.168.0.1:8080'),
-      onMessage: (data: any) => {
-        addLog(`📡 WS: ${JSON.stringify(data).slice(0, 80)}`);
-        if (data?.type === 'calibration_progress') {
-          setProgress(data.progress);
-        }
-      },
-      onError: () => addLog('⚠️ Erro no WebSocket'),
-      onClose: () => addLog('🔌 WebSocket desconectado'),
-    });
-
-    clientRef.current?.destroy();
-    clientRef.current = client;
-    setPhase('connected');
-    setShowSuccessDialog(true);
   };
 
   const handleDisconnect = () => {
-    clientRef.current?.destroy();
-    clientRef.current = null;
+    mqttRef.current?.disconnect();
+    mqttRef.current = null;
     setPhase('disconnected');
-    setRobotInfo(null);
+    setConnectedBroker('');
     setProgress(null);
     setIsCalibrating(false);
     setCalibData(null);
@@ -175,59 +154,42 @@ const RobotCalibrationPanel = () => {
 
   // ─── Calibration actions ───
 
-  const handleStart = async () => {
-    if (!clientRef.current) return;
-    try {
-      setError(null);
-      setCalibData(null);
-      await clientRef.current.startCalibration(selectedSensors);
-      setIsCalibrating(true);
-      addLog(`Calibração iniciada: ${selectedSensors.join(', ')}`);
-    } catch (err: any) { setError(err.message); addLog(`Erro: ${err.message}`); }
+  const handleStart = () => {
+    if (!mqttRef.current?.isConnected) return;
+    setError(null);
+    setCalibData(null);
+    mqttRef.current.startCalibration(selectedSensors);
+    setIsCalibrating(true);
+    addLog(`Calibração iniciada via MQTT: ${selectedSensors.join(', ')}`);
+    toast({ title: '🚀 Calibração Iniciada', description: 'Aguardando resposta do robô via MQTT...' });
   };
 
-  const handleStop = async () => {
-    if (!clientRef.current) return;
-    try {
-      await clientRef.current.stopCalibration();
-      setIsCalibrating(false);
-      addLog('Calibração interrompida');
-    } catch (err: any) { setError(err.message); }
+  const handleStop = () => {
+    if (!mqttRef.current?.isConnected) return;
+    mqttRef.current.stopCalibration();
+    setIsCalibrating(false);
+    addLog('Calibração interrompida via MQTT');
   };
 
-  const handleReset = async () => {
-    if (!clientRef.current) return;
-    try {
-      await clientRef.current.resetCalibration();
-      setCalibData(null);
-      setProgress(null);
-      addLog('Calibração resetada');
-      toast({ title: '🔄 Reset concluído' });
-    } catch (err: any) { setError(err.message); }
+  const handleReset = () => {
+    if (!mqttRef.current?.isConnected) return;
+    mqttRef.current.resetCalibration();
+    setCalibData(null);
+    setProgress(null);
+    addLog('Calibração resetada via MQTT');
+    toast({ title: '🔄 Reset enviado' });
   };
 
-  const handleFetchData = async () => {
-    if (!clientRef.current) return;
-    try {
-      const data = await clientRef.current.getCalibrationData();
-      setCalibData(data);
-      addLog('Dados lidos com sucesso');
-    } catch (err: any) { setError(err.message); }
-  };
-
-  const handleExport = async () => {
-    if (!clientRef.current) return;
-    try {
-      const data = await clientRef.current.exportCalibration();
-      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
-      a.download = `calibration-${Date.now()}.json`;
-      a.click();
-      URL.revokeObjectURL(a.href);
-      addLog('Dados exportados');
-      toast({ title: '📦 Exportado!' });
-    } catch (err: any) { setError(err.message); }
+  const handleExport = () => {
+    if (!calibData) return;
+    const blob = new Blob([JSON.stringify(calibData, null, 2)], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `calibration-mqtt-${Date.now()}.json`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+    addLog('Dados exportados');
+    toast({ title: '📦 Exportado!' });
   };
 
   const handleImport = () => {
@@ -236,14 +198,12 @@ const RobotCalibrationPanel = () => {
     input.accept = '.json';
     input.onchange = async (e) => {
       const file = (e.target as HTMLInputElement).files?.[0];
-      if (!file || !clientRef.current) return;
+      if (!file) return;
       try {
         const text = await file.text();
         const data = JSON.parse(text) as CalibrationData;
-        if (!data.status && data.status !== 0) throw new Error('Arquivo de calibração inválido');
-        await clientRef.current.importCalibration(data);
         setCalibData(data);
-        addLog('Dados importados');
+        addLog('Dados importados localmente');
         toast({ title: '📥 Importado!' });
       } catch (err: any) { setError(err.message); addLog(`Importação falhou: ${err.message}`); }
     };
@@ -265,10 +225,10 @@ const RobotCalibrationPanel = () => {
             <ChevronLeft className="w-5 h-5 text-foreground" />
           </button>
           <div className="flex-1">
-            <h1 className="text-lg font-bold text-foreground">📡 Calibração WiFi</h1>
-            <p className="text-xs text-muted-foreground">CSJBot • HTTP REST • Offline</p>
+            <h1 className="text-lg font-bold text-foreground">📡 Calibração MQTT</h1>
+            <p className="text-xs text-muted-foreground">CSJBot • MQTT • Protocolo Nativo</p>
           </div>
-          <div className={`w-3 h-3 rounded-full transition-colors ${phase === 'connected' ? 'bg-green-500 animate-pulse' : phase === 'scanning' ? 'bg-warning animate-pulse' : 'bg-muted-foreground'}`} />
+          <div className={`w-3 h-3 rounded-full transition-colors ${phase === 'connected' ? 'bg-green-500 animate-pulse' : phase === 'connecting' ? 'bg-yellow-500 animate-pulse' : 'bg-muted-foreground'}`} />
         </div>
       </div>
 
@@ -291,14 +251,11 @@ const RobotCalibrationPanel = () => {
                 <CheckCircle2 className="w-10 h-10 text-green-500" />
               </div>
               <h2 className="text-xl font-bold text-foreground">🎉 Parabéns!!</h2>
-              <p className="text-sm text-foreground font-medium">Conectado ao Robô com sucesso :)</p>
-              {robotInfo && (
-                <div className="text-xs text-muted-foreground space-y-1 bg-muted/30 rounded-lg p-3">
-                  <p><span className="font-semibold text-foreground">IP:</span> <span className="font-mono">{robotInfo.ip}</span></p>
-                  <p><span className="font-semibold text-foreground">Modelo:</span> {robotInfo.model}</p>
-                  <p><span className="font-semibold text-foreground">Latência:</span> {latency}ms</p>
-                </div>
-              )}
+              <p className="text-sm text-foreground font-medium">Conectado ao Robô via MQTT :)</p>
+              <div className="text-xs text-muted-foreground space-y-1 bg-muted/30 rounded-lg p-3">
+                <p><span className="font-semibold text-foreground">Broker:</span> <span className="font-mono">{connectedBroker}</span></p>
+                <p><span className="font-semibold text-foreground">Protocolo:</span> MQTT over WebSocket</p>
+              </div>
               <Button onClick={() => setShowSuccessDialog(false)} className="w-full gap-2 text-base font-bold">
                 OK
               </Button>
@@ -383,32 +340,34 @@ const RobotCalibrationPanel = () => {
           <CardContent className="p-4">
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
-                {phase === 'connected' ? <Wifi className="w-5 h-5 text-green-500" /> : <WifiOff className="w-5 h-5 text-muted-foreground" />}
+                {phase === 'connected'
+                  ? <Radio className="w-5 h-5 text-green-500" />
+                  : phase === 'connecting'
+                  ? <Loader2 className="w-5 h-5 text-yellow-500 animate-spin" />
+                  : <WifiOff className="w-5 h-5 text-muted-foreground" />
+                }
                 <span className="font-semibold text-sm text-foreground">
-                  {phase === 'connected' ? 'Conectado via WiFi' : phase === 'scanning' ? 'Buscando...' : 'Desconectado'}
+                  {phase === 'connected' ? 'MQTT Conectado' : phase === 'connecting' ? 'Conectando MQTT...' : 'Desconectado'}
                 </span>
               </div>
-              {latency > 0 && phase === 'connected' && (
-                <span className="text-[10px] px-2 py-0.5 rounded-full bg-green-500/10 text-green-500 font-mono">{latency}ms</span>
+              {phase === 'connected' && (
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-green-500/10 text-green-500 font-mono">MQTT</span>
               )}
             </div>
 
-            {/* Robot info */}
-            {robotInfo && phase === 'connected' && (
-              <div className="grid grid-cols-2 gap-2 mb-3 p-2 rounded-lg bg-muted/30 text-[10px]">
-                <div><span className="text-muted-foreground">HTTP:</span> <span className="font-mono text-foreground">{robotInfo.ip}</span></div>
-                <div><span className="text-muted-foreground">Modelo:</span> <span className="text-foreground">{robotInfo.model}</span></div>
-                <div><span className="text-muted-foreground">Serial:</span> <span className="font-mono text-foreground">{robotInfo.serial}</span></div>
-                <div><span className="text-muted-foreground">Firmware:</span> <span className="text-foreground">{robotInfo.firmware}</span></div>
-                <div className="col-span-2"><span className="text-muted-foreground">WebSocket:</span> <span className="font-mono text-foreground">ws://192.168.0.1:8080</span></div>
-                <div className="col-span-2"><span className="text-muted-foreground">SLAM:</span> <span className="font-mono text-foreground">192.168.99.2</span></div>
+            {/* MQTT broker info */}
+            {phase === 'connected' && (
+              <div className="grid grid-cols-1 gap-2 mb-3 p-2 rounded-lg bg-muted/30 text-[10px]">
+                <div><span className="text-muted-foreground">Broker MQTT:</span> <span className="font-mono text-foreground">{connectedBroker}</span></div>
+                <div><span className="text-muted-foreground">Mensagens:</span> <span className="text-foreground">{mqttMessages.length} recebidas</span></div>
+                <div><span className="text-muted-foreground">SLAM:</span> <span className="font-mono text-foreground">192.168.99.2</span></div>
               </div>
             )}
 
             {phase !== 'connected' ? (
-              <Button onClick={handleScan} disabled={phase === 'scanning'} className="w-full gap-2">
-                {phase === 'scanning' ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
-                {phase === 'scanning' ? 'Buscando robô...' : 'Verificar Conexão'}
+              <Button onClick={handleScan} disabled={phase === 'connecting'} className="w-full gap-2">
+                {phase === 'connecting' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Radio className="w-4 h-4" />}
+                {phase === 'connecting' ? 'Conectando MQTT...' : 'Conectar via MQTT'}
               </Button>
             ) : (
               <Button onClick={handleDisconnect} variant="outline" className="w-full gap-2">
@@ -423,17 +382,16 @@ const RobotCalibrationPanel = () => {
         {phase === 'disconnected' && (
           <Card className="border-warning/40 bg-warning/5">
             <CardContent className="p-4">
-              <p className="text-xs font-bold text-warning mb-2 flex items-center gap-1">⚠️ Checklist de Diagnóstico</p>
+              <p className="text-xs font-bold text-warning mb-2 flex items-center gap-1">⚠️ Checklist de Diagnóstico MQTT</p>
               <ul className="space-y-1.5 text-[11px] text-muted-foreground">
                 <li className="flex items-start gap-2"><span className="text-green-500 shrink-0">✅</span><span>Conectado ao Wi-Fi: <span className="text-foreground font-medium">RoboKen_Controle</span> ou <span className="text-foreground font-medium">RoboKen_Controle_5G</span></span></li>
                 <li className="flex items-start gap-2"><span className="text-warning shrink-0">❓</span><span>Tablet do robô está ligado?</span></li>
-                <li className="flex items-start gap-2"><span className="text-warning shrink-0">❓</span><span>App do robô está aberto no tablet?</span></li>
-                <li className="flex items-start gap-2"><span className="text-warning shrink-0">❓</span><span>Servidor HTTP ativo no tablet (porta 80)?</span></li>
+                <li className="flex items-start gap-2"><span className="text-warning shrink-0">❓</span><span>Broker MQTT ativo no roteador (porta 1883)?</span></li>
+                <li className="flex items-start gap-2"><span className="text-warning shrink-0">❓</span><span>App do robô está rodando no tablet?</span></li>
               </ul>
               <div className="mt-3 pt-3 border-t border-warning/20">
-                <p className="text-[10px] text-muted-foreground font-medium mb-1">🧪 Teste manual no browser do celular:</p>
-                <code className="text-[10px] bg-muted px-2 py-1 rounded block font-mono">http://192.168.0.199:80/api/ping</code>
-                <code className="text-[10px] bg-muted px-2 py-1 rounded block font-mono mt-1">http://192.168.0.1:80/api/ping</code>
+                <p className="text-[10px] text-muted-foreground font-medium mb-1">📡 Endereço do broker MQTT:</p>
+                <code className="text-[10px] bg-muted px-2 py-1 rounded block font-mono">ws://192.168.0.1:1883</code>
               </div>
             </CardContent>
           </Card>
@@ -577,10 +535,7 @@ const RobotCalibrationPanel = () => {
             )}
             {!isCalibrating && (
               <>
-                <Button onClick={handleFetchData} variant="secondary" className="col-span-2 gap-2">
-                  <Activity className="w-4 h-4" /> Ler Dados Atuais
-                </Button>
-                <Button onClick={handleExport} variant="outline" className="gap-2">
+                <Button onClick={handleExport} variant="outline" className="gap-2" disabled={!calibData}>
                   <Download className="w-4 h-4" /> Exportar
                 </Button>
                 <Button onClick={handleImport} variant="outline" className="gap-2">
@@ -591,48 +546,36 @@ const RobotCalibrationPanel = () => {
           </div>
         )}
 
-        {/* HTTP Debug Panel */}
+        {/* MQTT Messages Panel */}
         <Card>
           <CardContent className="p-4">
-            <button onClick={() => setShowHttpPanel(!showHttpPanel)} className="w-full flex items-center justify-between text-sm font-semibold text-foreground">
-              <span>🌐 Requisições HTTP ({httpLogs.length})</span>
-              <span className="text-xs text-muted-foreground">{showHttpPanel ? 'Ocultar' : 'Mostrar'}</span>
+            <button onClick={() => setShowMqttPanel(!showMqttPanel)} className="w-full flex items-center justify-between text-sm font-semibold text-foreground">
+              <span className="flex items-center gap-2"><Radio className="w-4 h-4 text-primary" /> Mensagens MQTT ({mqttMessages.length})</span>
+              <span className="text-xs text-muted-foreground">{showMqttPanel ? 'Ocultar' : 'Mostrar'}</span>
             </button>
             <AnimatePresence>
-              {showHttpPanel && (
+              {showMqttPanel && (
                 <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
                   <div className="mt-3 max-h-64 overflow-y-auto space-y-1.5 bg-muted/20 rounded-lg p-2">
-                    {httpLogs.length === 0
-                      ? <p className="text-xs text-muted-foreground text-center py-4">Nenhuma requisição ainda</p>
-                      : httpLogs.map((h, i) => (
-                        <div key={i} className={`rounded-lg p-2 border text-[10px] font-mono ${h.ok === true ? 'bg-green-500/5 border-green-500/20' : h.ok === false ? 'bg-destructive/5 border-destructive/20' : 'bg-muted/30 border-border'}`}>
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className={`font-bold px-1 rounded ${h.ok === true ? 'text-green-500' : h.ok === false ? 'text-destructive' : 'text-muted-foreground'}`}>
-                              {h.ok === true ? '✅' : h.ok === false ? '❌' : '⏳'}
-                            </span>
-                            <span className="text-primary font-bold">{h.method}</span>
-                            <span className="text-foreground truncate max-w-[200px]">{h.url}</span>
-                            {h.status != null && (
-                              <span className={`px-1.5 py-0.5 rounded font-bold ${h.ok ? 'bg-green-500/10 text-green-500' : 'bg-destructive/10 text-destructive'}`}>
-                                {h.status}
-                              </span>
-                            )}
-                            {h.ms != null && <span className="text-muted-foreground">{h.ms}ms</span>}
-                            <span className="text-muted-foreground ml-auto">{h.ts}</span>
+                    {mqttMessages.length === 0
+                      ? <p className="text-xs text-muted-foreground text-center py-4">Nenhuma mensagem MQTT ainda</p>
+                      : mqttMessages.map((m, i) => (
+                        <div key={i} className="rounded-lg p-2 border border-border bg-muted/30 text-[10px] font-mono">
+                          <div className="flex items-center gap-2 flex-wrap mb-1">
+                            <span className="text-primary font-bold truncate max-w-[180px]">{m.topic}</span>
+                            <span className="text-muted-foreground ml-auto">{m.ts}</span>
                           </div>
-                          {h.err && <p className="text-destructive mt-1 truncate">{h.err}</p>}
+                          <p className="text-foreground truncate">{JSON.stringify(m.payload)}</p>
                         </div>
                       ))
                     }
                   </div>
-                  {/* Port Forwarding Info */}
                   <div className="mt-3 p-3 rounded-lg bg-primary/5 border border-primary/20">
-                    <p className="text-xs font-bold text-primary mb-1.5">ℹ️ Acesso via Port Forwarding</p>
+                    <p className="text-xs font-bold text-primary mb-1.5">ℹ️ Arquitetura MQTT</p>
                     <div className="space-y-0.5 text-[10px] text-muted-foreground">
-                      <p>• Roteador: <code className="bg-muted px-1 rounded text-foreground">192.168.0.1</code></p>
+                      <p>• Broker: <code className="bg-muted px-1 rounded text-foreground">ws://192.168.0.1:1883</code></p>
                       <p>• Tablet: <code className="bg-muted px-1 rounded text-foreground">192.168.0.199</code></p>
                       <p>• Robô (interno): <code className="bg-muted px-1 rounded text-foreground">192.168.99.101</code></p>
-                      <p>• Endpoint: <code className="bg-muted px-1 rounded text-foreground">http://192.168.0.1:99/api</code></p>
                     </div>
                   </div>
                 </motion.div>
