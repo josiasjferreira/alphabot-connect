@@ -77,23 +77,33 @@ const MqttConfig = () => {
       ? [customIp.trim(), ...DEFAULT_BROKER_IPS]
       : DEFAULT_BROKER_IPS;
 
-    const allUrls = generateCandidateUrls(ips, protocol === 'wss');
+    const useWss = protocol === 'wss';
+    const allUrls = generateCandidateUrls(ips, useWss);
     const results: ProbeResult[] = allUrls.map(url => ({ url, status: 'waiting' }));
     setProbeResults(results);
 
-    addLog(`Iniciando descoberta em ${allUrls.length} endereços...`);
+    // Determina quais portas testar de acordo com protocolo selecionado
+    const portsToScan = useWss
+      ? [...DEFAULT_WSS_PORTS, ...DEFAULT_WS_PORTS]   // WSS: 8084, 8883 primeiro, depois ws fallback
+      : DEFAULT_WS_PORTS;                              // WS: 9001, 1883, 8080, 8083
+
+    addLog(`🔍 Protocolo: ${useWss ? 'WSS (seguro)' : 'WS'} — ${allUrls.length} endereços para testar`);
+    if (useWss) {
+      addLog(`🔒 Portas TLS: 8084 (Mosquitto) e 8883 (MQTT/TLS) — broker precisa ter TLS ativo`);
+    }
 
     let completed = 0;
     const total = allUrls.length;
 
     // Agrupa por porta, testa IPs em paralelo por porta
-    for (const port of DEFAULT_WS_PORTS) {
+    for (const port of portsToScan) {
       if (cancelRef.current) break;
 
       const portUrls = allUrls.filter(u => u.includes(`:${port}`));
-      addLog(`Testando porta ${port} em ${portUrls.length} IPs...`);
+      if (portUrls.length === 0) continue;
 
-      // Marca como "trying"
+      addLog(`Testando porta ${port} (${useWss && DEFAULT_WSS_PORTS.includes(port) ? 'TLS/WSS' : 'WS'}) em ${portUrls.length} IPs...`);
+
       setProbeResults(prev => prev.map(r =>
         portUrls.includes(r.url) ? { ...r, status: 'trying' } : r
       ));
@@ -119,13 +129,12 @@ const MqttConfig = () => {
         return latency !== null ? url : null;
       });
 
-      const results = await Promise.all(probes);
-      const found = results.find((r): r is string => r !== null);
+      const scanResults = await Promise.all(probes);
+      const found = scanResults.find((r): r is string => r !== null);
 
       if (found) {
         setFoundBroker(found);
-        addLog(`🎉 Conectar a: ${found}`);
-        // Aguarda restantes completarem sem cancelar
+        addLog(`🎉 Broker salvo: ${found}`);
         break;
       }
     }
@@ -570,7 +579,7 @@ const MqttConfig = () => {
         )}
 
         <p className="text-[10px] text-center text-muted-foreground pb-4">
-          AlphaBot Companion v1.4.3 • Iascom
+          AlphaBot Companion v2.0.1 • Iascom
         </p>
       </div>
     </div>
