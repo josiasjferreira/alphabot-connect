@@ -6,14 +6,20 @@ import EmergencyButton from '@/components/EmergencyButton';
 import { useWebSocket } from '@/hooks/useWebSocket';
 import { useBluetoothSerial } from '@/hooks/useBluetoothSerial';
 import { useRobotStore } from '@/store/useRobotStore';
+import { useMQTT } from '@/hooks/useMQTT';
+import { useMQTTConfigStore } from '@/store/useMQTTConfigStore';
 import { rotationService } from '@/services/rotationService';
-import { Bluetooth, BluetoothConnected, Wifi, RotateCcw, RotateCw, Compass } from 'lucide-react';
+import { Bluetooth, BluetoothConnected, Wifi, RotateCcw, RotateCw, Compass, Radio } from 'lucide-react';
 
 const Control = () => {
   const { t } = useTranslation();
   const { send } = useWebSocket();
   const { sendMove, sendStop, sendEmergencyStop, isSerialReady } = useBluetoothSerial();
   const { addLog, bluetoothStatus } = useRobotStore();
+  const { client: mqttClient, isConnected: isMqttConnected, publish: mqttPublish } = useMQTT();
+  const mqttConfig = useMQTTConfigStore();
+  const serial = mqttConfig.robotSerial || 'H13307';
+
   const [speed, setSpeed] = useState(50);
   const [rotation, setRotation] = useState(30);
   const [currentAngle, setCurrentAngle] = useState(0);
@@ -34,6 +40,22 @@ const Control = () => {
 
   const isBtActive = bluetoothStatus === 'paired' || bluetoothStatus === 'connected';
 
+  // ─── MQTT movement helpers ───
+  const mqttMove = useCallback((direction: 'forward' | 'backward' | 'left' | 'right' | 'stop', spd = 0) => {
+    if (!isMqttConnected) return;
+    mqttClient?.move(direction, spd / 100, 200, serial);
+  }, [isMqttConnected, mqttClient, serial]);
+
+  // Resolve joystick angle → direction
+  const angleToDirection = (angle: number): 'forward' | 'backward' | 'left' | 'right' => {
+    // angle: 0° = right, 90° = up, 180° = left, 270° = down (standard math)
+    const norm = ((angle % 360) + 360) % 360;
+    if (norm >= 45 && norm < 135) return 'forward';
+    if (norm >= 135 && norm < 225) return 'left';
+    if (norm >= 225 && norm < 315) return 'backward';
+    return 'right';
+  };
+
   const handleMove = useCallback((angle: number, distance: number) => {
     setCurrentAngle(Math.round(angle));
     setCurrentDist(Math.round(distance));
@@ -45,27 +67,33 @@ const Control = () => {
 
     const computedSpeed = (distance / 100) * speed;
 
-    // Send via both channels — the active one will deliver
+    // WebSocket (legacy)
     send({
       type: 'move',
       data: { angle, speed: computedSpeed, rotation },
       timestamp: Date.now(),
     });
 
+    // Bluetooth Serial
     if (isBtActive) {
       sendMove(angle, computedSpeed, rotation);
     }
-  }, [speed, rotation, send, sendMove, isBtActive]);
+
+    // MQTT — tópicos confirmados: robot/{SN}/movement/{direction}
+    if (isMqttConnected && distance > 5) {
+      const dir = angleToDirection(angle);
+      mqttMove(dir, computedSpeed);
+    }
+  }, [speed, rotation, send, sendMove, isBtActive, isMqttConnected, mqttMove]);
 
   const handleRelease = useCallback(() => {
     setCurrentAngle(0);
     setCurrentDist(0);
     send({ type: 'move', data: { angle: 0, speed: 0, rotation: 0 }, timestamp: Date.now() });
 
-    if (isBtActive) {
-      sendStop();
-    }
-  }, [send, sendStop, isBtActive]);
+    if (isBtActive) sendStop();
+    if (isMqttConnected) mqttMove('stop');
+  }, [send, sendStop, isBtActive, isMqttConnected, mqttMove]);
 
   const handleEmergency = () => {
     send({ type: 'emergency_stop', timestamp: Date.now() });
@@ -74,24 +102,32 @@ const Control = () => {
     rotationService.stop();
     setIsRotating(null);
 
-    if (isBtActive) {
-      sendEmergencyStop();
+    if (isBtActive) sendEmergencyStop();
+
+    // MQTT emergency stop — publica em múltiplos tópicos para garantia
+    if (isMqttConnected) {
+      mqttPublish(`robot/${serial}/movement/stop`, { timestamp: Date.now() });
+      mqttPublish(`robot/${serial}/cmd`, { cmd: 'emergency_stop', force: true, timestamp: Date.now() });
+      mqttPublish(`csjbot/${serial}/cmd`, { cmd: 'emergency_stop', force: true, timestamp: Date.now() });
     }
   };
 
   const handleRotateLeft = async () => {
     setIsRotating('left');
     await rotationService.rotateLeft(rotationSpeed);
+    if (isMqttConnected) mqttClient?.rotate('left', rotationSpeed / 100, 0, serial);
   };
 
   const handleRotateRight = async () => {
     setIsRotating('right');
     await rotationService.rotateRight(rotationSpeed);
+    if (isMqttConnected) mqttClient?.rotate('right', rotationSpeed / 100, 0, serial);
   };
 
   const handleRotateStop = async () => {
     await rotationService.stop();
     setIsRotating(null);
+    if (isMqttConnected) mqttMove('stop');
   };
 
   return (
@@ -100,15 +136,21 @@ const Control = () => {
 
       <div className="flex-1 p-4 flex flex-col gap-4">
         {/* Connection channel indicator */}
-        <div className="flex items-center justify-center gap-3">
+        <div className="flex items-center justify-center gap-2 flex-wrap">
           <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-muted text-xs font-semibold">
-            <Wifi className="w-3 h-3 text-primary" /> WebSocket
+            <Wifi className="w-3 h-3 text-primary" /> WS
           </div>
           <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold ${
             isBtActive ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'
           }`}>
             {isBtActive ? <BluetoothConnected className="w-3 h-3" /> : <Bluetooth className="w-3 h-3" />}
-            BT Serial {isSerialReady ? '✓' : isBtActive ? '◌' : '✗'}
+            BT {isSerialReady ? '✓' : isBtActive ? '◌' : '✗'}
+          </div>
+          <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold ${
+            isMqttConnected ? 'bg-success/10 text-success border border-success/20' : 'bg-muted text-muted-foreground'
+          }`}>
+            <Radio className="w-3 h-3" />
+            MQTT {isMqttConnected ? '✓' : '✗'}
           </div>
         </div>
 
