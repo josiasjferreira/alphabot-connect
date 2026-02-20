@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   WifiOff, Play, Square, RotateCcw, ChevronLeft, CheckCircle2,
-  XCircle, Loader2, Download, Upload, Info, ChevronDown, ChevronUp, Radio,
+  XCircle, Loader2, Download, Upload, Info, ChevronDown, ChevronUp, Radio, Settings,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -13,6 +13,7 @@ import { ROBOT_WIFI_NETWORKS, isHttpsContext, isPWA } from '@/services/RobotWiFi
 import { RobotMQTTClient, type MQTTMessage } from '@/services/RobotMQTTClient';
 import type { CalibrationProgress, CalibrationData } from '@/services/bluetoothCalibrationBridge';
 import { ALL_SENSORS, type SensorId } from '@/services/bluetoothCalibrationBridge';
+import { useMQTTConfigStore } from '@/store/useMQTTConfigStore';
 
 const SENSOR_META: Record<SensorId, { label: string; icon: string; description: string }> = {
   imu: { label: 'IMU', icon: '🔄', description: 'Acelerômetro + Giroscópio' },
@@ -36,6 +37,7 @@ const getSensorStatus = (sensorId: string, currentSensor?: string): 'idle' | 'ac
 const RobotCalibrationPanel = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const mqttConfig = useMQTTConfigStore();
   const mqttRef = useRef<RobotMQTTClient | null>(null);
 
   const [phase, setPhase] = useState<'disconnected' | 'connecting' | 'connected'>('disconnected');
@@ -70,8 +72,8 @@ const RobotCalibrationPanel = () => {
     setError(null);
     addLog('Conectando ao broker MQTT do robô...');
 
-    const brokerUrl = 'ws://192.168.0.1:1883';
-    addLog(`Broker: ${brokerUrl}`);
+    const brokerUrl = mqttConfig.activeBroker;
+    addLog(`Broker: ${brokerUrl} (serial: ${mqttConfig.robotSerial})`);
 
     try {
       const client = new RobotMQTTClient();
@@ -226,9 +228,12 @@ const RobotCalibrationPanel = () => {
           </button>
           <div className="flex-1">
             <h1 className="text-lg font-bold text-foreground">📡 Calibração MQTT</h1>
-            <p className="text-xs text-muted-foreground">CSJBot • MQTT • Protocolo Nativo</p>
+            <p className="text-xs text-muted-foreground">CSJBot • {mqttConfig.robotSerial} • Protocolo Nativo</p>
           </div>
-          <div className={`w-3 h-3 rounded-full transition-colors ${phase === 'connected' ? 'bg-green-500 animate-pulse' : phase === 'connecting' ? 'bg-yellow-500 animate-pulse' : 'bg-muted-foreground'}`} />
+          <button onClick={() => navigate('/mqtt-config')} className="p-2 rounded-xl hover:bg-muted active:bg-muted/80" title="Configurar MQTT">
+            <Settings className="w-4 h-4 text-muted-foreground" />
+          </button>
+          <div className={`w-3 h-3 rounded-full transition-colors ${phase === 'connected' ? 'bg-success animate-pulse' : phase === 'connecting' ? 'bg-warning animate-pulse' : 'bg-muted-foreground'}`} />
         </div>
       </div>
 
@@ -247,8 +252,8 @@ const RobotCalibrationPanel = () => {
               exit={{ scale: 0.8, opacity: 0 }}
               className="w-full max-w-sm bg-card rounded-2xl border border-border shadow-2xl p-6 text-center space-y-4"
             >
-              <div className="w-16 h-16 mx-auto rounded-full bg-green-500/10 flex items-center justify-center">
-                <CheckCircle2 className="w-10 h-10 text-green-500" />
+              <div className="w-16 h-16 mx-auto rounded-full bg-success/10 flex items-center justify-center">
+                <CheckCircle2 className="w-10 h-10 text-success" />
               </div>
               <h2 className="text-xl font-bold text-foreground">🎉 Parabéns!!</h2>
               <p className="text-sm text-foreground font-medium">Conectado ao Robô via MQTT :)</p>
@@ -341,9 +346,9 @@ const RobotCalibrationPanel = () => {
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
                 {phase === 'connected'
-                  ? <Radio className="w-5 h-5 text-green-500" />
+                  ? <Radio className="w-5 h-5 text-success" />
                   : phase === 'connecting'
-                  ? <Loader2 className="w-5 h-5 text-yellow-500 animate-spin" />
+                  ? <Loader2 className="w-5 h-5 text-warning animate-spin" />
                   : <WifiOff className="w-5 h-5 text-muted-foreground" />
                 }
                 <span className="font-semibold text-sm text-foreground">
@@ -351,7 +356,7 @@ const RobotCalibrationPanel = () => {
                 </span>
               </div>
               {phase === 'connected' && (
-                <span className="text-[10px] px-2 py-0.5 rounded-full bg-green-500/10 text-green-500 font-mono">MQTT</span>
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-success/10 text-success font-mono">MQTT</span>
               )}
             </div>
 
@@ -384,14 +389,17 @@ const RobotCalibrationPanel = () => {
             <CardContent className="p-4">
               <p className="text-xs font-bold text-warning mb-2 flex items-center gap-1">⚠️ Checklist de Diagnóstico MQTT</p>
               <ul className="space-y-1.5 text-[11px] text-muted-foreground">
-                <li className="flex items-start gap-2"><span className="text-green-500 shrink-0">✅</span><span>Conectado ao Wi-Fi: <span className="text-foreground font-medium">RoboKen_Controle</span> ou <span className="text-foreground font-medium">RoboKen_Controle_5G</span></span></li>
+                <li className="flex items-start gap-2"><span className="text-success shrink-0">✅</span><span>Conectado ao Wi-Fi: <span className="text-foreground font-medium">RoboKen_Controle</span> ou <span className="text-foreground font-medium">RoboKen_Controle_5G</span></span></li>
                 <li className="flex items-start gap-2"><span className="text-warning shrink-0">❓</span><span>Tablet do robô está ligado?</span></li>
                 <li className="flex items-start gap-2"><span className="text-warning shrink-0">❓</span><span>Broker MQTT ativo no roteador (porta 1883)?</span></li>
                 <li className="flex items-start gap-2"><span className="text-warning shrink-0">❓</span><span>App do robô está rodando no tablet?</span></li>
               </ul>
               <div className="mt-3 pt-3 border-t border-warning/20">
-                <p className="text-[10px] text-muted-foreground font-medium mb-1">📡 Endereço do broker MQTT:</p>
-                <code className="text-[10px] bg-muted px-2 py-1 rounded block font-mono">ws://192.168.0.1:1883</code>
+                <p className="text-[10px] text-muted-foreground font-medium mb-1">📡 Broker MQTT configurado:</p>
+                <code className="text-[10px] bg-muted px-2 py-1 rounded block font-mono">{mqttConfig.activeBroker}</code>
+                <button onClick={() => navigate('/mqtt-config')} className="mt-2 text-[10px] text-primary underline">
+                  Alterar configuração MQTT →
+                </button>
               </div>
             </CardContent>
           </Card>
@@ -464,11 +472,11 @@ const RobotCalibrationPanel = () => {
                   const status = getSensorStatus(id, progress.currentSensor);
                   return (
                     <div key={id} className={`flex flex-col items-center p-2 rounded-lg text-center transition-all ${
-                      status === 'complete' ? 'bg-green-500/10' : status === 'active' ? 'bg-primary/10 animate-pulse' : 'bg-muted/30'
+                      status === 'complete' ? 'bg-success/10' : status === 'active' ? 'bg-primary/10 animate-pulse' : 'bg-muted/30'
                     }`}>
                       <span className="text-lg">{meta.icon}</span>
                       <span className="text-[9px] font-medium text-foreground mt-1">{meta.label}</span>
-                      {status === 'complete' && <CheckCircle2 className="w-3 h-3 text-green-500 mt-0.5" />}
+                      {status === 'complete' && <CheckCircle2 className="w-3 h-3 text-success mt-0.5" />}
                       {status === 'active' && <Loader2 className="w-3 h-3 animate-spin text-primary mt-0.5" />}
                     </div>
                   );
@@ -480,18 +488,18 @@ const RobotCalibrationPanel = () => {
 
         {/* Results */}
         {calibData && !isCalibrating && (
-          <Card className="border-green-500/30">
+          <Card className="border-success/30">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm flex items-center gap-2">
-                <CheckCircle2 className="w-4 h-4 text-green-500" />
+                <CheckCircle2 className="w-4 h-4 text-success" />
                 Dados de Calibração
               </CardTitle>
             </CardHeader>
             <CardContent className="p-4 pt-0 space-y-3">
               <div className="flex items-center gap-2 text-xs">
                 <span className={`px-2 py-0.5 rounded-full font-medium ${
-                  calibData.status === 1 ? 'bg-green-500/10 text-green-500' :
-                  calibData.status === 2 ? 'bg-yellow-500/10 text-yellow-500' :
+                  calibData.status === 1 ? 'bg-success/10 text-success' :
+                  calibData.status === 2 ? 'bg-warning/10 text-warning' :
                   'bg-destructive/10 text-destructive'
                 }`}>
                   {calibData.status === 1 ? 'Válida' : calibData.status === 2 ? 'Recalibrar' : 'Inválida'}

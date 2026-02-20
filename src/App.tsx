@@ -28,6 +28,7 @@ import Rotation from "./pages/Rotation";
 import Calibration from "./pages/Calibration";
 import RobotCalibrationPanel from "./components/RobotCalibrationPanel";
 import NetworkDiagnostics from "./pages/NetworkDiagnostics";
+import MqttConfig from "./pages/MqttConfig";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -64,6 +65,7 @@ const App = () => (
           <Route path="/calibration" element={<Calibration />} />
           <Route path="/calibration-wifi" element={<RobotCalibrationPanel />} />
           <Route path="/network-diagnostics" element={<NetworkDiagnostics />} />
+          <Route path="/mqtt-config" element={<MqttConfig />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </HashRouter>

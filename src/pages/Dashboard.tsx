@@ -294,7 +294,8 @@ const Dashboard = () => {
     { icon: MonitorPlay, titleKey: 'dashboard.menu.media', descKey: 'dashboard.menu.mediaDesc', path: '/media', gradient: 'from-primary to-success/80' },
     { icon: Compass, titleKey: 'dashboard.menu.rotation', descKey: 'dashboard.menu.rotationDesc', path: '/rotation', gradient: 'from-secondary to-warning/80' },
     { icon: Wrench, titleKey: 'dashboard.menu.calibration', descKey: 'dashboard.menu.calibrationDesc', path: '/calibration', gradient: 'from-warning to-secondary/80' },
-    { icon: Wifi, titleKey: 'dashboard.menu.calibrationWifi', descKey: 'dashboard.menu.calibrationWifiDesc', path: '/calibration-wifi', gradient: 'from-green-500 to-primary/80' },
+    { icon: Wifi, titleKey: 'dashboard.menu.calibrationWifi', descKey: 'dashboard.menu.calibrationWifiDesc', path: '/calibration-wifi', gradient: 'from-success to-primary/80' },
+    { icon: Settings, titleKey: 'dashboard.menu.mqttConfig', descKey: 'dashboard.menu.mqttConfigDesc', path: '/mqtt-config', gradient: 'from-secondary to-warning/80' },
     { icon: Settings, titleKey: 'dashboard.menu.settings', descKey: 'dashboard.menu.settingsDesc', path: '/settings', gradient: 'from-muted-foreground to-muted-foreground/60' },
   ];
 
