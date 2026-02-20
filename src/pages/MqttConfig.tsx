@@ -18,12 +18,12 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   ChevronLeft, Search, CheckCircle2, XCircle, Loader2,
   Radio, Settings, Wifi, AlertTriangle, Info, RefreshCw,
-  Zap, ChevronDown, ChevronUp,
+  Zap, ChevronDown, ChevronUp, ShieldCheck,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
-import { useMQTTConfigStore, DEFAULT_BROKER_IPS, DEFAULT_WS_PORTS, generateCandidateUrls } from '@/store/useMQTTConfigStore';
+import { useMQTTConfigStore, DEFAULT_BROKER_IPS, DEFAULT_WS_PORTS, DEFAULT_WSS_PORTS, generateCandidateUrls } from '@/store/useMQTTConfigStore';
 import { RobotMQTTClient } from '@/services/RobotMQTTClient';
 import { isPWA, isHttpsContext } from '@/services/RobotWiFiConnection';
 
@@ -39,6 +39,7 @@ const MqttConfig = () => {
 
   const [customIp, setCustomIp] = useState('');
   const [wsPort, setWsPort] = useState(String(config.wsPort));
+  const [protocol, setProtocol] = useState<'ws' | 'wss'>('ws');
   const [serial, setSerial] = useState(config.robotSerial);
   const [activeBroker, setActiveBroker] = useState(config.activeBroker);
 
@@ -76,7 +77,7 @@ const MqttConfig = () => {
       ? [customIp.trim(), ...DEFAULT_BROKER_IPS]
       : DEFAULT_BROKER_IPS;
 
-    const allUrls = generateCandidateUrls(ips);
+    const allUrls = generateCandidateUrls(ips, protocol === 'wss');
     const results: ProbeResult[] = allUrls.map(url => ({ url, status: 'waiting' }));
     setProbeResults(results);
 
@@ -197,21 +198,87 @@ const MqttConfig = () => {
 
       <div className="p-4 space-y-4">
 
-        {/* Security Warning */}
+        {/* Security Warning + WSS hint */}
         {isSecureContext && (
           <Card className="border-destructive/60 bg-destructive/5">
             <CardContent className="p-4 flex items-start gap-3">
               <AlertTriangle className="w-5 h-5 text-destructive shrink-0 mt-0.5" />
               <div>
                 <p className="text-sm font-bold text-destructive mb-1">Mixed Content detectado</p>
-                <p className="text-xs text-muted-foreground">
+                <p className="text-xs text-muted-foreground mb-2">
                   Você está acessando via HTTPS. O broker MQTT usa ws:// (não seguro).
-                  O navegador pode bloquear a conexão. <strong className="text-foreground">Instale o app como PWA</strong> para resolver.
+                  O navegador pode bloquear a conexão.
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  <strong className="text-foreground">Opção 1:</strong> Instale o app como PWA (recomendado).<br />
+                  <strong className="text-foreground">Opção 2:</strong> Use <span className="font-mono text-primary">wss://</span> com porta <span className="font-mono text-primary">8084</span> ou <span className="font-mono text-primary">8883</span> se o broker tiver TLS ativado.
                 </p>
               </div>
             </CardContent>
           </Card>
         )}
+
+        {/* WSS Protocol Card */}
+        <Card className="border-primary/20">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <ShieldCheck className="w-4 h-4 text-primary" />
+                <span className="text-sm font-semibold text-foreground">Protocolo WebSocket</span>
+              </div>
+              <div className="flex gap-1 p-1 rounded-lg bg-muted">
+                {(['ws', 'wss'] as const).map(p => (
+                  <button
+                    key={p}
+                    onClick={() => {
+                      setProtocol(p);
+                      const ip = activeBroker.match(/wss?:\/\/([^:]+)/)?.[1] || '192.168.99.101';
+                      const port = p === 'wss' ? '8084' : wsPort;
+                      setActiveBroker(`${p}://${ip}:${port}`);
+                      if (p === 'wss') setWsPort('8084');
+                    }}
+                    className={`px-3 py-1 rounded-md text-xs font-mono font-bold transition-all ${
+                      protocol === p
+                        ? 'bg-background text-primary shadow-sm'
+                        : 'text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    {p}://
+                  </button>
+                ))}
+              </div>
+            </div>
+            {protocol === 'wss' ? (
+              <div className="space-y-1.5 text-[11px] bg-primary/5 border border-primary/20 rounded-lg p-3">
+                <p className="font-semibold text-primary">WSS (WebSocket Seguro) ativado</p>
+                <p className="text-muted-foreground">Resolve o bloqueio de Mixed Content sem instalar como PWA.</p>
+                <p className="text-muted-foreground"><strong className="text-foreground">Portas TLS:</strong> 8084 (Mosquitto) ou 8883 (MQTT/TLS padrão)</p>
+                <p className="text-muted-foreground"><strong className="text-foreground">Requisito:</strong> Broker deve ter TLS configurado com certificado válido.</p>
+                <div className="flex gap-1.5 flex-wrap mt-1">
+                  {DEFAULT_WSS_PORTS.map(p => (
+                    <button
+                      key={p}
+                      onClick={() => {
+                        const ip = activeBroker.match(/wss?:\/\/([^:]+)/)?.[1] || '192.168.99.101';
+                        setWsPort(String(p));
+                        setActiveBroker(`wss://${ip}:${p}`);
+                      }}
+                      className={`px-2 py-0.5 rounded font-mono text-[10px] border ${
+                        wsPort === String(p) ? 'border-primary bg-primary/10 text-primary' : 'border-border bg-muted/30 text-muted-foreground'
+                      }`}
+                    >
+                      :{p}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <p className="text-xs text-muted-foreground">
+                <span className="font-mono text-foreground">ws://</span> — padrão, funciona em redes locais e em apps PWA instalados.
+              </p>
+            )}
+          </CardContent>
+        </Card>
 
         {/* Technical Info (from APK reverse engineering) */}
         <Card className="border-primary/30">
@@ -381,12 +448,12 @@ const MqttConfig = () => {
                   value={wsPort}
                   onChange={e => {
                     setWsPort(e.target.value);
-                    const ip = activeBroker.match(/ws:\/\/([^:]+)/)?.[1] || '192.168.99.101';
-                    setActiveBroker(`ws://${ip}:${e.target.value}`);
+                    const ip = activeBroker.match(/wss?:\/\/([^:]+)/)?.[1] || '192.168.99.101';
+                    setActiveBroker(`${protocol}://${ip}:${e.target.value}`);
                   }}
                   className="w-full h-10 px-2 rounded-lg bg-background border border-border text-foreground text-sm focus:outline-none font-mono"
                 >
-                  {DEFAULT_WS_PORTS.map(p => (
+                  {(protocol === 'wss' ? DEFAULT_WSS_PORTS : DEFAULT_WS_PORTS).map(p => (
                     <option key={p} value={p}>{p}</option>
                   ))}
                 </select>
@@ -410,7 +477,7 @@ const MqttConfig = () => {
                 {DEFAULT_BROKER_IPS.map(ip => (
                   <button
                     key={ip}
-                    onClick={() => setActiveBroker(`ws://${ip}:${wsPort}`)}
+                    onClick={() => setActiveBroker(`${protocol}://${ip}:${wsPort}`)}
                     className={`px-2 py-1 rounded-lg text-[10px] font-mono border transition-all ${
                       activeBroker.includes(ip)
                         ? 'border-primary bg-primary/10 text-primary'

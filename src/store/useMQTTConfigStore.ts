@@ -45,6 +45,7 @@ interface MQTTConfigStore extends MQTTConfig {
  * - 8083: EMQX WebSocket alternativo
  */
 export const DEFAULT_WS_PORTS = [9001, 1883, 8080, 8083];
+export const DEFAULT_WSS_PORTS = [8084, 8883]; // TLS/WSS (Mosquitto TLS, EMQX WSS)
 
 /**
  * IPs candidatos baseados na análise dos APKs:
@@ -93,12 +94,20 @@ export const useMQTTConfigStore = create<MQTTConfigStore>()(
  * Gera lista de URLs a testar na ordem de prioridade:
  * Para cada IP candidato, testa as portas WS mais comuns.
  */
-export function generateCandidateUrls(ips: string[] = DEFAULT_BROKER_IPS): string[] {
+export function generateCandidateUrls(ips: string[] = DEFAULT_BROKER_IPS, includeWss = false): string[] {
   const urls: string[] = [];
-  // Prioridade: porta 9001 para todos, depois 1883, etc.
+  // Prioridade: ws:// porta 9001 para todos, depois 1883, etc.
   for (const port of DEFAULT_WS_PORTS) {
     for (const ip of ips) {
       urls.push(`ws://${ip}:${port}`);
+    }
+  }
+  // Opcional: incluir wss:// para Mixed Content (requer broker com TLS)
+  if (includeWss) {
+    for (const port of DEFAULT_WSS_PORTS) {
+      for (const ip of ips) {
+        urls.push(`wss://${ip}:${port}`);
+      }
     }
   }
   return urls;
