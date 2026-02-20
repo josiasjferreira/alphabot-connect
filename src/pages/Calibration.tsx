@@ -374,7 +374,7 @@ const Calibration = () => {
 
         {/* Footer */}
         <p className="text-[10px] text-center text-muted-foreground pb-4">
-          AlphaBot Companion v1.4.3 • Iascom
+          AlphaBot Companion v2.0.1 • Iascom
         </p>
       </div>
     </div>
