@@ -102,6 +102,8 @@
       "calibrationDesc": "Calibrate via Bluetooth BLE",
       "calibrationWifi": "WiFi Calibration",
       "calibrationWifiDesc": "Calibrate via local WiFi (offline)",
+      "mqttConfig": "MQTT Config",
+      "mqttConfigDesc": "Configure MQTT broker IP/port/serial"
       "networkDiag": "Network Diagnostics",
       "networkDiagDesc": "Test robot endpoints via port forwarding"
     }
