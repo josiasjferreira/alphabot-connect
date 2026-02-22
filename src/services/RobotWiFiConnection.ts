@@ -196,14 +196,14 @@ export async function detectRobotIP(): Promise<ConnectionResult> {
     console.error('\n💡 Troubleshooting:');
     console.error('1. Conecte ao Wi-Fi: RoboKen_Controle ou RoboKen_Controle_5G');
     console.error('2. Verifique se o tablet está ligado e o app do robô está ativo');
-    console.error('3. Teste manual no browser: http://192.168.0.199:80/api/ping');
-    console.error('4. Verifique se o servidor HTTP está rodando no tablet (porta 80 EXPLÍCITA)');
+    console.error('3. Teste manual no browser: http://192.168.99.102:80/api/ping');
+    console.error('4. Verifique se o servidor HTTP está rodando no robô (porta 80)');
 
     return {
       success: false,
       ip: null,
       robotInfo: null,
-      error: 'Robô não encontrado.\n\nVerifique:\n1. Wi-Fi: RoboKen_Controle ou RoboKen_Controle_5G\n2. Tablet ligado com app do robô ativo\n3. Teste manual: http://192.168.0.199:80/api/ping\n\nRedes suportadas: ' + ROBOT_WIFI_NETWORKS.join(', '),
+      error: 'Robô não encontrado.\n\nVerifique:\n1. Wi-Fi: RoboKen_Controle ou RoboKen_Controle_5G\n2. Robô ligado e conectado à rede\n3. Teste manual: http://192.168.99.102:80/api/ping\n\nRedes suportadas: ' + ROBOT_WIFI_NETWORKS.join(', '),
       latencyMs: -1,
     };
   }
