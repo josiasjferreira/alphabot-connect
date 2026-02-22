@@ -8,6 +8,37 @@ import { useSettingsStore } from "./store/useSettingsStore";
 const darkMode = useSettingsStore.getState().darkMode;
 if (darkMode) document.documentElement.classList.add('dark');
 
+// ─── Migração MQTT: corrigir IPs antigos no localStorage ───
+try {
+  const raw = localStorage.getItem('mqtt-config-storage');
+  if (raw) {
+    const parsed = JSON.parse(raw);
+    const state = parsed?.state;
+    if (state) {
+      let dirty = false;
+      // Corrigir broker ativo com IP legado .101
+      if (typeof state.activeBroker === 'string' && state.activeBroker.includes('192.168.99.101')) {
+        state.activeBroker = 'ws://192.168.99.197:9001';
+        dirty = true;
+      }
+      // Corrigir porta 1883 em URLs ws:// (navegadores precisam de 9001)
+      if (typeof state.activeBroker === 'string' && state.activeBroker.includes(':1883')) {
+        state.activeBroker = state.activeBroker.replace(':1883', ':9001');
+        dirty = true;
+      }
+      if (state.wsPort === 1883) {
+        state.wsPort = 9001;
+        dirty = true;
+      }
+      if (dirty) {
+        parsed.state = state;
+        localStorage.setItem('mqtt-config-storage', JSON.stringify(parsed));
+        console.log('🔧 MQTT config migrada: IP/porta corrigidos no localStorage');
+      }
+    }
+  }
+} catch { /* ignore */ }
+
 // Global error handler - dev shows details, prod shows generic message
 window.onerror = (msg, source, line, col, error) => {
   if (import.meta.env.DEV) {
