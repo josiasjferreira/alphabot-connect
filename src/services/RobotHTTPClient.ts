@@ -47,9 +47,8 @@ export class RobotHTTPClient {
   public onLog: RobotHTTPClientOptions['onLog'];
 
   constructor(opts: RobotHTTPClientOptions) {
-    // IP sem porta — o detectRobotIP() agora retorna IPs sem porta (ex: '192.168.0.1')
-    // Testes manuais confirmaram que http://192.168.0.1/api/ping funciona sem :80 explícito
-    const rawIp = opts.ip ?? '192.168.0.1';
+    // IP do robô — topologia final: 192.168.99.102
+    const rawIp = opts.ip ?? '192.168.99.102';
     // Extrair só o host (sem porta) para construir as URLs
     const host = rawIp.includes(':') ? rawIp.split(':')[0] : rawIp;
     this.ip = host; // guardar sem porta
@@ -65,12 +64,12 @@ export class RobotHTTPClient {
   }
 
   /**
-   * Detecta o robô testando IPs em ordem (192.168.0.1 primeiro — confirmado)
+   * Detecta o robô testando IPs na rede 192.168.99.0/24
    */
   static async detectRobotIP(): Promise<string | null> {
-    console.log('🔍 Detectando robô via port forwarding...');
+    console.log('🔍 Detectando robô na rede local...');
 
-    const CANDIDATE_IPS = ['192.168.0.1', '192.168.99.101', '192.168.99.1'];
+    const CANDIDATE_IPS = ['192.168.99.102', '192.168.99.197', '192.168.99.1'];
 
     for (const ip of CANDIDATE_IPS) {
       console.log(`🎯 Testando: http://${ip}/api/ping`);

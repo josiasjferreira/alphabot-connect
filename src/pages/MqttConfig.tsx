@@ -181,7 +181,7 @@ const MqttConfig = () => {
     if (!brokerToUse) return;
     config.setActiveBroker(brokerToUse);
     config.setRobotSerial(serial || 'H13307');
-    config.setWsPort(parseInt(wsPort) || 9001);
+    config.setWsPort(parseInt(wsPort) || 1883);
     setActiveBroker(brokerToUse);
     addLog(`✅ Configuração salva: ${brokerToUse}`);
   };
@@ -241,7 +241,7 @@ const MqttConfig = () => {
                     key={p}
                     onClick={() => {
                       setProtocol(p);
-                      const ip = activeBroker.match(/wss?:\/\/([^:]+)/)?.[1] || '192.168.99.101';
+                      const ip = activeBroker.match(/wss?:\/\/([^:]+)/)?.[1] || '192.168.99.197';
                       const port = p === 'wss' ? '8084' : wsPort;
                       setActiveBroker(`${p}://${ip}:${port}`);
                       if (p === 'wss') setWsPort('8084');
@@ -268,7 +268,7 @@ const MqttConfig = () => {
                     <button
                       key={p}
                       onClick={() => {
-                        const ip = activeBroker.match(/wss?:\/\/([^:]+)/)?.[1] || '192.168.99.101';
+                        const ip = activeBroker.match(/wss?:\/\/([^:]+)/)?.[1] || '192.168.99.197';
                         setWsPort(String(p));
                         setActiveBroker(`wss://${ip}:${p}`);
                       }}
@@ -309,14 +309,14 @@ const MqttConfig = () => {
                   className="overflow-hidden"
                 >
                   <div className="mt-3 space-y-2 text-[11px] font-mono bg-muted/20 rounded-lg p-3">
-                    <p className="text-muted-foreground font-sans text-xs font-semibold mb-2">📱 Extraído dos APKs (RobotSDK 2.4.0):</p>
+                    <p className="text-muted-foreground font-sans text-xs font-semibold mb-2">📡 Topologia de Rede (Fev/2026):</p>
                     <div className="space-y-1">
-                      <p><span className="text-muted-foreground">IP Robô:</span> <span className="text-foreground">192.168.99.101</span> <span className="text-muted-foreground">(ConnectConstants.serverIp)</span></p>
+                      <p><span className="text-muted-foreground">Broker MQTT:</span> <span className="text-foreground">192.168.99.197</span> <span className="text-muted-foreground">(PC/Mosquitto v2.1.2)</span></p>
+                      <p><span className="text-muted-foreground">Robô CSJBot:</span> <span className="text-foreground">192.168.99.102</span></p>
+                      <p><span className="text-muted-foreground">Tablet:</span> <span className="text-foreground">192.168.99.200</span></p>
+                      <p><span className="text-muted-foreground">Gateway:</span> <span className="text-foreground">192.168.99.1</span> <span className="text-muted-foreground">(Tenda)</span></p>
                       <p><span className="text-muted-foreground">IP SLAM:</span> <span className="text-foreground">192.168.99.2</span></p>
-                      <p><span className="text-muted-foreground">MQTT:</span> <span className="text-foreground">Eclipse Paho v3.1.1</span></p>
-                      <p><span className="text-muted-foreground">Porta MQTT:</span> <span className="text-foreground">1883</span></p>
-                      <p><span className="text-muted-foreground">Porta WS:</span> <span className="text-foreground">9001 (Mosquitto) ou 1883</span></p>
-                      <p><span className="text-muted-foreground">HTTP:</span> <span className="text-foreground">Retrofit2 + OkHttp3 (porta 80)</span></p>
+                      <p><span className="text-muted-foreground">Porta MQTT:</span> <span className="text-foreground">1883 (TCP, anônimo)</span></p>
                       <p><span className="text-muted-foreground">Serial:</span> <span className="text-foreground">H13307 (CT300)</span></p>
                     </div>
                     <div className="mt-2 pt-2 border-t border-border">
@@ -445,7 +445,7 @@ const MqttConfig = () => {
                 type="text"
                 value={activeBroker}
                 onChange={e => setActiveBroker(e.target.value)}
-                placeholder="ws://192.168.99.101:9001"
+                placeholder="ws://192.168.99.197:1883"
                 className="w-full h-10 px-3 rounded-lg bg-background border border-border text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 font-mono"
               />
             </div>
@@ -457,7 +457,7 @@ const MqttConfig = () => {
                   value={wsPort}
                   onChange={e => {
                     setWsPort(e.target.value);
-                    const ip = activeBroker.match(/wss?:\/\/([^:]+)/)?.[1] || '192.168.99.101';
+                    const ip = activeBroker.match(/wss?:\/\/([^:]+)/)?.[1] || '192.168.99.197';
                     setActiveBroker(`${protocol}://${ip}:${e.target.value}`);
                   }}
                   className="w-full h-10 px-2 rounded-lg bg-background border border-border text-foreground text-sm focus:outline-none font-mono"

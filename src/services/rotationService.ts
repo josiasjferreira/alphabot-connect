@@ -31,7 +31,7 @@ export class RotationService {
   private pollInterval: ReturnType<typeof setInterval> | null = null;
   private commandBridge: RobotCommandBridge | null = null;
 
-  constructor(robotIP = '192.168.99.1', httpPort = 80) {
+  constructor(robotIP = '192.168.99.102', httpPort = 80) {
     this.robotIP = robotIP;
     this.httpPort = httpPort;
   }

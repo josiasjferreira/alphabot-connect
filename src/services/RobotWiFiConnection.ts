@@ -26,15 +26,19 @@ export function isPWA(): boolean {
 }
 
 /**
- * Configuração da rede (port forwarding):
- * Roteador: 192.168.0.1  (Tenda)
- * Tablet:   192.168.0.199
- * Porta 80  → HTTP REST | Porta 8080 → WebSocket | Porta 1883 → MQTT bridge
+ * Topologia de rede final (Fev/2026):
+ * Gateway:  192.168.99.1   (Tenda)
+ * Broker:   192.168.99.197 (PC/Mosquitto)
+ * Robô:     192.168.99.102
+ * Tablet:   192.168.99.200
+ * SLAM:     192.168.99.2
  */
 export const ROBOT_NETWORK_CONFIG = {
-  router: '192.168.0.1',
-  tablet: '192.168.0.199',
-  robotInternal: '192.168.99.101',
+  router: '192.168.99.1',
+  broker: '192.168.99.197',
+  robot: '192.168.99.102',
+  tablet: '192.168.99.200',
+  robotInternal: '192.168.99.102',
   ports: {
     http: 80,
     mqtt: 1883,
@@ -63,15 +67,13 @@ export interface ConnectionResult {
 }
 
 /**
- * IPs testados — confirmado via teste manual que ambas as formas funcionam:
- *   http://192.168.0.1/api/ping  ✅
- *   http://192.168.0.199/api/ping ✅
- * SOLUÇÃO DEFINITIVA: mode cors + cache no-cache + timeout 15s + fallback :80 explícito
+ * IPs testados — topologia final (Fev/2026):
+ * Prioridade: robô direto → broker PC → gateway
  */
 const ROBOT_IPS = [
-  '192.168.0.1',      // ⭐ Roteador Tenda — CONFIRMADO funcionando
-  '192.168.0.199',    // IP direto do tablet — CONFIRMADO funcionando
-  '192.168.99.101',   // Fallback IP interno do robô
+  '192.168.99.102',   // Robô CSJBot CT300-H13307
+  '192.168.99.197',   // PC / Broker MQTT
+  '192.168.99.1',     // Gateway Tenda
 ] as const;
 
 const TIMEOUT_MS = 15000; // 15 segundos — tablet pode demorar para responder

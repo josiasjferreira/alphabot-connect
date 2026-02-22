@@ -1,11 +1,13 @@
 /**
  * useMQTTConfigStore — Configurações MQTT persistidas no localStorage.
  *
- * Baseado na engenharia reversa dos APKs CSJBot:
- *   - IP robô interno: 192.168.99.101
- *   - IP SLAM:         192.168.99.2
- *   - Broker MQTT:     porta 1883 (Eclipse Paho)
- *   - WebSocket MQTT:  porta 9001 ou 1883 (depende do broker)
+ * Topologia de rede final (Fev/2026):
+ *   - Broker MQTT:     192.168.99.197 (PC/Mosquitto v2.1.2)
+ *   - Robô CSJBot:     192.168.99.102
+ *   - Tablet Android:  192.168.99.200
+ *   - SLAM:            192.168.99.2
+ *   - Gateway:         192.168.99.1 (Tenda)
+ *   - Porta MQTT:      1883 (TCP, anônimo)
  *   - Serial do robô:  H13307 (CT300)
  */
 
@@ -48,26 +50,26 @@ export const DEFAULT_WS_PORTS = [9001, 1883, 8080, 8083];
 export const DEFAULT_WSS_PORTS = [8084, 8883]; // TLS/WSS (Mosquitto TLS, EMQX WSS)
 
 /**
- * IPs candidatos baseados na análise dos APKs:
- * - 192.168.99.101: IP interno do robô CSJBot (ConnectConstants.serverIp)
- * - 192.168.0.1:    IP do roteador da rede RoboKen_Controle
- * - 192.168.0.199:  IP do tablet do robô
- * - 192.168.99.2:   IP do SLAM/Slamware
- * - 192.168.2.5:    Roteador Tenda detectado nos testes
+ * IPs candidatos — topologia final (Fev/2026):
+ * - 192.168.99.197: PC Windows — Broker MQTT central (Mosquitto)
+ * - 192.168.99.102: Robô CSJBot CT300-H13307
+ * - 192.168.99.200: Tablet Android (IoT MQTT Panel)
+ * - 192.168.99.1:   Gateway/Roteador Tenda
+ * - 192.168.99.2:   Módulo SLAM Slamware
  */
 export const DEFAULT_BROKER_IPS = [
-  '192.168.99.101',
-  '192.168.0.1',
-  '192.168.0.199',
+  '192.168.99.197',
+  '192.168.99.102',
+  '192.168.99.200',
+  '192.168.99.1',
   '192.168.99.2',
-  '192.168.2.5',
 ];
 
 const DEFAULT_CONFIG: MQTTConfig = {
-  brokerCandidates: DEFAULT_BROKER_IPS.map(ip => `ws://${ip}:9001`),
-  activeBroker: 'ws://192.168.99.101:9001',
+  brokerCandidates: DEFAULT_BROKER_IPS.map(ip => `ws://${ip}:1883`),
+  activeBroker: 'ws://192.168.99.197:1883',
   robotSerial: 'H13307',
-  wsPort: 9001,
+  wsPort: 1883,
   connectTimeout: 8000,
   autoDiscovery: true,
 };

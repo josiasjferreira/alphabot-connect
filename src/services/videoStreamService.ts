@@ -20,7 +20,7 @@ export class VideoStreamService {
   private onDisconnectCallback?: StatusCallback;
   private _connected = false;
 
-  constructor(robotIP = '192.168.99.1', wsPort = 8080) {
+  constructor(robotIP = '192.168.99.102', wsPort = 8080) {
     this.robotIP = robotIP;
     this.wsPort = wsPort;
   }

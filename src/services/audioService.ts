@@ -11,7 +11,7 @@ export class AudioService {
   private onPlayCb?: StatusCallback;
   private onStopCb?: StatusCallback;
 
-  constructor(robotIP = '192.168.99.1', httpPort = 80) {
+  constructor(robotIP = '192.168.99.102', httpPort = 80) {
     this.robotIP = robotIP;
     this.httpPort = httpPort;
     this.audioElement = new Audio();
