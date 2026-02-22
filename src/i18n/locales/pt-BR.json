@@ -19,35 +19,20 @@
     "connectingButton": "CONECTANDO...",
     "offlineButton": "Modo Offline (Simulação)",
     "externalIpWarning": "Atenção: Você está conectando a um IP externo ({{ip}}). Isso pode expor comandos do robô a redes não confiáveis. Deseja continuar?",
-"version": "AlphaBot Companion v2.1.0 • Iascom",
-    "bluetooth": {
-      "title": "CONEXÃO BLUETOOTH",
-      "scan": "Buscar Dispositivos",
-      "scanning": "Buscando...",
-      "paired": "Pareado",
-      "connected": "Conectado",
-      "disconnected": "Desconectado",
-      "connect": "CONECTAR VIA BLUETOOTH",
-      "disconnect": "Desconectar BT",
-      "deviceFound": "Dispositivo encontrado",
-      "noDevice": "Nenhum dispositivo encontrado",
-      "error": "Erro ao conectar Bluetooth",
-      "notSupported": "Bluetooth não suportado neste navegador",
-      "reconnectLast": "Reconectar: {{name}}"
-    },
+"version": "AlphaBot Companion v2.1.1 • Iascom",
     "guide": {
       "title": "📖 Guia Rápido do Administrador",
-      "step1Title": "1. Ligue o Robô Ken",
-      "step1Desc": "Certifique-se de que o robô CT300-H13307 está ligado e conectado à mesma rede Wi-Fi do seu celular. O LED de status deve estar verde.",
-      "step2Title": "2. Descubra o IP do Robô",
-      "step2Desc": "No painel do robô ou no app do fabricante (CsjRobotStudio), localize o endereço IP local (ex: 192.168.99.2). A porta padrão é 8080.",
+      "step1Title": "1. Conecte à Rede Wi-Fi",
+      "step1Desc": "Conecte seu dispositivo à rede Wi-Fi local do robô (gateway: 192.168.99.1, roteador Tenda). Todos os dispositivos devem estar na sub-rede 192.168.99.0/24.",
+      "step2Title": "2. Topologia da Rede",
+      "step2Desc": "Robô CSJBot (Panda): 192.168.99.102 | Broker MQTT (PC/Mosquitto): 192.168.99.197:1883 | Tablet Android: 192.168.99.200 | SLAM Slamware: 192.168.99.2:1445 | Gateway: 192.168.99.1",
       "step3Title": "3. Conecte pelo App",
-      "step3Desc": "Digite o IP e a porta nos campos acima e toque em 'CONECTAR ROBÔ'. Se o indicador ficar verde, a conexão foi estabelecida.",
-      "step4Title": "4. Controle e Funcionalidades",
-      "step4Desc": "No Dashboard você encontra: Joystick para mover o robô, Chat IA para conversar com o Ken, Mapa para navegação autônoma, Telemetria para monitorar bateria e sensores, e Animações com voz.",
+      "step3Desc": "O IP do robô já vem preenchido (192.168.99.102, porta 8080). Toque em 'CONECTAR ROBÔ'. Se o indicador ficar verde, a conexão WebSocket foi estabelecida com sucesso.",
+      "step4Title": "4. MQTT e Telemetria",
+      "step4Desc": "O broker MQTT central roda no PC (192.168.99.197:1883, Mosquitto v2.1.2, TCP anônimo). Use a página Config MQTT para verificar a conexão. O tablet (192.168.99.200) funciona como painel de monitoramento via IoT MQTT Panel.",
       "step5Title": "5. Modo Offline",
-      "step5Desc": "Se o robô não estiver disponível, use o 'Modo Offline' para explorar a interface e testar funcionalidades de simulação.",
-      "tip": "💡 Dica: Mantenha o celular e o robô na mesma rede local para melhor desempenho."
+      "step5Desc": "Se o robô não estiver disponível, use o 'Modo Offline' para explorar a interface e testar funcionalidades de simulação sem conexão de rede.",
+      "tip": "💡 Dica: Certifique-se de que o serviço Mosquitto está rodando no PC (porta 1883 aberta) antes de usar funcionalidades MQTT."
     }
   },
   "dashboard": {
@@ -280,7 +265,7 @@
       "videoUrlPlaceholder": "URL do vídeo (mp4, webm...)",
       "mediaLabel": "Rótulo"
     },
-"version": "AlphaBot Companion v2.1.0 • Iascom"
+"version": "AlphaBot Companion v2.1.1 • Iascom"
   },
   "map": {
     "title": "🗺️ Mapa de Navegação",

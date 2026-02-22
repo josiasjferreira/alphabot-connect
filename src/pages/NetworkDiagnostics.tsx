@@ -563,7 +563,7 @@ const NetworkDiagnostics = () => {
         )}
 
         <p className="text-[10px] text-center text-muted-foreground pb-4">
-          AlphaBot Companion v2.1.0 • Iascom
+          AlphaBot Companion v2.1.1 • Iascom
         </p>
       </div>
     </div>
