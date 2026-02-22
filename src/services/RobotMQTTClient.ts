@@ -65,7 +65,7 @@ const CANDIDATE_IPS = [
 ];
 
 // Portas WebSocket MQTT mais comuns
-const CANDIDATE_WS_PORTS = [1883, 9001, 8080, 8083];
+const CANDIDATE_WS_PORTS = [9001, 1883, 8083, 8080];
 
 export const ROBOT_SERIAL = 'H13307';
 
@@ -204,9 +204,11 @@ export class RobotMQTTClient {
           reject(new Error(
             `Timeout: broker MQTT não respondeu em 12s\n` +
             `URL testada: ${brokerUrl}\n\n` +
+            `⚠️ Porta 1883 = TCP nativo (NÃO funciona em navegadores)\n` +
+            `   Porta 9001 = WebSocket (necessária para navegadores)\n\n` +
             `Dicas:\n` +
-            `• Verifique se está conectado ao Wi-Fi do robô (RoboKen_Controle)\n` +
-            `• O broker Mosquitto usa porta 1883 (TCP/WS) — verifique se está ativo\n` +
+            `• Configure Mosquitto com: listener 9001 / protocol websockets\n` +
+            `• Verifique se está no Wi-Fi do robô (RoboKen_Controle)\n` +
             `• Tente usar a página "Config MQTT" para descoberta automática`
           ));
         }, 13000);

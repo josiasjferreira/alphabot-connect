@@ -41,7 +41,8 @@ export const ROBOT_NETWORK_CONFIG = {
   robotInternal: '192.168.99.102',
   ports: {
     http: 80,
-    mqtt: 1883,
+    mqttTcp: 1883,   // MQTT TCP nativo — NÃO funciona em navegadores
+    mqttWs: 9001,    // MQTT WebSocket — necessário para navegadores (Mosquitto listener ws)
     ws: 8080,
   },
 } as const;

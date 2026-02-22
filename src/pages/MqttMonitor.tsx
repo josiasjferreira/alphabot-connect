@@ -11,7 +11,7 @@ import { ROBOT_NETWORK_CONFIG } from '@/services/RobotWiFiConnection';
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
-const MQTT_WS_URL = `ws://${ROBOT_NETWORK_CONFIG.router}:${ROBOT_NETWORK_CONFIG.ports.mqtt}`;
+const MQTT_WS_URL = `ws://${ROBOT_NETWORK_CONFIG.broker}:${ROBOT_NETWORK_CONFIG.ports.mqttWs}`;
 const RECONNECT_DELAY = 3000;
 const MAX_MESSAGES = 100;
 
@@ -141,7 +141,7 @@ const MqttMonitor = () => {
         clearTimeout(connectTimeout);
         console.error('❌ Erro WebSocket MQTT:', e);
         setConnState('error');
-        setConnError(`Falha ao conectar em ${MQTT_WS_URL} — verifique se o broker MQTT está ativo (porta ${ROBOT_NETWORK_CONFIG.ports.mqtt})`);
+        setConnError(`Falha ao conectar em ${MQTT_WS_URL} — verifique se o broker MQTT está ativo (porta ${ROBOT_NETWORK_CONFIG.ports.mqttWs})`);
       };
 
       ws.onclose = (e) => {
@@ -298,7 +298,7 @@ const MqttMonitor = () => {
 
             <div className="text-[10px] font-mono text-muted-foreground space-y-0.5 p-2 rounded-lg bg-muted/30">
               <p>• Broker MQTT: <span className="text-foreground">192.168.99.197</span> (PC/Mosquitto)</p>
-              <p>• Porta MQTT-WS: <span className="text-foreground">{ROBOT_NETWORK_CONFIG.ports.mqtt}</span></p>
+              <p>• Porta MQTT-WS: <span className="text-foreground">{ROBOT_NETWORK_CONFIG.ports.mqttWs}</span></p>
               <p>• URL: <span className="text-foreground">{MQTT_WS_URL}</span></p>
             </div>
 
