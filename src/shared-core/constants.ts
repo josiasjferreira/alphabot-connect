@@ -16,14 +16,14 @@ export const NETWORK = {
   TABLET_IP: '192.168.99.200',
   /** IP do módulo SLAM Slamware */
   SLAM_IP: '192.168.99.2',
-  /** @deprecated IP antigo do tablet — manter para fallback */
+  /** @deprecated IP antigo — removido da varredura ativa */
   LEGACY_ROBOT_TABLET_IP: '192.168.99.101',
 } as const;
 
 export const PORTS = {
   HTTP: 80,
   MQTT_NATIVE: 1883,
-  MQTT_WS: 9001,
+  MQTT_WS: 1883,
   MQTT_WSS_MOSQUITTO: 8084,
   MQTT_WSS_STANDARD: 8883,
   SLAM_TCP: 1445,
