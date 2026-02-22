@@ -67,10 +67,10 @@ export const TIMEOUTS = {
 // ─── App ───
 
 export const APP = {
-  VERSION: '2.1.0',
+  VERSION: '2.1.1',
   NAME: 'AlphaBot Companion',
   AUTHOR: 'Iascom',
-  FOOTER: 'AlphaBot Companion v2.1.0 • Iascom',
+  FOOTER: 'AlphaBot Companion v2.1.1 • Iascom',
 } as const;
 
 // ─── Rede: Topologia Final (Fev/2026) ───
