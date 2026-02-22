@@ -3,12 +3,12 @@
  *
  * Baseado na engenharia reversa dos APKs CSJBot (RobotSDK 2.4.0, Delivery 5.3.9):
  *
- * Arquitetura de rede confirmada:
- *   IP Robô (interno):  192.168.99.101  (ConnectConstants.serverIp)
- *   IP SLAM:            192.168.99.2
- *   Broker MQTT:        Eclipse Paho (org.eclipse.paho.client.mqttv3)
- *   Porta MQTT:         1883
- *   Porta WebSocket:    9001 (Mosquitto WS) ou 1883 (se broker tiver WS ativado)
+ * Topologia de rede final (Fev/2026):
+ *   Broker MQTT:     192.168.99.197 (PC/Mosquitto v2.1.2, porta 1883)
+ *   Robô CSJBot:     192.168.99.102
+ *   Tablet Android:  192.168.99.200
+ *   SLAM:            192.168.99.2
+ *   Gateway:         192.168.99.1 (Tenda)
  *
  * Tópicos identificados nos APKs:
  *   robot/{SN}/calibration/progress  → Progresso de calibração
@@ -55,13 +55,13 @@ const ROBOT_TOPICS = [
   'status/#',
 ];
 
-// IPs candidatos ordenados por prioridade (baseado na engenharia reversa)
+// IPs candidatos — topologia final (Fev/2026)
 const CANDIDATE_IPS = [
-  '192.168.99.101', // IP real do robô CSJBot (ConnectConstants.serverIp)
-  '192.168.0.1',    // Roteador RoboKen_Controle
-  '192.168.0.199',  // Tablet do robô
+  '192.168.99.197', // Broker MQTT central (PC/Mosquitto)
+  '192.168.99.102', // Robô CSJBot CT300-H13307
+  '192.168.99.200', // Tablet Android
+  '192.168.99.1',   // Gateway/Roteador Tenda
   '192.168.99.2',   // SLAM/Slamware
-  '192.168.2.5',    // Roteador Tenda (detectado nos testes)
 ];
 
 // Portas WebSocket MQTT mais comuns
@@ -331,7 +331,7 @@ export class RobotMQTTClient {
 
   /**
    * Tenta os endpoints HTTP reais identificados nos APKs CSJBot.
-   * Base URL: http://192.168.99.101/api
+   * Base URL: http://192.168.99.102/api
    */
   static async probeHttpApi(ip: string, timeoutMs = 5000): Promise<boolean> {
     // Endpoints identificados nos APKs via Retrofit

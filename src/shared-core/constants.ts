@@ -6,18 +6,18 @@
 // ─── Rede ───
 
 export const NETWORK = {
-  /** Gateway do hotspot do robô */
+  /** Gateway / Roteador Tenda da rede local */
   GATEWAY_IP: '192.168.99.1',
-  /** IP interno do tablet Android (ConnectConstants.serverIp) */
-  ROBOT_TABLET_IP: '192.168.99.101',
+  /** Broker MQTT central — PC Windows com Mosquitto */
+  BROKER_IP: '192.168.99.197',
+  /** IP do robô CSJBot (CT300-H13307) */
+  ROBOT_IP: '192.168.99.102',
+  /** IP do tablet Android (cliente MQTT / monitoramento) */
+  TABLET_IP: '192.168.99.200',
   /** IP do módulo SLAM Slamware */
   SLAM_IP: '192.168.99.2',
-  /** IP do roteador RoboKen_Controle */
-  ROUTER_IP: '192.168.0.1',
-  /** IP do tablet (rede Tenda) */
-  TABLET_TENDA_IP: '192.168.0.199',
-  /** IP roteador Tenda */
-  ROUTER_TENDA_IP: '192.168.2.5',
+  /** @deprecated IP antigo do tablet — manter para fallback */
+  LEGACY_ROBOT_TABLET_IP: '192.168.99.101',
 } as const;
 
 export const PORTS = {
@@ -71,4 +71,23 @@ export const APP = {
   NAME: 'AlphaBot Companion',
   AUTHOR: 'Iascom',
   FOOTER: 'AlphaBot Companion v2.1.0 • Iascom',
+} as const;
+
+// ─── Rede: Topologia Final (Fev/2026) ───
+
+export const NETWORK_TOPOLOGY = {
+  /** Rede: 192.168.99.0/24 */
+  subnet: '192.168.99.0/24',
+  devices: {
+    router:  { ip: '192.168.99.1',   role: 'Gateway / DHCP (Tenda)' },
+    broker:  { ip: '192.168.99.197', role: 'Broker MQTT Central (PC/Mosquitto v2.1.2)' },
+    robot:   { ip: '192.168.99.102', role: 'Robô CSJBot CT300-H13307' },
+    tablet:  { ip: '192.168.99.200', role: 'Cliente MQTT (Android / IoT MQTT Panel)' },
+    slam:    { ip: '192.168.99.2',   role: 'Módulo SLAM Slamware' },
+  },
+  mqtt: {
+    port: 1883,
+    protocol: 'mqtt' as const,
+    auth: 'anonymous' as const,
+  },
 } as const;
