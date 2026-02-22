@@ -41,8 +41,8 @@ const ENDPOINTS: EndpointDef[] = [
   { id: 'logs',        label: 'Logs Recentes',     path: '/api/logs/recent',       method: 'GET',  icon: <Server className="w-4 h-4" />,      category: 'Sistema' },
 ];
 
-const WS_URL   = `ws://${ROBOT_NETWORK_CONFIG.router}:${ROBOT_NETWORK_CONFIG.ports.ws}`;
-const MQTT_URL = `ws://${ROBOT_NETWORK_CONFIG.router}:${ROBOT_NETWORK_CONFIG.ports.mqtt}`;
+const WS_URL   = `ws://${ROBOT_NETWORK_CONFIG.broker}:${ROBOT_NETWORK_CONFIG.ports.ws}`;
+const MQTT_URL = `ws://${ROBOT_NETWORK_CONFIG.broker}:${ROBOT_NETWORK_CONFIG.ports.mqttWs}`;
 
 // ─── Result types ────────────────────────────────────────────────────────────
 
@@ -329,8 +329,8 @@ const NetworkDiagnostics = () => {
               <div className="font-mono text-foreground">{ROBOT_NETWORK_CONFIG.robotInternal}</div>
               <div className="text-muted-foreground">HTTP (porta {ROBOT_NETWORK_CONFIG.ports.http} padrão):</div>
               <div className="font-mono text-foreground">{ROBOT_NETWORK_CONFIG.router} → {ROBOT_NETWORK_CONFIG.tablet}:80</div>
-              <div className="text-muted-foreground">MQTT (porta {ROBOT_NETWORK_CONFIG.ports.mqtt}):</div>
-              <div className="font-mono text-foreground">{ROBOT_NETWORK_CONFIG.router}:{ROBOT_NETWORK_CONFIG.ports.mqtt} → {ROBOT_NETWORK_CONFIG.tablet}:{ROBOT_NETWORK_CONFIG.ports.mqtt}</div>
+              <div className="text-muted-foreground">MQTT WS (porta {ROBOT_NETWORK_CONFIG.ports.mqttWs}):</div>
+              <div className="font-mono text-foreground">{ROBOT_NETWORK_CONFIG.broker}:{ROBOT_NETWORK_CONFIG.ports.mqttWs}</div>
               <div className="text-muted-foreground">WebSocket (porta {ROBOT_NETWORK_CONFIG.ports.ws}):</div>
               <div className="font-mono text-foreground">{ROBOT_NETWORK_CONFIG.router}:{ROBOT_NETWORK_CONFIG.ports.ws} → {ROBOT_NETWORK_CONFIG.tablet}:{ROBOT_NETWORK_CONFIG.ports.ws}</div>
             </div>

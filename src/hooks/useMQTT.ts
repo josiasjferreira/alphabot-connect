@@ -52,7 +52,7 @@ export function useMQTT(): UseMQTTReturn {
   }, []);
 
   const connect = useCallback(async (brokerUrl?: string) => {
-    const url = brokerUrl || config.activeBroker || 'ws://192.168.99.197:1883';
+    const url = brokerUrl || config.activeBroker || 'ws://192.168.99.197:9001';
     const serial = config.robotSerial || 'H13307';
 
     if (globalClient?.isConnected) {

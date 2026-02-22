@@ -46,7 +46,7 @@ interface MQTTConfigStore extends MQTTConfig {
  * - 8080: EMQX WebSocket padrão
  * - 8083: EMQX WebSocket alternativo
  */
-export const DEFAULT_WS_PORTS = [1883, 9001, 8080, 8083];
+export const DEFAULT_WS_PORTS = [9001, 1883, 8083, 8080];
 export const DEFAULT_WSS_PORTS = [8084, 8883]; // TLS/WSS (Mosquitto TLS, EMQX WSS)
 
 /**
@@ -66,10 +66,10 @@ export const DEFAULT_BROKER_IPS = [
 ];
 
 const DEFAULT_CONFIG: MQTTConfig = {
-  brokerCandidates: DEFAULT_BROKER_IPS.map(ip => `ws://${ip}:1883`),
-  activeBroker: 'ws://192.168.99.197:1883',
+  brokerCandidates: DEFAULT_BROKER_IPS.map(ip => `ws://${ip}:9001`),
+  activeBroker: 'ws://192.168.99.197:9001',
   robotSerial: 'H13307',
-  wsPort: 1883,
+  wsPort: 9001,
   connectTimeout: 8000,
   autoDiscovery: true,
 };
