@@ -297,7 +297,7 @@ const MqttMonitor = () => {
             </div>
 
             <div className="text-[10px] font-mono text-muted-foreground space-y-0.5 p-2 rounded-lg bg-muted/30">
-              <p>• Roteador: <span className="text-foreground">192.168.0.1</span></p>
+              <p>• Broker MQTT: <span className="text-foreground">192.168.99.197</span> (PC/Mosquitto)</p>
               <p>• Porta MQTT-WS: <span className="text-foreground">{ROBOT_NETWORK_CONFIG.ports.mqtt}</span></p>
               <p>• URL: <span className="text-foreground">{MQTT_WS_URL}</span></p>
             </div>
