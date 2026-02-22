@@ -556,7 +556,7 @@ const MqttConfig = () => {
               </div>
             </div>
             <button
-              onClick={() => { config.resetToDefaults(); setActiveBroker(config.activeBroker); setSerial(config.robotSerial); setWsPort(String(config.wsPort)); }}
+              onClick={() => { config.resetToDefaults(); setActiveBroker('ws://192.168.99.197:1883'); setSerial('H13307'); setWsPort('1883'); }}
               className="mt-3 w-full flex items-center justify-center gap-1 text-[11px] text-muted-foreground hover:text-foreground"
             >
               <RefreshCw className="w-3 h-3" /> Restaurar padrões
