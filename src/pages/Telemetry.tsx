@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { Battery, Thermometer, Wifi, Volume2, Gauge, Compass, RotateCw, Download, Zap, RefreshCw, Bluetooth, BluetoothConnected } from 'lucide-react';
+import { Battery, Thermometer, Wifi, Volume2, Gauge, Compass, RotateCw, Download, Zap, RefreshCw, Radio } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import StatusHeader from '@/components/StatusHeader';
 import { useRobotStore } from '@/store/useRobotStore';
@@ -20,15 +20,11 @@ const EVENT_ICONS: Record<RobotEvent, string> = {
 
 const Telemetry = () => {
   const { t } = useTranslation();
-  const { status, logs, machineState, dispatchEvent, connectionStatus, bluetoothStatus, bluetoothDevice } = useRobotStore();
+  const { status, logs, machineState, dispatchEvent, connectionStatus } = useRobotStore();
   const { connect } = useWebSocket();
   const availableEvents = getAvailableEvents(machineState);
   const stateInfo = STATE_LABELS[machineState];
   const isWsError = connectionStatus === 'error';
-
-  const isBtActive = bluetoothStatus === 'paired' || bluetoothStatus === 'connected';
-  const btColor = bluetoothStatus === 'connected' ? 'text-success' : bluetoothStatus === 'paired' ? 'text-primary' : 'text-muted-foreground';
-  const BtIcon = bluetoothStatus === 'connected' ? BluetoothConnected : Bluetooth;
 
   const batteryLevel = typeof status.battery === 'number' && !isNaN(status.battery) ? Math.max(0, Math.min(100, Math.round(status.battery))) : 0;
   const batteryColor = batteryLevel > 50 ? 'text-success' : batteryLevel > 20 ? 'text-warning' : 'text-destructive';
@@ -75,25 +71,14 @@ const Telemetry = () => {
           <p className="text-xs text-muted-foreground mt-1">{t('telemetry.batteryRemaining')}</p>
         </motion.div>
 
-        {/* Bluetooth Status Card */}
+        {/* MQTT Status Card */}
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}
-          className={`bg-card rounded-2xl border shadow-card p-4 flex items-center justify-between ${isBtActive ? 'border-primary/40' : 'border-border'}`}>
-          <div className="flex items-center gap-3">
-            <BtIcon className={`w-5 h-5 ${btColor}`} />
-            <div>
-              <span className="font-bold text-foreground text-sm">{t('telemetry.bluetooth')}</span>
-              <p className={`text-xs font-medium ${btColor}`}>
-                {bluetoothStatus === 'connected' ? t('telemetry.btConnected')
-                  : bluetoothStatus === 'paired' ? t('telemetry.btPaired')
-                  : bluetoothStatus === 'scanning' ? t('telemetry.btScanning')
-                  : bluetoothStatus === 'error' ? t('telemetry.btError')
-                  : t('telemetry.btDisconnected')}
-              </p>
-            </div>
+          className="bg-card rounded-2xl border border-border shadow-card p-4 flex items-center gap-3">
+          <Radio className="w-5 h-5 text-secondary" />
+          <div>
+            <span className="font-bold text-foreground text-sm">MQTT</span>
+            <p className="text-xs font-medium text-muted-foreground">WiFi + MQTT/WebSocket</p>
           </div>
-          {bluetoothDevice && (
-            <span className="text-xs font-semibold text-muted-foreground bg-muted px-2 py-1 rounded-lg">{bluetoothDevice}</span>
-          )}
         </motion.div>
 
         <div className="grid grid-cols-2 gap-3">

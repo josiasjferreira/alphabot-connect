@@ -116,7 +116,9 @@ export const useBluetoothSerial = () => {
   const rxCharRef = useRef<any>(null);
   const sppAddressRef = useRef<string | null>(null);
   const modeRef = useRef<'spp' | 'ble' | null>(null);
-  const { setBluetoothStatus, addLog, updateStatus } = useRobotStore();
+  const { addLog, updateStatus } = useRobotStore();
+  // Bluetooth removido — stub para compatibilidade
+  const setBluetoothStatus = (..._args: any[]) => {};
 
   const encodeCommand = useCallback((cmd: BluetoothCommand): string => {
     return JSON.stringify(cmd) + '\n';

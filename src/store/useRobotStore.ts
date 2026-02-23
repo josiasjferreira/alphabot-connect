@@ -24,8 +24,6 @@ export interface LogEntry {
 
 interface RobotState {
   connectionStatus: 'disconnected' | 'connecting' | 'connected' | 'error';
-  bluetoothStatus: 'disconnected' | 'scanning' | 'paired' | 'connected' | 'error';
-  bluetoothDevice: string | null;
   ip: string;
   port: string;
   authToken: string;
@@ -41,7 +39,6 @@ interface RobotState {
 
   setConnection: (ip: string, port: string, authToken?: string) => void;
   setConnectionStatus: (status: RobotState['connectionStatus']) => void;
-  setBluetoothStatus: (status: RobotState['bluetoothStatus'], device?: string | null) => void;
   setError: (error: string | null) => void;
   setOfflineMode: (offline: boolean) => void;
   updateStatus: (status: Partial<RobotStatus>) => void;
@@ -72,8 +69,6 @@ export const useRobotStore = create<RobotState>()(
   persist(
     (set, get) => ({
       connectionStatus: 'disconnected',
-      bluetoothStatus: 'disconnected',
-      bluetoothDevice: null,
       ip: '192.168.99.102',
       port: '8080',
       authToken: '',
@@ -89,7 +84,6 @@ export const useRobotStore = create<RobotState>()(
 
       setConnection: (ip, port, authToken) => set({ ip, port, authToken: authToken ?? '' }),
       setConnectionStatus: (connectionStatus) => set({ connectionStatus, error: connectionStatus === 'error' ? 'Falha na conexão' : null }),
-      setBluetoothStatus: (bluetoothStatus, device) => set({ bluetoothStatus, bluetoothDevice: device ?? null }),
       setError: (error) => set({ error }),
       setOfflineMode: (offlineMode) => set({ offlineMode, connectionStatus: offlineMode ? 'connected' : 'disconnected' }),
       updateStatus: (partial) => set((s) => ({ status: { ...s.status, ...partial } })),
@@ -120,10 +114,6 @@ export const useRobotStore = create<RobotState>()(
         ip: state.ip,
         port: state.port,
         authToken: state.authToken,
-        bluetoothDevice: state.bluetoothDevice,
-        bluetoothStatus: state.bluetoothStatus === 'connected' || state.bluetoothStatus === 'paired'
-          ? 'disconnected' as const
-          : state.bluetoothStatus,
       }),
     }
   )

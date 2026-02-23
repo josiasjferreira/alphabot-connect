@@ -1,21 +1,21 @@
+/**
+ * Control.tsx — Tela de Controle Manual dedicada (sem Bluetooth).
+ * Toda comunicação é via MQTT/WebSocket.
+ */
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import StatusHeader from '@/components/StatusHeader';
 import Joystick from '@/components/Joystick';
 import EmergencyButton from '@/components/EmergencyButton';
-import { useWebSocket } from '@/hooks/useWebSocket';
-import { useBluetoothSerial } from '@/hooks/useBluetoothSerial';
 import { useRobotStore } from '@/store/useRobotStore';
 import { useMQTT } from '@/hooks/useMQTT';
 import { useMQTTConfigStore } from '@/store/useMQTTConfigStore';
 import { rotationService } from '@/services/rotationService';
-import { Bluetooth, BluetoothConnected, Wifi, RotateCcw, RotateCw, Compass, Radio } from 'lucide-react';
+import { RotateCcw, RotateCw, Compass, Radio } from 'lucide-react';
 
 const Control = () => {
   const { t } = useTranslation();
-  const { send } = useWebSocket();
-  const { sendMove, sendStop, sendEmergencyStop, isSerialReady } = useBluetoothSerial();
-  const { addLog, bluetoothStatus } = useRobotStore();
+  const { addLog } = useRobotStore();
   const { client: mqttClient, isConnected: isMqttConnected, publish: mqttPublish } = useMQTT();
   const mqttConfig = useMQTTConfigStore();
   const serial = mqttConfig.robotSerial || 'H13307';
@@ -29,7 +29,6 @@ const Control = () => {
   const [heading, setHeading] = useState(0);
   const throttleRef = useRef<ReturnType<typeof setTimeout>>();
 
-  // Track heading from rotation service
   useEffect(() => {
     rotationService.onOrientationChange((o) => {
       setHeading(Math.round(o.angle));
@@ -38,17 +37,12 @@ const Control = () => {
     return () => { rotationService.destroy(); };
   }, []);
 
-  const isBtActive = bluetoothStatus === 'paired' || bluetoothStatus === 'connected';
-
-  // ─── MQTT movement helpers ───
   const mqttMove = useCallback((direction: 'forward' | 'backward' | 'left' | 'right' | 'stop', spd = 0) => {
     if (!isMqttConnected) return;
     mqttClient?.move(direction, spd / 100, 200, serial);
   }, [isMqttConnected, mqttClient, serial]);
 
-  // Resolve joystick angle → direction
   const angleToDirection = (angle: number): 'forward' | 'backward' | 'left' | 'right' => {
-    // angle: 0° = right, 90° = up, 180° = left, 270° = down (standard math)
     const norm = ((angle % 360) + 360) % 360;
     if (norm >= 45 && norm < 135) return 'forward';
     if (norm >= 135 && norm < 225) return 'left';
@@ -61,50 +55,28 @@ const Control = () => {
     setCurrentDist(Math.round(distance));
 
     if (throttleRef.current) return;
-    throttleRef.current = setTimeout(() => {
-      throttleRef.current = undefined;
-    }, 100);
+    throttleRef.current = setTimeout(() => { throttleRef.current = undefined; }, 100);
 
     const computedSpeed = (distance / 100) * speed;
 
-    // WebSocket (legacy)
-    send({
-      type: 'move',
-      data: { angle, speed: computedSpeed, rotation },
-      timestamp: Date.now(),
-    });
-
-    // Bluetooth Serial
-    if (isBtActive) {
-      sendMove(angle, computedSpeed, rotation);
-    }
-
-    // MQTT — tópicos confirmados: robot/{SN}/movement/{direction}
     if (isMqttConnected && distance > 5) {
       const dir = angleToDirection(angle);
       mqttMove(dir, computedSpeed);
     }
-  }, [speed, rotation, send, sendMove, isBtActive, isMqttConnected, mqttMove]);
+  }, [speed, isMqttConnected, mqttMove]);
 
   const handleRelease = useCallback(() => {
     setCurrentAngle(0);
     setCurrentDist(0);
-    send({ type: 'move', data: { angle: 0, speed: 0, rotation: 0 }, timestamp: Date.now() });
-
-    if (isBtActive) sendStop();
     if (isMqttConnected) mqttMove('stop');
-  }, [send, sendStop, isBtActive, isMqttConnected, mqttMove]);
+  }, [isMqttConnected, mqttMove]);
 
   const handleEmergency = () => {
-    send({ type: 'emergency_stop', timestamp: Date.now() });
     addLog(t('control.emergencyLog'), 'error');
     useRobotStore.getState().dispatchEvent('EMERGENCY_STOP');
     rotationService.stop();
     setIsRotating(null);
 
-    if (isBtActive) sendEmergencyStop();
-
-    // MQTT emergency stop — publica em múltiplos tópicos para garantia
     if (isMqttConnected) {
       mqttPublish(`robot/${serial}/movement/stop`, { timestamp: Date.now() });
       mqttPublish(`robot/${serial}/cmd`, { cmd: 'emergency_stop', force: true, timestamp: Date.now() });
@@ -112,20 +84,20 @@ const Control = () => {
     }
   };
 
-  const handleRotateLeft = async () => {
+  const handleRotateLeft = () => {
     setIsRotating('left');
-    await rotationService.rotateLeft(rotationSpeed);
+    rotationService.rotateLeft(rotationSpeed);
     if (isMqttConnected) mqttClient?.rotate('left', rotationSpeed / 100, 0, serial);
   };
 
-  const handleRotateRight = async () => {
+  const handleRotateRight = () => {
     setIsRotating('right');
-    await rotationService.rotateRight(rotationSpeed);
+    rotationService.rotateRight(rotationSpeed);
     if (isMqttConnected) mqttClient?.rotate('right', rotationSpeed / 100, 0, serial);
   };
 
-  const handleRotateStop = async () => {
-    await rotationService.stop();
+  const handleRotateStop = () => {
+    rotationService.stop();
     setIsRotating(null);
     if (isMqttConnected) mqttMove('stop');
   };
@@ -135,17 +107,8 @@ const Control = () => {
       <StatusHeader title={t('control.title')} />
 
       <div className="flex-1 p-4 flex flex-col gap-4">
-        {/* Connection channel indicator */}
-        <div className="flex items-center justify-center gap-2 flex-wrap">
-          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-muted text-xs font-semibold">
-            <Wifi className="w-3 h-3 text-primary" /> WS
-          </div>
-          <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold ${
-            isBtActive ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'
-          }`}>
-            {isBtActive ? <BluetoothConnected className="w-3 h-3" /> : <Bluetooth className="w-3 h-3" />}
-            BT {isSerialReady ? '✓' : isBtActive ? '◌' : '✗'}
-          </div>
+        {/* Connection indicator */}
+        <div className="flex items-center justify-center gap-2">
           <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold ${
             isMqttConnected ? 'bg-success/10 text-success border border-success/20' : 'bg-muted text-muted-foreground'
           }`}>
@@ -160,7 +123,6 @@ const Control = () => {
             <svg viewBox="0 0 100 100" className="w-full h-full">
               <circle cx="50" cy="50" r="46" fill="none" stroke="hsl(var(--border))" strokeWidth="1.5" />
               <circle cx="50" cy="50" r="40" fill="none" stroke="hsl(var(--border))" strokeWidth="0.5" strokeDasharray="3 3" />
-              {/* Cardinal labels */}
               {[{ l: 'N', a: 0 }, { l: 'E', a: 90 }, { l: 'S', a: 180 }, { l: 'W', a: 270 }].map(d => {
                 const r = 34;
                 const rad = d.a * (Math.PI / 180);
@@ -170,7 +132,6 @@ const Control = () => {
                     className="fill-muted-foreground text-[8px] font-bold">{d.l}</text>
                 );
               })}
-              {/* Needle */}
               <g transform={`rotate(${heading}, 50, 50)`}>
                 <polygon points="50,12 47,50 53,50" fill="hsl(var(--destructive))" opacity="0.85" />
                 <polygon points="50,88 47,50 53,50" fill="hsl(var(--muted-foreground))" opacity="0.3" />
@@ -198,7 +159,7 @@ const Control = () => {
         </div>
 
         <div className="flex gap-4 items-center justify-center">
-          {/* Rotation buttons (left side) */}
+          {/* Rotation left */}
           <div className="flex flex-col items-center gap-2">
             <button
               onPointerDown={handleRotateLeft}
@@ -219,7 +180,7 @@ const Control = () => {
 
           <Joystick size={160} onMove={handleMove} onRelease={handleRelease} />
 
-          {/* Rotation buttons (right side) */}
+          {/* Rotation right */}
           <div className="flex flex-col items-center gap-2">
             <button
               onPointerDown={handleRotateRight}
@@ -239,7 +200,7 @@ const Control = () => {
           </div>
         </div>
 
-        {/* Stats + Sliders */}
+        {/* Stats */}
         <div className="grid grid-cols-2 gap-3">
           <div className="bg-card rounded-xl border border-border p-3 text-center">
             <p className="text-xs text-muted-foreground font-semibold">{t('control.angle')}</p>
@@ -251,6 +212,7 @@ const Control = () => {
           </div>
         </div>
 
+        {/* Sliders */}
         <div className="space-y-3">
           <div>
             <label className="text-xs text-muted-foreground font-semibold">{t('control.maxSpeed', { value: speed })}</label>
