@@ -4,7 +4,8 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { HashRouter, Routes, Route } from "react-router-dom";
 import Connection from "./pages/Connection";
-import Dashboard from "./pages/Dashboard";
+import OperationDashboard from "./pages/OperationDashboard";
+import ConfigDashboard from "./pages/ConfigDashboard";
 import Control from "./pages/Control";
 import Chat from "./pages/Chat";
 import Voice from "./pages/Voice";
@@ -41,7 +42,8 @@ const App = () => (
       <HashRouter>
         <Routes>
           <Route path="/" element={<Connection />} />
-          <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/dashboard" element={<OperationDashboard />} />
+          <Route path="/config" element={<ConfigDashboard />} />
           <Route path="/control" element={<Control />} />
           <Route path="/chat" element={<Chat />} />
           <Route path="/voice" element={<Voice />} />

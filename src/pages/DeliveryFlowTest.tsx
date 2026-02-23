@@ -227,7 +227,7 @@ const DeliveryFlowTest = () => {
   // Real robot hooks
   const { scanAndConnect, reconnectLastDevice, sendCommand: btSendCommand, sendStop, sendEmergencyStop, disconnectBt, isSerialReady } = useBluetoothSerial();
   const { connect: wsConnect, disconnect: wsDisconnect, send: wsSend } = useWebSocket();
-  const { connectionStatus, bluetoothStatus } = useRobotStore();
+  const { connectionStatus } = useRobotStore();
 
   // Previous status for detecting transitions
   const prevStatusRef = useRef<DeliveryStatus>('IDLE');
@@ -445,7 +445,7 @@ const DeliveryFlowTest = () => {
   const failed = steps.filter(s => s.status === 'FAILED').length;
   const total = steps.length;
   const currentPhase = steps.length > 0 ? steps[steps.length - 1].phase : '';
-  const btReady = isSerialReady || bluetoothStatus === 'connected';
+  const btReady = isSerialReady;
   const wsReady = connectionStatus === 'connected';
 
   const currentRobotPos = useMemo(() => {
