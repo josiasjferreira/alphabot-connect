@@ -11,9 +11,10 @@ import EmergencyButton from '@/components/EmergencyButton';
 import { Slider } from '@/components/ui/slider';
 import { Button } from '@/components/ui/button';
 import AnimationsCard from '@/components/AnimationsCard';
+import ChatIACard from '@/components/ChatIACard';
 import {
   RotateCcw, RotateCw, StopCircle, Compass, Radio,
-  MessageCircle, ShoppingBag, Settings2,
+  ShoppingBag, Settings2,
   Wifi, WifiOff, Loader2,
 } from 'lucide-react';
 
@@ -371,14 +372,11 @@ const OperationDashboard = () => {
         {/* Animations */}
         <AnimationsCard />
 
+        {/* Chat IA */}
+        <ChatIACard />
+
         {/* Secondary cards */}
         <div className="grid grid-cols-1 gap-3">
-          <PlaceholderCard
-            icon={<MessageCircle className="w-5 h-5 text-primary-foreground" />}
-            title="Chat IA"
-            desc="Conversar com o robô via IA"
-            onClick={() => navigate('/chat')}
-          />
           <PlaceholderCard
             icon={<ShoppingBag className="w-5 h-5 text-primary-foreground" />}
             title="Produtos Solar Life"
