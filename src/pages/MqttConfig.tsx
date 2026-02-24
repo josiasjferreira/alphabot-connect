@@ -322,7 +322,7 @@ const MqttConfig = () => {
                       <p><span className="text-muted-foreground">Gateway:</span> <span className="text-foreground">192.168.99.1</span> <span className="text-muted-foreground">(Tenda)</span></p>
                       <p><span className="text-muted-foreground">IP SLAM:</span> <span className="text-foreground">192.168.99.2</span></p>
                       <p><span className="text-muted-foreground">Porta MQTT TCP:</span> <span className="text-foreground">1883</span> <span className="text-destructive">(NÃO funciona em browsers)</span></p>
-                      <p><span className="text-muted-foreground">Porta MQTT WS:</span> <span className="text-foreground">9001</span> <span className="text-success">(necessária para browsers)</span></p>
+                      <p><span className="text-muted-foreground">Porta MQTT WS:</span> <span className="text-foreground">9002</span> <span className="text-success">(preferencial)</span> / <span className="text-foreground">9001</span> <span className="text-muted-foreground">(alternativa)</span></p>
                       <p><span className="text-muted-foreground">Serial:</span> <span className="text-foreground">H13307 (CT300)</span></p>
                     </div>
                     <div className="mt-2 pt-2 border-t border-border">
@@ -331,6 +331,9 @@ const MqttConfig = () => {
                         <p className="text-primary"># mosquitto.conf no PC 192.168.99.197</p>
                         <p className="text-foreground">listener 1883</p>
                         <p className="text-foreground">protocol mqtt</p>
+                        <p className="text-foreground">allow_anonymous true</p>
+                        <p className="text-foreground mt-1">listener 9002</p>
+                        <p className="text-foreground">protocol websockets</p>
                         <p className="text-foreground">allow_anonymous true</p>
                         <p className="text-foreground mt-1">listener 9001</p>
                         <p className="text-foreground">protocol websockets</p>
@@ -575,7 +578,7 @@ const MqttConfig = () => {
               </div>
             </div>
             <button
-              onClick={() => { config.resetToDefaults(); setActiveBroker('ws://192.168.99.197:9001'); setSerial('H13307'); setWsPort('9001'); }}
+              onClick={() => { config.resetToDefaults(); setActiveBroker('ws://192.168.99.197:9002'); setSerial('H13307'); setWsPort('9002'); }}
               className="mt-3 w-full flex items-center justify-center gap-1 text-[11px] text-muted-foreground hover:text-foreground"
             >
               <RefreshCw className="w-3 h-3" /> Restaurar padrões
