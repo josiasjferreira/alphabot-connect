@@ -3,7 +3,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { HashRouter, Routes, Route } from "react-router-dom";
-import Connection from "./pages/Connection";
+import { Navigate } from "react-router-dom";
 import OperationDashboard from "./pages/OperationDashboard";
 import ConfigDashboard from "./pages/ConfigDashboard";
 import Control from "./pages/Control";
@@ -41,7 +41,7 @@ const App = () => (
       <Sonner />
       <HashRouter>
         <Routes>
-          <Route path="/" element={<Connection />} />
+          <Route path="/" element={<Navigate to="/dashboard" replace />} />
           <Route path="/dashboard" element={<OperationDashboard />} />
           <Route path="/config" element={<ConfigDashboard />} />
           <Route path="/control" element={<Control />} />

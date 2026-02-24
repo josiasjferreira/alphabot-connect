@@ -1,155 +1,364 @@
-import { useState, useEffect } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useTranslation } from 'react-i18next';
-import { Bluetooth, BluetoothOff, Play, Square, RotateCcw, ChevronLeft, Activity, CheckCircle2, XCircle, Loader2, Wifi, Radio } from 'lucide-react';
+import {
+  ChevronLeft, Play, Square, RotateCcw, Loader2, CheckCircle2, XCircle,
+  Download, Upload, ChevronDown, ChevronUp, Settings, AlertTriangle,
+  Clock, Activity, Zap, Info,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
-import { useCalibration } from '@/hooks/useCalibration';
-import { ALL_SENSORS, type SensorId, type CalibrationChannel } from '@/services/bluetoothCalibrationBridge';
+import { useToast } from '@/hooks/use-toast';
+import { useMQTT } from '@/hooks/useMQTT';
+import { useMQTTConfigStore } from '@/store/useMQTTConfigStore';
+import { PUB_TOPICS, SUB_TOPICS } from '@/shared-core/types/mqtt';
+import {
+  SUPPORTED_SENSORS, type SensorType,
+  CalibrationState, calibrationStateToString,
+  CALIBRATION_SCHEDULE, CALIBRATION_LIMITS,
+  type CalibrationProgress as CalibProgressType,
+  type CalibrationData as CalibDataType,
+} from '@/shared-core/types/calibration';
+import { ROBOT, APP } from '@/shared-core/constants';
 
-const SENSOR_META: Record<SensorId, { label: string; icon: string; description: string }> = {
-  imu: { label: 'IMU', icon: '🔄', description: 'Acelerômetro + Giroscópio' },
-  magnetometer: { label: 'Magnetômetro', icon: '🧭', description: 'Bússola digital' },
-  odometer: { label: 'Odômetro', icon: '📏', description: 'Medição de distância' },
-  lidar: { label: 'LiDAR', icon: '📡', description: 'Sensor de distância laser' },
-  camera: { label: 'Câmera', icon: '📷', description: 'Calibração de lente' },
-  battery: { label: 'Bateria', icon: '🔋', description: 'Tensão e carga' },
-  temperature: { label: 'Temperatura', icon: '🌡️', description: 'Sensor térmico' },
+// ─── Sensor Card Metadata ───
+
+interface SensorMeta {
+  label: string;
+  icon: string;
+  description: string;
+  details: string;
+  gradient: string;
+}
+
+const SENSOR_META: Record<SensorType, SensorMeta> = {
+  imu: {
+    label: 'IMU',
+    icon: '🔄',
+    description: 'Acelerômetro + Giroscópio',
+    details: 'Calcula bias e escala dos 3 eixos. Robô deve ficar imóvel em superfície plana.',
+    gradient: 'from-primary to-secondary',
+  },
+  magnetometer: {
+    label: 'Magnetômetro',
+    icon: '🧭',
+    description: 'Bússola digital 3 eixos',
+    details: 'Calcula offset magnético. Robô gira 360° durante a calibração (~30s).',
+    gradient: 'from-secondary to-primary',
+  },
+  odometer: {
+    label: 'Odômetro',
+    icon: '📏',
+    description: 'Encoders das rodas',
+    details: 'Calcula pulsos/metro para cada roda. Robô anda 1m em linha reta.',
+    gradient: 'from-warning to-secondary',
+  },
+  lidar: {
+    label: 'LiDAR',
+    icon: '📡',
+    description: 'Sensor de distância laser',
+    details: 'Mede offset e ângulo. Alvo fixo a distância conhecida necessário.',
+    gradient: 'from-destructive to-warning',
+  },
+  camera: {
+    label: 'Câmera',
+    icon: '📷',
+    description: 'Parâmetros intrínsecos',
+    details: 'Calibra distorção de lente, foco e ponto principal.',
+    gradient: 'from-primary to-success',
+  },
+  battery: {
+    label: 'Bateria',
+    icon: '🔋',
+    description: 'Tensão e corrente',
+    details: 'Calcula offset e escala de voltagem para leitura precisa.',
+    gradient: 'from-success to-warning',
+  },
+  temperature: {
+    label: 'Temperatura',
+    icon: '🌡️',
+    description: 'Sensores térmicos',
+    details: 'Calcula offset de temperatura para múltiplos pontos de medição.',
+    gradient: 'from-warning to-destructive',
+  },
 };
 
-const CHANNEL_LABELS: Record<CalibrationChannel, { label: string; color: string; icon: typeof Bluetooth }> = {
-  ble: { label: 'BLE', color: 'bg-primary/10 text-primary', icon: Bluetooth },
-  spp: { label: 'SPP', color: 'bg-blue-500/10 text-blue-500', icon: Radio },
-  websocket: { label: 'WebSocket', color: 'bg-green-500/10 text-green-500', icon: Wifi },
-  http: { label: 'HTTP', color: 'bg-orange-500/10 text-orange-500', icon: Activity },
-  none: { label: 'Nenhum', color: 'bg-muted text-muted-foreground', icon: BluetoothOff },
-};
+// ─── Per-sensor status tracked during calibration ───
 
-const getSensorStatus = (sensorId: string, currentSensor: string | undefined, progressVal: number) => {
-  if (!currentSensor) return 'idle';
-  const currentIdx = ALL_SENSORS.indexOf(currentSensor as SensorId);
-  const thisIdx = ALL_SENSORS.indexOf(sensorId as SensorId);
-  if (thisIdx < currentIdx) return 'complete';
-  if (thisIdx === currentIdx) return 'active';
-  return 'idle';
-};
+type SensorCalibStatus = 'idle' | 'running' | 'complete' | 'error';
+
+interface SensorState {
+  status: SensorCalibStatus;
+  progress: number;
+  error?: string;
+}
 
 const Calibration = () => {
-  const { t } = useTranslation();
   const navigate = useNavigate();
-  const {
-    bleAvailable, isConnected, progress, calibData, calibState, activeChannel,
-    error, isCalibrating, logs, connect, disconnect,
-    startCalibration, stopCalibration, resetCalibration, fetchData,
-  } = useCalibration();
+  const { toast } = useToast();
+  const { isConnected, publish, client, connect } = useMQTT();
+  const mqttConfig = useMQTTConfigStore();
+  const serial = mqttConfig.robotSerial || ROBOT.SERIAL;
 
-  const [selectedSensors, setSelectedSensors] = useState<SensorId[]>([...ALL_SENSORS]);
+  // State
+  const [selectedSensors, setSelectedSensors] = useState<SensorType[]>([...SUPPORTED_SENSORS]);
+  const [isCalibrating, setIsCalibrating] = useState(false);
+  const [globalProgress, setGlobalProgress] = useState(0);
+  const [currentSensor, setCurrentSensor] = useState<string>('');
+  const [calibState, setCalibState] = useState<CalibrationState>(CalibrationState.IDLE);
+  const [sensorStates, setSensorStates] = useState<Record<SensorType, SensorState>>(() => {
+    const init: Record<string, SensorState> = {};
+    SUPPORTED_SENSORS.forEach(s => { init[s] = { status: 'idle', progress: 0 }; });
+    return init as Record<SensorType, SensorState>;
+  });
+  const [calibData, setCalibData] = useState<CalibDataType | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [logs, setLogs] = useState<string[]>([]);
   const [showLogs, setShowLogs] = useState(false);
+  const [showSchedule, setShowSchedule] = useState(false);
+  const [expandedSensor, setExpandedSensor] = useState<SensorType | null>(null);
+  const [estimatedTime, setEstimatedTime] = useState(0);
 
-  // HTTPS enforcement for Web Bluetooth
-  useEffect(() => {
-    if (window.location.protocol !== 'https:' && 
-        window.location.hostname !== 'localhost') {
-      console.error('❌ HTTPS obrigatório!');
-      alert('❌ Web Bluetooth requer HTTPS.\nRedirecionando...');
-      window.location.href = window.location.href.replace('http:', 'https:');
-    }
+  const addLog = useCallback((msg: string) => {
+    setLogs(prev => [`[${new Date().toLocaleTimeString()}] ${msg}`, ...prev].slice(0, 150));
   }, []);
 
-  const toggleSensor = (id: SensorId) => {
+  // ─── MQTT message handling for calibration topics ───
+
+  // Listen for calibration messages via the global onMessage from RobotMQTTClient
+  // The RobotMQTTClient already subscribes to robot/{serial}/# — so calibration topics are covered.
+  // We intercept via a custom onMessage wrapper injected into the connect callback.
+  useEffect(() => {
+    if (!client || !isConnected) return;
+
+    // Patch the existing callbacks to also handle calibration messages
+    const origCallbacks = (client as any).callbacks as { onMessage?: (topic: string, payload: any) => void };
+    const origOnMessage = origCallbacks.onMessage;
+
+    origCallbacks.onMessage = (topic: string, payload: any) => {
+      // Call original first
+      origOnMessage?.(topic, payload);
+
+      // Handle calibration topics
+      const data = typeof payload === 'string' ? (() => { try { return JSON.parse(payload); } catch { return null; } })() : payload;
+      if (!data) return;
+
+      if (topic.includes('calibration/progress')) {
+        const p = data as CalibProgressType;
+        setGlobalProgress(p.progress);
+        setCurrentSensor(p.currentSensor);
+        setCalibState(p.state);
+        setEstimatedTime(p.estimatedTimeRemaining || 0);
+        setIsCalibrating(p.progress > 0 && p.progress < 100);
+
+        if (p.sensors) {
+          setSensorStates(prev => {
+            const next = { ...prev };
+            p.sensors.forEach(s => {
+              const key = s.name as SensorType;
+              if (SUPPORTED_SENSORS.includes(key)) {
+                next[key] = { status: s.status as SensorCalibStatus, progress: s.progress, error: s.error };
+              }
+            });
+            return next;
+          });
+        }
+        addLog(`📊 Progresso: ${p.progress}% — ${p.currentSensor} (${calibrationStateToString(p.state)})`);
+      }
+
+      if (topic.includes('calibration/complete')) {
+        const d = data as CalibDataType;
+        setCalibData(d);
+        setIsCalibrating(false);
+        setGlobalProgress(100);
+        setCalibState(CalibrationState.COMPLETE);
+        setSensorStates(prev => {
+          const next = { ...prev };
+          SUPPORTED_SENSORS.forEach(s => { next[s] = { status: 'complete', progress: 100 }; });
+          return next;
+        });
+        addLog('✅ Calibração completa!');
+        toast({ title: '✅ Calibração Concluída!', description: `${d.calibrationCount}ª calibração registrada.` });
+      }
+
+      if (topic.includes('calibration/error')) {
+        const errMsg = (data as { error: string }).error || 'Erro desconhecido';
+        setError(errMsg);
+        setIsCalibrating(false);
+        setCalibState(CalibrationState.ERROR);
+        addLog(`❌ Erro: ${errMsg}`);
+        toast({ title: '❌ Erro na Calibração', description: errMsg, variant: 'destructive' });
+      }
+    };
+
+    addLog(`📡 Monitorando tópicos de calibração para ${serial}`);
+
+    return () => {
+      // Restore original callback
+      if (origCallbacks) origCallbacks.onMessage = origOnMessage;
+    };
+  }, [client, isConnected, serial, addLog, toast]);
+
+  // ─── Actions ───
+
+  const handleConnect = async () => {
+    try {
+      await connect();
+      addLog('🔗 Conectando ao broker MQTT...');
+    } catch (err: any) {
+      setError(err.message);
+    }
+  };
+
+  const handleStart = () => {
+    if (!isConnected) return;
+    setError(null);
+    setCalibData(null);
+    setGlobalProgress(0);
+
+    // Reset sensor states for selected sensors
+    setSensorStates(prev => {
+      const next = { ...prev };
+      SUPPORTED_SENSORS.forEach(s => { next[s] = { status: 'idle', progress: 0 }; });
+      return next;
+    });
+
+    const payload = { robotSN: serial, sensors: selectedSensors, timestamp: Date.now() };
+    publish(PUB_TOPICS.calibrationStart(serial), payload);
+    setIsCalibrating(true);
+    addLog(`🚀 Calibração iniciada: ${selectedSensors.join(', ')}`);
+    toast({ title: '🚀 Calibração Iniciada', description: `Sensores: ${selectedSensors.length}` });
+  };
+
+  const handleStop = () => {
+    if (!isConnected) return;
+    publish(PUB_TOPICS.calibrationStop(serial), { robotSN: serial, timestamp: Date.now() });
+    setIsCalibrating(false);
+    addLog('⏹ Calibração interrompida');
+  };
+
+  const handleReset = () => {
+    if (!isConnected) return;
+    publish(PUB_TOPICS.calibrationReset(serial), { robotSN: serial, timestamp: Date.now() });
+    setCalibData(null);
+    setGlobalProgress(0);
+    setSensorStates(prev => {
+      const next = { ...prev };
+      SUPPORTED_SENSORS.forEach(s => { next[s] = { status: 'idle', progress: 0 }; });
+      return next;
+    });
+    addLog('🔄 Reset enviado');
+    toast({ title: '🔄 Reset enviado ao robô' });
+  };
+
+  const handleSingleSensor = (sensor: SensorType) => {
+    if (!isConnected || isCalibrating) return;
+    setError(null);
+    setCalibData(null);
+    setSensorStates(prev => ({
+      ...prev,
+      [sensor]: { status: 'idle', progress: 0 },
+    }));
+    const payload = { robotSN: serial, sensor, timestamp: Date.now() };
+    publish(PUB_TOPICS.calibrationStart(serial), { ...payload, sensors: [sensor] });
+    setIsCalibrating(true);
+    setCurrentSensor(sensor);
+    addLog(`🎯 Calibração individual: ${SENSOR_META[sensor].label}`);
+  };
+
+  const handleExport = () => {
+    if (!calibData) return;
+    const blob = new Blob([JSON.stringify(calibData, null, 2)], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `calibration-${serial}-${Date.now()}.json`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+    addLog('📦 Dados exportados');
+  };
+
+  const handleImport = () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.json';
+    input.onchange = async (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (!file) return;
+      try {
+        const text = await file.text();
+        const data = JSON.parse(text) as CalibDataType;
+        setCalibData(data);
+        addLog('📥 Dados importados');
+        toast({ title: '📥 Importado!' });
+      } catch (err: any) {
+        setError(err.message);
+      }
+    };
+    input.click();
+  };
+
+  const toggleSensor = (id: SensorType) => {
+    if (isCalibrating) return;
     setSelectedSensors(prev =>
       prev.includes(id) ? prev.filter(s => s !== id) : [...prev, id]
     );
   };
 
-  const channelInfo = CHANNEL_LABELS[activeChannel];
-  const ChannelIcon = channelInfo.icon;
+  const getSensorStatusIcon = (status: SensorCalibStatus) => {
+    switch (status) {
+      case 'complete': return <CheckCircle2 className="w-4 h-4 text-success" />;
+      case 'running': return <Loader2 className="w-4 h-4 animate-spin text-primary" />;
+      case 'error': return <XCircle className="w-4 h-4 text-destructive" />;
+      default: return <div className="w-4 h-4 rounded-full border-2 border-muted-foreground/30" />;
+    }
+  };
+
+  // ─── Render ───
 
   return (
     <div className="min-h-screen bg-background safe-bottom">
       {/* Header */}
       <div className="sticky top-0 z-10 bg-background/95 backdrop-blur border-b border-border">
         <div className="flex items-center gap-3 px-4 py-3">
-          <button onClick={() => navigate('/dashboard')} className="p-2 -ml-2 rounded-xl hover:bg-muted active:bg-muted/80">
+          <button onClick={() => navigate('/config')} className="p-2 -ml-2 rounded-xl hover:bg-muted active:bg-muted/80">
             <ChevronLeft className="w-5 h-5 text-foreground" />
           </button>
           <div className="flex-1">
-            <h1 className="text-lg font-bold text-foreground">🔧 {t('calibration.title', 'Calibração de Sensores')}</h1>
-            <p className="text-xs text-muted-foreground">CSJBot • Multi-Canal</p>
+            <h1 className="text-lg font-bold text-foreground">🔧 Calibração de Sensores</h1>
+            <p className="text-xs text-muted-foreground">CSJBot • {serial} • MQTT</p>
           </div>
-          <div className={`w-3 h-3 rounded-full ${isConnected ? 'bg-green-500 animate-pulse' : 'bg-muted-foreground'}`} />
+          <button onClick={() => navigate('/mqtt-config')} className="p-2 rounded-xl hover:bg-muted" title="Config MQTT">
+            <Settings className="w-4 h-4 text-muted-foreground" />
+          </button>
+          <div className={`w-3 h-3 rounded-full ${isConnected ? 'bg-success animate-pulse' : 'bg-muted-foreground'}`} />
         </div>
       </div>
 
       <div className="p-4 space-y-4">
-        {/* BLE Availability Warning */}
-        {!bleAvailable && (
-          <Card className="border-destructive/50 bg-destructive/5">
-            <CardContent className="p-4 flex items-start gap-3">
-              <BluetoothOff className="w-5 h-5 text-destructive shrink-0 mt-0.5" />
-              <div>
-                <p className="text-sm font-semibold text-destructive">Web Bluetooth indisponível</p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Fallback via SPP/WebSocket será usado se disponível.
-                </p>
+
+        {/* Connection Banner */}
+        {!isConnected && (
+          <Card className="border-warning/50 bg-warning/5">
+            <CardContent className="p-4">
+              <div className="flex items-start gap-3 mb-3">
+                <AlertTriangle className="w-5 h-5 text-warning shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm font-semibold text-foreground">MQTT Desconectado</p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Conecte-se ao broker para iniciar a calibração dos sensores.
+                  </p>
+                </div>
               </div>
+              <Button onClick={handleConnect} className="w-full gap-2">
+                <Zap className="w-4 h-4" />
+                Conectar MQTT
+              </Button>
             </CardContent>
           </Card>
         )}
 
-        {/* Connection Card */}
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <Bluetooth className={`w-5 h-5 ${isConnected ? 'text-green-500' : 'text-muted-foreground'}`} />
-                <span className="font-semibold text-sm text-foreground">
-                  {isConnected ? 'Conectado ao robô' : 'Desconectado'}
-                </span>
-              </div>
-              {isConnected && (
-                <span className={`text-xs px-2 py-0.5 rounded-full font-medium flex items-center gap-1 ${channelInfo.color}`}>
-                  <ChannelIcon className="w-3 h-3" />
-                  {channelInfo.label}
-                </span>
-              )}
-            </div>
-            {!isConnected ? (
-              <div className="space-y-2">
-                {/* Debug: Botão de teste direto da Web Bluetooth API */}
-                <button
-                  onClick={async () => {
-                    console.log('🧪 Teste Bluetooth iniciado');
-                    try {
-                      const device = await navigator.bluetooth.requestDevice({
-                        acceptAllDevices: true
-                      });
-                      alert('✅ Funcionou! Device: ' + device.name);
-                    } catch (e: any) {
-                      alert('❌ Erro: ' + e.message);
-                    }
-                  }}
-                  className="w-full bg-destructive text-destructive-foreground py-3 rounded-md text-sm font-medium"
-                >
-                  🧪 TESTE BLUETOOTH (Debug)
-                </button>
-                <Button onClick={() => { console.log('🔴 handleConnect chamado'); connect(); }} className="w-full gap-2">
-                  <Bluetooth className="w-4 h-4" />
-                  Conectar via Bluetooth
-                </Button>
-              </div>
-            ) : (
-              <Button onClick={disconnect} variant="outline" className="w-full gap-2">
-                <BluetoothOff className="w-4 h-4" />
-                Desconectar
-              </Button>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Error Display */}
+        {/* Error */}
         <AnimatePresence>
           {error && (
             <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
@@ -157,191 +366,279 @@ const Calibration = () => {
                 <CardContent className="p-3 flex items-start gap-2">
                   <XCircle className="w-4 h-4 text-destructive shrink-0 mt-0.5" />
                   <p className="text-xs text-destructive">{error}</p>
+                  <button onClick={() => setError(null)} className="ml-auto text-destructive/60 hover:text-destructive text-xs">✕</button>
                 </CardContent>
               </Card>
             </motion.div>
           )}
         </AnimatePresence>
 
-        {/* Sensor Selection */}
-        {isConnected && !isCalibrating && (
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm">Sensores para Calibrar</CardTitle>
-            </CardHeader>
-            <CardContent className="p-4 pt-0">
-              <div className="grid grid-cols-2 gap-2">
-                {ALL_SENSORS.map(id => {
-                  const meta = SENSOR_META[id];
-                  const selected = selectedSensors.includes(id);
-                  return (
-                    <button
-                      key={id}
-                      onClick={() => toggleSensor(id)}
-                      className={`p-3 rounded-xl border text-left transition-all ${
-                        selected
-                          ? 'border-primary bg-primary/5 ring-1 ring-primary/30'
-                          : 'border-border bg-card hover:bg-muted/50'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2">
-                        <span className="text-lg">{meta.icon}</span>
-                        <div>
-                          <p className="text-xs font-semibold text-foreground">{meta.label}</p>
-                          <p className="text-[10px] text-muted-foreground">{meta.description}</p>
-                        </div>
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-              <div className="flex gap-2 mt-3">
-                <Button size="sm" variant="ghost" className="text-xs" onClick={() => setSelectedSensors([...ALL_SENSORS])}>
-                  Selecionar todos
-                </Button>
-                <Button size="sm" variant="ghost" className="text-xs" onClick={() => setSelectedSensors([])}>
-                  Limpar
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Progress */}
-        {isCalibrating && progress && (
-          <Card className="border-primary/30">
+        {/* Global Progress */}
+        {isCalibrating && (
+          <Card className="border-primary/30 bg-primary/5">
             <CardContent className="p-4 space-y-3">
               <div className="flex items-center justify-between">
-                <span className="text-sm font-semibold text-foreground">Calibrando...</span>
-                <span className="text-lg font-bold text-primary">{progress.progress}%</span>
+                <div className="flex items-center gap-2">
+                  <Loader2 className="w-4 h-4 animate-spin text-primary" />
+                  <span className="text-sm font-semibold text-foreground">Calibrando...</span>
+                </div>
+                <span className="text-2xl font-bold text-primary">{globalProgress}%</span>
               </div>
-              <Progress value={progress.progress} className="h-3" />
-              <div className="flex items-center gap-2">
-                <Loader2 className="w-3 h-3 animate-spin text-primary" />
-                <p className="text-xs text-muted-foreground">{progress.message}</p>
-              </div>
-
-              {/* Sensor Status Grid */}
-              <div className="grid grid-cols-4 gap-2 mt-2">
-                {ALL_SENSORS.filter(s => selectedSensors.includes(s)).map(id => {
-                  const meta = SENSOR_META[id];
-                  const status = getSensorStatus(id, progress.currentSensor, progress.progress);
-                  return (
-                    <div
-                      key={id}
-                      className={`flex flex-col items-center p-2 rounded-lg text-center ${
-                        status === 'complete' ? 'bg-green-500/10' :
-                        status === 'active' ? 'bg-primary/10 animate-pulse' :
-                        'bg-muted/30'
-                      }`}
-                    >
-                      <span className="text-lg">{meta.icon}</span>
-                      <span className="text-[9px] font-medium text-foreground mt-1">{meta.label}</span>
-                      {status === 'complete' && <CheckCircle2 className="w-3 h-3 text-green-500 mt-0.5" />}
-                      {status === 'active' && <Loader2 className="w-3 h-3 animate-spin text-primary mt-0.5" />}
-                    </div>
-                  );
-                })}
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Calibration Data Results */}
-        {calibData && !isCalibrating && (
-          <Card className="border-green-500/30">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm flex items-center gap-2">
-                <CheckCircle2 className="w-4 h-4 text-green-500" />
-                Dados de Calibração
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-4 pt-0 space-y-3">
-              <div className="flex items-center gap-2 text-xs">
-                <span className={`px-2 py-0.5 rounded-full font-medium ${
-                  calibData.status === 1 ? 'bg-green-500/10 text-green-500' :
-                  calibData.status === 2 ? 'bg-yellow-500/10 text-yellow-500' :
-                  'bg-destructive/10 text-destructive'
-                }`}>
-                  {calibData.status === 1 ? 'Válida' : calibData.status === 2 ? 'Recalibrar' : 'Inválida'}
-                </span>
-                <span className="text-muted-foreground">
-                  #{calibData.calibrationCount} • {new Date(calibData.timestamp * 1000).toLocaleString()}
-                </span>
-              </div>
-              <div className="space-y-2">
-                {calibData.imu && (
-                  <DataRow icon="🔄" label="IMU" values={[
-                    `Bias: ${calibData.imu.biasX.toFixed(3)}, ${calibData.imu.biasY.toFixed(3)}, ${calibData.imu.biasZ.toFixed(3)}`,
-                  ]} />
-                )}
-                {calibData.magnetometer && (
-                  <DataRow icon="🧭" label="Magnetômetro" values={[
-                    `Offset: ${calibData.magnetometer.offsetX.toFixed(1)}, ${calibData.magnetometer.offsetY.toFixed(1)}, ${calibData.magnetometer.offsetZ.toFixed(1)}`,
-                  ]} />
-                )}
-                {calibData.odometer && (
-                  <DataRow icon="📏" label="Odômetro" values={[
-                    `L: ${calibData.odometer.pulsesPerMeterLeft} p/m | R: ${calibData.odometer.pulsesPerMeterRight} p/m`,
-                  ]} />
-                )}
-                {calibData.lidar && (
-                  <DataRow icon="📡" label="LiDAR" values={[
-                    `Offset: ${calibData.lidar.offsetDistance.toFixed(3)}m | Ângulo: ${calibData.lidar.angleOffset.toFixed(2)}°`,
-                  ]} />
-                )}
-                {calibData.camera && (
-                  <DataRow icon="📷" label="Câmera" values={[
-                    `Focal: ${calibData.camera.focalLength.toFixed(0)} | PP: ${calibData.camera.principalPointX.toFixed(0)},${calibData.camera.principalPointY.toFixed(0)}`,
-                  ]} />
-                )}
-                {calibData.battery && (
-                  <DataRow icon="🔋" label="Bateria" values={[
-                    `Offset: ${calibData.battery.voltageOffset.toFixed(2)}V | Scale: ${calibData.battery.voltageScale.toFixed(3)}`,
-                  ]} />
-                )}
-                {calibData.temperature && (
-                  <DataRow icon="🌡️" label="Temperatura" values={[
-                    `Offset: ${calibData.temperature.offset.toFixed(1)}°C`,
-                  ]} />
+              <Progress value={globalProgress} className="h-3" />
+              <div className="flex items-center justify-between text-xs text-muted-foreground">
+                <span>{calibrationStateToString(calibState)}</span>
+                {estimatedTime > 0 && (
+                  <span className="flex items-center gap-1">
+                    <Clock className="w-3 h-3" />
+                    ~{estimatedTime}s restantes
+                  </span>
                 )}
               </div>
             </CardContent>
           </Card>
         )}
 
-        {/* Action Buttons */}
+        {/* Calibration Complete Banner */}
+        {calibData && !isCalibrating && calibState === CalibrationState.COMPLETE && (
+          <Card className="border-success/30 bg-success/5">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-success/10 flex items-center justify-center">
+                  <CheckCircle2 className="w-6 h-6 text-success" />
+                </div>
+                <div className="flex-1">
+                  <p className="text-sm font-bold text-foreground">Calibração Concluída!</p>
+                  <p className="text-xs text-muted-foreground">
+                    #{calibData.calibrationCount} • {new Date(calibData.timestamp * 1000).toLocaleString()}
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* ─── SENSOR CARDS GRID ─── */}
+        <div>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-sm font-bold text-foreground">Sensores ({selectedSensors.length}/{SUPPORTED_SENSORS.length})</h2>
+            {!isCalibrating && (
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setSelectedSensors([...SUPPORTED_SENSORS])}
+                  className="text-[10px] text-primary font-semibold"
+                >
+                  Todos
+                </button>
+                <button
+                  onClick={() => setSelectedSensors([])}
+                  className="text-[10px] text-muted-foreground font-semibold"
+                >
+                  Limpar
+                </button>
+              </div>
+            )}
+          </div>
+
+          <div className="space-y-2">
+            {SUPPORTED_SENSORS.map((sensor, i) => {
+              const meta = SENSOR_META[sensor];
+              const sState = sensorStates[sensor];
+              const selected = selectedSensors.includes(sensor);
+              const isExpanded = expandedSensor === sensor;
+              const schedule = CALIBRATION_SCHEDULE[sensor];
+
+              return (
+                <motion.div
+                  key={sensor}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: i * 0.04 }}
+                >
+                  <Card className={`overflow-hidden transition-all ${
+                    sState.status === 'running' ? 'border-primary/40 shadow-md' :
+                    sState.status === 'complete' ? 'border-success/30' :
+                    sState.status === 'error' ? 'border-destructive/30' :
+                    selected ? 'border-primary/20' : 'border-border'
+                  }`}>
+                    <CardContent className="p-0">
+                      {/* Main row */}
+                      <div className="flex items-center gap-3 p-3">
+                        {/* Selection checkbox area */}
+                        <button
+                          onClick={() => toggleSensor(sensor)}
+                          disabled={isCalibrating}
+                          className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-all ${
+                            selected
+                              ? `bg-gradient-to-br ${meta.gradient} shadow-sm`
+                              : 'bg-muted/50'
+                          }`}
+                        >
+                          <span className="text-lg">{meta.icon}</span>
+                        </button>
+
+                        {/* Info */}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <p className="text-sm font-bold text-foreground">{meta.label}</p>
+                            {getSensorStatusIcon(sState.status)}
+                          </div>
+                          <p className="text-[10px] text-muted-foreground truncate">{meta.description}</p>
+                          {sState.status === 'running' && (
+                            <div className="mt-1.5">
+                              <Progress value={sState.progress} className="h-1.5" />
+                              <p className="text-[9px] text-primary mt-0.5">{sState.progress}%</p>
+                            </div>
+                          )}
+                          {sState.status === 'error' && sState.error && (
+                            <p className="text-[10px] text-destructive mt-1">{sState.error}</p>
+                          )}
+                        </div>
+
+                        {/* Actions */}
+                        <div className="flex items-center gap-1 shrink-0">
+                          {!isCalibrating && isConnected && (
+                            <button
+                              onClick={() => handleSingleSensor(sensor)}
+                              className="p-2 rounded-lg hover:bg-primary/10 active:bg-primary/20 transition-colors"
+                              title={`Calibrar ${meta.label}`}
+                            >
+                              <Play className="w-4 h-4 text-primary" />
+                            </button>
+                          )}
+                          <button
+                            onClick={() => setExpandedSensor(isExpanded ? null : sensor)}
+                            className="p-2 rounded-lg hover:bg-muted active:bg-muted/80 transition-colors"
+                          >
+                            {isExpanded ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Expanded details */}
+                      <AnimatePresence>
+                        {isExpanded && (
+                          <motion.div
+                            initial={{ height: 0, opacity: 0 }}
+                            animate={{ height: 'auto', opacity: 1 }}
+                            exit={{ height: 0, opacity: 0 }}
+                            className="overflow-hidden"
+                          >
+                            <div className="px-3 pb-3 space-y-2 border-t border-border/50 pt-2">
+                              <p className="text-[11px] text-muted-foreground">{meta.details}</p>
+
+                              <div className="grid grid-cols-2 gap-2">
+                                <div className="p-2 rounded-lg bg-muted/30">
+                                  <p className="text-[9px] text-muted-foreground font-semibold uppercase">Frequência</p>
+                                  <p className="text-[11px] text-foreground font-medium">{schedule.description}</p>
+                                </div>
+                                <div className="p-2 rounded-lg bg-muted/30">
+                                  <p className="text-[9px] text-muted-foreground font-semibold uppercase">Intervalo</p>
+                                  <p className="text-[11px] text-foreground font-medium">
+                                    {schedule.hours ? `${schedule.hours}h` : ''}
+                                    {schedule.km ? `${schedule.km}km` : ''}
+                                    {'cycles' in schedule && schedule.cycles ? `${schedule.cycles} ciclos` : ''}
+                                  </p>
+                                </div>
+                              </div>
+
+                              {/* Show calibration data for this sensor if available */}
+                              {calibData && (
+                                <SensorDataDisplay sensor={sensor} data={calibData} />
+                              )}
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </CardContent>
+                  </Card>
+                </motion.div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* ─── ACTION BUTTONS ─── */}
         {isConnected && (
-          <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-2">
             {!isCalibrating ? (
-              <>
-                <Button onClick={() => startCalibration(selectedSensors)} disabled={selectedSensors.length === 0} className="gap-2">
+              <div className="grid grid-cols-2 gap-3">
+                <Button
+                  onClick={handleStart}
+                  disabled={selectedSensors.length === 0}
+                  className="gap-2"
+                >
                   <Play className="w-4 h-4" />
-                  Iniciar
+                  Calibrar ({selectedSensors.length})
                 </Button>
-                <Button onClick={resetCalibration} variant="outline" className="gap-2">
+                <Button onClick={handleReset} variant="outline" className="gap-2">
                   <RotateCcw className="w-4 h-4" />
                   Resetar
                 </Button>
-              </>
+              </div>
             ) : (
-              <Button onClick={stopCalibration} variant="destructive" className="col-span-2 gap-2">
+              <Button onClick={handleStop} variant="destructive" className="w-full gap-2">
                 <Square className="w-4 h-4" />
                 Parar Calibração
               </Button>
             )}
+
+            {/* Export / Import */}
             {!isCalibrating && (
-              <Button onClick={fetchData} variant="secondary" className="col-span-2 gap-2">
-                <Activity className="w-4 h-4" />
-                Ler Dados Atuais
-              </Button>
+              <div className="grid grid-cols-2 gap-3">
+                <Button onClick={handleExport} variant="secondary" size="sm" disabled={!calibData} className="gap-2 text-xs">
+                  <Download className="w-3 h-3" />
+                  Exportar
+                </Button>
+                <Button onClick={handleImport} variant="secondary" size="sm" className="gap-2 text-xs">
+                  <Upload className="w-3 h-3" />
+                  Importar
+                </Button>
+              </div>
             )}
           </div>
         )}
 
-        {/* Logs */}
+        {/* ─── SCHEDULE / LIMITS INFO ─── */}
         <Card>
-          <CardContent className="p-4">
+          <CardContent className="p-3">
+            <button
+              onClick={() => setShowSchedule(!showSchedule)}
+              className="w-full flex items-center justify-between text-sm font-semibold text-foreground"
+            >
+              <span className="flex items-center gap-2">
+                <Info className="w-4 h-4 text-primary" />
+                Cronograma e Limites
+              </span>
+              {showSchedule ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
+            </button>
+            <AnimatePresence>
+              {showSchedule && (
+                <motion.div
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: 'auto', opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  className="overflow-hidden"
+                >
+                  <div className="mt-3 space-y-2">
+                    <p className="text-[10px] font-bold text-muted-foreground uppercase">Limites de Validação (firmware)</p>
+                    <div className="grid grid-cols-2 gap-2">
+                      {Object.entries(CALIBRATION_LIMITS).map(([key, val]) => (
+                        <div key={key} className="p-2 rounded-lg bg-muted/30">
+                          <p className="text-[9px] text-muted-foreground">{key}</p>
+                          <p className="text-xs font-mono text-foreground">{val}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </CardContent>
+        </Card>
+
+        {/* ─── LOGS ─── */}
+        <Card>
+          <CardContent className="p-3">
             <button
               onClick={() => setShowLogs(!showLogs)}
               className="w-full flex items-center justify-between text-sm font-semibold text-foreground"
@@ -357,7 +654,7 @@ const Calibration = () => {
                   exit={{ height: 0, opacity: 0 }}
                   className="overflow-hidden"
                 >
-                  <div className="mt-3 max-h-48 overflow-y-auto space-y-1 bg-muted/30 rounded-lg p-2">
+                  <div className="mt-3 max-h-48 overflow-y-auto space-y-0.5 bg-muted/30 rounded-lg p-2">
                     {logs.length === 0 ? (
                       <p className="text-xs text-muted-foreground text-center py-4">Sem logs</p>
                     ) : (
@@ -374,23 +671,74 @@ const Calibration = () => {
 
         {/* Footer */}
         <p className="text-[10px] text-center text-muted-foreground pb-4">
-          AlphaBot Companion v2.1.1 • Iascom
+          {APP.FOOTER}
         </p>
       </div>
     </div>
   );
 };
 
-const DataRow = ({ icon, label, values }: { icon: string; label: string; values: string[] }) => (
-  <div className="flex items-start gap-2 p-2 rounded-lg bg-muted/20">
-    <span className="text-sm">{icon}</span>
-    <div>
-      <p className="text-xs font-semibold text-foreground">{label}</p>
-      {values.map((v, i) => (
-        <p key={i} className="text-[10px] font-mono text-muted-foreground">{v}</p>
+// ─── Per-sensor calibration data display ───
+
+const SensorDataDisplay = ({ sensor, data }: { sensor: SensorType; data: CalibDataType }) => {
+  const rows: { label: string; value: string }[] = [];
+
+  switch (sensor) {
+    case 'imu':
+      rows.push(
+        { label: 'Bias X/Y/Z', value: `${data.imuBiasX.toFixed(4)}, ${data.imuBiasY.toFixed(4)}, ${data.imuBiasZ.toFixed(4)}` },
+        { label: 'Scale X/Y/Z', value: `${data.imuScaleX.toFixed(4)}, ${data.imuScaleY.toFixed(4)}, ${data.imuScaleZ.toFixed(4)}` },
+      );
+      break;
+    case 'magnetometer':
+      rows.push(
+        { label: 'Offset X/Y/Z', value: `${data.magOffsetX.toFixed(1)}, ${data.magOffsetY.toFixed(1)}, ${data.magOffsetZ.toFixed(1)}` },
+        { label: 'Scale X/Y/Z', value: `${data.magScaleX.toFixed(3)}, ${data.magScaleY.toFixed(3)}, ${data.magScaleZ.toFixed(3)}` },
+      );
+      break;
+    case 'odometer':
+      rows.push(
+        { label: 'Pulsos/m (L)', value: String(data.pulsesPerMeterLeft) },
+        { label: 'Pulsos/m (R)', value: String(data.pulsesPerMeterRight) },
+      );
+      break;
+    case 'lidar':
+      rows.push(
+        { label: 'Offset Dist.', value: `${data.lidarOffsetDistance.toFixed(4)}m` },
+        { label: 'Ângulo Offset', value: `${data.lidarAngleOffset.toFixed(3)}°` },
+      );
+      break;
+    case 'camera':
+      rows.push(
+        { label: 'Focal', value: String(data.cameraFocalLength.toFixed(1)) },
+        { label: 'PP', value: `${data.cameraPrincipalPointX.toFixed(0)}, ${data.cameraPrincipalPointY.toFixed(0)}` },
+        { label: 'K1/K2', value: `${data.cameraDistortionK1.toFixed(4)}, ${data.cameraDistortionK2.toFixed(4)}` },
+      );
+      break;
+    case 'battery':
+      rows.push(
+        { label: 'V Offset', value: `${data.batteryVoltageOffset.toFixed(3)}V` },
+        { label: 'V Scale', value: data.batteryVoltageScale.toFixed(4) },
+      );
+      break;
+    case 'temperature':
+      rows.push({ label: 'Offset', value: `${data.tempOffset.toFixed(2)}°C` });
+      break;
+  }
+
+  if (rows.length === 0) return null;
+
+  return (
+    <div className="p-2 rounded-lg bg-success/5 border border-success/20">
+      <p className="text-[9px] font-bold text-success uppercase mb-1">Dados Calibrados</p>
+      {rows.map((r, i) => (
+        <div key={i} className="flex justify-between text-[10px]">
+          <span className="text-muted-foreground">{r.label}</span>
+          <span className="font-mono text-foreground">{r.value}</span>
+        </div>
       ))}
     </div>
-  </div>
-);
+  );
+};
 
 export default Calibration;
