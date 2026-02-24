@@ -10,9 +10,10 @@ import Joystick from '@/components/Joystick';
 import EmergencyButton from '@/components/EmergencyButton';
 import { Slider } from '@/components/ui/slider';
 import { Button } from '@/components/ui/button';
+import AnimationsCard from '@/components/AnimationsCard';
 import {
   RotateCcw, RotateCw, StopCircle, Compass, Radio,
-  MessageCircle, ShoppingBag, Sparkles, Settings2,
+  MessageCircle, ShoppingBag, Settings2,
   Wifi, WifiOff, Loader2,
 } from 'lucide-react';
 
@@ -367,14 +368,11 @@ const OperationDashboard = () => {
         {/* Rotation Control */}
         <RotationControlCard />
 
+        {/* Animations */}
+        <AnimationsCard />
+
         {/* Secondary cards */}
         <div className="grid grid-cols-1 gap-3">
-          <PlaceholderCard
-            icon={<Sparkles className="w-5 h-5 text-primary-foreground" />}
-            title="Animações"
-            desc="Expressões e gestos do robô"
-            onClick={() => navigate('/blessing')}
-          />
           <PlaceholderCard
             icon={<MessageCircle className="w-5 h-5 text-primary-foreground" />}
             title="Chat IA"
