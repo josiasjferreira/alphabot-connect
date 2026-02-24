@@ -167,9 +167,10 @@ const MqttConfig = () => {
         `Não foi possível conectar a ${brokerUrl}\n\n` +
         `⚠️ IMPORTANTE: Navegadores precisam de WebSocket!\n` +
         `• Porta 1883 = MQTT TCP nativo (NÃO funciona em browsers)\n` +
-        `• Porta 9001 = Mosquitto WebSocket (necessário para browsers)\n\n` +
+        `• Porta 9002 = Mosquitto WebSocket (necessário para browsers)\n` +
+        `• Porta 9001 = BLOQUEADA pelo Windows (HTTP.SYS) — NÃO usar!\n\n` +
         `Configure o Mosquitto com listener WebSocket:\n` +
-        `  listener 9001\n` +
+        `  listener 9002\n` +
         `  protocol websockets\n\n` +
         `Outras causas:\n` +
         `• Não está no Wi-Fi do robô (RoboKen_Controle)\n` +
