@@ -1,0 +1,70 @@
+/**
+ * src/config/mqtt.ts
+ * Configuração MQTT centralizada — AlphaBot Connect v2.0
+ * Arquitetura PC-Centric (3 dispositivos)
+ * 
+ * NÃO modificar sem atualizar documentação técnica.
+ * 
+ * IMPORTANTE: Porta 9001 está BLOQUEADA pelo Windows (HTTP.SYS, PID 4).
+ * Usar SEMPRE porta 9002 para WebSocket MQTT.
+ */
+
+export const NETWORK_CONFIG = {
+  /** PC (Broker MQTT + Servidor Web) — IP ESTÁTICO */
+  PC_IP: '192.168.99.100',
+
+  /** Robô AlphaBot H13307 — IP ESTÁTICO */
+  ROBOT_IP: '192.168.99.101',
+
+  /** Tablet (display secundário via browser) — IP ESTÁTICO */
+  TABLET_IP: '192.168.99.200',
+
+  /** Gateway / Router Wi-Fi "Robo" */
+  GATEWAY_IP: '192.168.99.102',
+
+  /** Subrede */
+  SUBNET: '192.168.99',
+} as const;
+
+export const MQTT_CONFIG = {
+  /** Broker IP: sempre o PC */
+  BROKER_IP: NETWORK_CONFIG.PC_IP,
+
+  /** Porta TCP (dispositivos embarcados / robô) */
+  MQTT_PORT: 1883,
+
+  /** Porta WebSocket (browsers / apps web) — SEMPRE 9002 */
+  WEBSOCKET_PORT: 9002,
+
+  /** URL WebSocket completa */
+  WEBSOCKET_URL: `ws://${NETWORK_CONFIG.PC_IP}:9002`,
+
+  /** Serial do robô */
+  ROBOT_SERIAL: 'H13307',
+
+  /** Tópicos MQTT */
+  TOPICS: {
+    CONTROL: `alphabot/H13307/control`,
+    TELEMETRY: `alphabot/H13307/telemetry`,
+    STATUS: `alphabot/H13307/status`,
+    SENSORS: `alphabot/H13307/sensors`,
+    HEARTBEAT: `alphabot/H13307/heartbeat`,
+  },
+
+  /** Timeouts */
+  CONNECT_TIMEOUT: 5000,
+  RECONNECT_INTERVAL: 3000,
+  KEEPALIVE: 60,
+} as const;
+
+/** Validação em runtime */
+export function validateMQTTConfig(): boolean {
+  const required = [MQTT_CONFIG.BROKER_IP, MQTT_CONFIG.WEBSOCKET_URL];
+  return required.every(v => v && v.length > 0);
+}
+
+/** IPs legados que devem ser migrados para o novo PC_IP */
+export const LEGACY_IPS = ['192.168.99.197', '192.168.99.103', '192.168.99.101'] as const;
+
+/** Portas legadas que devem ser migradas para 9002 */
+export const LEGACY_PORTS = [9001] as const;

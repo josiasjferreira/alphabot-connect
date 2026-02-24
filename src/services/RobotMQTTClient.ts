@@ -1,30 +1,18 @@
 /**
  * RobotMQTTClient — Connects to the CSJBot via MQTT over WebSocket.
  *
- * Baseado na engenharia reversa dos APKs CSJBot (RobotSDK 2.4.0, Delivery 5.3.9):
+ * Arquitetura PC-Centric v2.0 (Fev/2026):
+ *   Broker MQTT:     192.168.99.100 (PC/Mosquitto, porta WS 9002)
+ *   Robô AlphaBot:   192.168.99.101
+ *   Tablet:          192.168.99.200 (display secundário)
+ *   Gateway:         192.168.99.102 (Router "Robo")
  *
- * Topologia de rede final (Fev/2026):
- *   Broker MQTT:     192.168.99.197 (PC/Mosquitto v2.1.2, porta 1883)
- *   Robô CSJBot:     192.168.99.102
- *   Tablet Android:  192.168.99.200
- *   SLAM:            192.168.99.2
- *   Gateway:         192.168.99.1 (Tenda)
- *
- * Tópicos identificados nos APKs:
- *   robot/{SN}/calibration/progress  → Progresso de calibração
- *   robot/{SN}/calibration/complete  → Calibração concluída
- *   robot/{SN}/calibration/error     → Erro na calibração
- *   robot/{SN}/status                → Status geral
- *   robot/{SN}/sensors               → Dados de sensores
- *   robot/{SN}/movement/{dir}        → Controle de movimento
- *   csjbot/{SN}/#                    → Namespace alternativo
- *   alphabot/#                       → Namespace deste app
- *   slamware/#                       → Dados de SLAM
- *   sensor/#                         → Telemetria de sensores
- *   status/#                         → Status de subsistemas
+ * IMPORTANTE: Porta 9001 BLOQUEADA pelo Windows.
+ * Usar SEMPRE porta 9002 para WebSocket MQTT.
  */
 
 import mqtt, { type MqttClient } from 'mqtt';
+import { MQTT_CONFIG, NETWORK_CONFIG } from '@/config/mqtt';
 
 export interface MQTTCallbacks {
   onConnect?: () => void;
@@ -45,7 +33,7 @@ export interface DiscoveryResult {
   latencyMs: number;
 }
 
-// Tópicos confirmados via análise dos APKs CSJBot
+// Tópicos confirmados
 const ROBOT_TOPICS = [
   'robot/#',
   'csjbot/#',
@@ -55,19 +43,17 @@ const ROBOT_TOPICS = [
   'status/#',
 ];
 
-// IPs candidatos — topologia final (Fev/2026)
+// IPs candidatos — Arquitetura PC-Centric v2.0
 const CANDIDATE_IPS = [
-  '192.168.99.197', // Broker MQTT central (PC/Mosquitto)
-  '192.168.99.102', // Robô CSJBot CT300-H13307
-  '192.168.99.200', // Tablet Android
-  '192.168.99.1',   // Gateway/Roteador Tenda
-  '192.168.99.2',   // SLAM/Slamware
+  NETWORK_CONFIG.PC_IP,      // 192.168.99.100 — Broker MQTT central
+  NETWORK_CONFIG.ROBOT_IP,   // 192.168.99.101 — Robô AlphaBot
+  NETWORK_CONFIG.GATEWAY_IP, // 192.168.99.102 — Gateway Router
 ];
 
-// Portas WebSocket MQTT mais comuns
-const CANDIDATE_WS_PORTS = [9001, 1883, 8083, 8080];
+// Portas WebSocket MQTT — 9002 preferencial (9001 bloqueada pelo Windows)
+const CANDIDATE_WS_PORTS = [9002, 8083, 8080];
 
-export const ROBOT_SERIAL = 'H13307';
+export const ROBOT_SERIAL: string = MQTT_CONFIG.ROBOT_SERIAL;
 
 export class RobotMQTTClient {
   private client: MqttClient | null = null;
@@ -84,10 +70,6 @@ export class RobotMQTTClient {
 
   // ─── Auto Discovery ───
 
-  /**
-   * Testa uma única URL e retorna a latência se conectar.
-   * Timeout curto (3s) para varredura rápida.
-   */
   static async probeUrl(url: string, timeoutMs = 3000): Promise<number | null> {
     return new Promise((resolve) => {
       const start = performance.now();
@@ -132,10 +114,6 @@ export class RobotMQTTClient {
     });
   }
 
-  /**
-   * Varre todos os IPs e portas candidatos e retorna o melhor broker.
-   * Testa em paralelo por IP, sequencialmente por porta (para não sobrecarregar).
-   */
   static async discoverBroker(
     ips: string[] = CANDIDATE_IPS,
     ports: number[] = CANDIDATE_WS_PORTS,
@@ -148,7 +126,6 @@ export class RobotMQTTClient {
     console.log('🔍 ==========================================');
 
     for (const port of ports) {
-      // Testa todos os IPs nesta porta em paralelo
       const candidates = ips.map(ip => `ws://${ip}:${port}`);
       const probes = candidates.map(async (url) => {
         onProgress?.(url, 'trying');
@@ -191,37 +168,37 @@ export class RobotMQTTClient {
     return new Promise((resolve, reject) => {
       try {
         this.client = mqtt.connect(brokerUrl, {
-          clientId: `alphabot-web-${Date.now()}`,
+          clientId: `alphabot-pc-${Date.now()}`,
           clean: true,
-          connectTimeout: 12000,
-          reconnectPeriod: 0,
-          keepalive: 30,
+          connectTimeout: MQTT_CONFIG.CONNECT_TIMEOUT,
+          reconnectPeriod: MQTT_CONFIG.RECONNECT_INTERVAL,
+          keepalive: MQTT_CONFIG.KEEPALIVE,
           protocol: 'ws',
         });
 
         const connectTimer = setTimeout(() => {
           this.client?.end(true);
           reject(new Error(
-            `Timeout: broker MQTT não respondeu em 12s\n` +
+            `Timeout: broker MQTT não respondeu em ${MQTT_CONFIG.CONNECT_TIMEOUT / 1000}s\n` +
             `URL testada: ${brokerUrl}\n\n` +
-            `⚠️ Porta 1883 = TCP nativo (NÃO funciona em navegadores)\n` +
-            `   Porta 9001 = WebSocket (necessária para navegadores)\n\n` +
+            `⚠️ Porta 9001 está BLOQUEADA pelo Windows (HTTP.SYS)\n` +
+            `   Porta 9002 = WebSocket (necessária para navegadores)\n\n` +
             `Dicas:\n` +
-            `• Configure Mosquitto com: listener 9001 / protocol websockets\n` +
-            `• Verifique se está no Wi-Fi do robô (RoboKen_Controle)\n` +
+            `• Configure Mosquitto com: listener 9002 / protocol websockets\n` +
+            `• Verifique se está no Wi-Fi "Robo" ou "RoboKen_Controle"\n` +
             `• Tente usar a página "Config MQTT" para descoberta automática`
           ));
-        }, 13000);
+        }, MQTT_CONFIG.CONNECT_TIMEOUT + 1000);
 
         this.client.on('connect', () => {
           clearTimeout(connectTimer);
           console.log('✅ MQTT CONECTADO!');
 
-          // Inscrever em todos os tópicos do robô
           const topics = [
             ...ROBOT_TOPICS,
             `robot/${robotSerial}/#`,
             `csjbot/${robotSerial}/#`,
+            `alphabot/${robotSerial}/#`,
           ];
 
           topics.forEach(topic => {
@@ -280,7 +257,7 @@ export class RobotMQTTClient {
     });
   }
 
-  // ─── Robot Commands (baseados nos endpoints identificados nos APKs) ───
+  // ─── Robot Commands ───
 
   ping(serial = ROBOT_SERIAL): void {
     const topics = [
@@ -329,19 +306,10 @@ export class RobotMQTTClient {
     this.publish(`csjbot/${serial}/cmd`, { cmd: 'emergency_stop', force: true, timestamp: Date.now() });
   }
 
-  // ─── HTTP API Fallback (baseada nos endpoints identificados) ───
+  // ─── HTTP API Fallback ───
 
-  /**
-   * Tenta os endpoints HTTP reais identificados nos APKs CSJBot.
-   * Base URL: http://192.168.99.102/api
-   */
   static async probeHttpApi(ip: string, timeoutMs = 5000): Promise<boolean> {
-    // Endpoints identificados nos APKs via Retrofit
-    const endpoints = [
-      `/api/enterPage`,
-      `/api/getAnswerV3`,
-    ];
-
+    const endpoints = [`/api/enterPage`, `/api/getAnswerV3`];
     for (const path of endpoints) {
       try {
         const ctrl = new AbortController();
@@ -352,7 +320,7 @@ export class RobotMQTTClient {
           cache: 'no-cache',
         });
         clearTimeout(timer);
-        if (res.status < 500) return true; // Qualquer resposta (mesmo 404) = servidor ativo
+        if (res.status < 500) return true;
       } catch { /* ignorar */ }
     }
     return false;

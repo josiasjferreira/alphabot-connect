@@ -26,7 +26,7 @@ const STATUS_KEYWORDS = ['status', 'battery', 'health', 'version', 'info', 'syst
 
 export const DEFAULT_PORTS = [80, 443, 3000, 5000, 6000, 8000, 8080, 8443, 8888, 9000, 9090, 9999, 10000];
 export const DEFAULT_IP = '127.0.0.1';
-export const SECONDARY_IP = '192.168.99.102';
+export const SECONDARY_IP = '192.168.99.101';
 
 function classifyResponse(text: string): PortScanResult['serviceType'] {
   const lower = text.toLowerCase();

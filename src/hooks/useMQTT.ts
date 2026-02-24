@@ -2,15 +2,13 @@
  * useMQTT — Hook global singleton para o RobotMQTTClient.
  *
  * Mantém UMA única instância do cliente MQTT compartilhada entre todas as páginas.
- * A configuração (broker URL, serial) vem do useMQTTConfigStore persistido.
- *
- * Uso:
- *   const { client, isConnected, connect, disconnect, publish } = useMQTT();
+ * A configuração vem do MQTT_CONFIG centralizado + useMQTTConfigStore persistido.
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { RobotMQTTClient } from '@/services/RobotMQTTClient';
 import { useMQTTConfigStore } from '@/store/useMQTTConfigStore';
+import { MQTT_CONFIG } from '@/config/mqtt';
 
 // ─── Singleton fora do React para sobreviver entre re-renders e navegação ───
 let globalClient: RobotMQTTClient | null = null;
@@ -52,8 +50,8 @@ export function useMQTT(): UseMQTTReturn {
   }, []);
 
   const connect = useCallback(async (brokerUrl?: string) => {
-    const url = brokerUrl || config.activeBroker || 'ws://192.168.99.197:9001';
-    const serial = config.robotSerial || 'H13307';
+    const url = brokerUrl || config.activeBroker || MQTT_CONFIG.WEBSOCKET_URL;
+    const serial = config.robotSerial || MQTT_CONFIG.ROBOT_SERIAL;
 
     if (globalClient?.isConnected) {
       console.log('[useMQTT] Já conectado a', globalClient.currentBroker);
@@ -68,6 +66,12 @@ export function useMQTT(): UseMQTTReturn {
       onConnect: () => {
         globalConnected = true;
         notifySubscribers();
+        // Publicar status de conexão
+        globalClient?.publish(MQTT_CONFIG.TOPICS.STATUS, {
+          status: 'connected',
+          client: 'pc-web',
+          timestamp: Date.now(),
+        });
       },
       onClose: () => {
         globalConnected = false;
