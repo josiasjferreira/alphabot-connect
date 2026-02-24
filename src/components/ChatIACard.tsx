@@ -3,8 +3,9 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useMQTT } from '@/hooks/useMQTT';
 import { useMQTTConfigStore } from '@/store/useMQTTConfigStore';
 import { useRobotStore } from '@/store/useRobotStore';
+import { useVoiceRecognition, speak } from '@/hooks/useVoiceRecognition';
 import {
-  MessageCircle, Send, ChevronDown, ChevronUp, Bot, User, Trash2,
+  MessageCircle, Send, ChevronDown, ChevronUp, Bot, User, Trash2, Mic, MicOff,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -54,7 +55,23 @@ const ChatIACard = () => {
   ]);
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
+  const [ttsEnabled, setTtsEnabled] = useState(true);
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Voice recognition (STT)
+  const {
+    isListening, transcript, interimTranscript,
+    startListening, stopListening, resetTranscript, isSupported: sttSupported,
+  } = useVoiceRecognition();
+
+  // When voice transcript completes a phrase, put it in input
+  const lastTranscriptRef = useRef('');
+  useEffect(() => {
+    if (transcript && transcript !== lastTranscriptRef.current) {
+      lastTranscriptRef.current = transcript;
+      setInput(transcript);
+    }
+  }, [transcript]);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
@@ -82,12 +99,16 @@ const ChatIACard = () => {
     const text = input.trim();
     if (!text) return;
 
+    // Stop listening if active
+    if (isListening) stopListening();
+    resetTranscript();
+    lastTranscriptRef.current = '';
+
     const userMsg: ChatMessage = { id: Date.now().toString(), role: 'user', content: text, ts: Date.now() };
     setMessages(prev => [...prev, userMsg]);
     setInput('');
     setIsTyping(true);
 
-    // Simulate response delay
     setTimeout(() => {
       const { response, action } = matchIntent(text);
       const context = getRobotContext(robotStore, isConnected, serial);
@@ -101,7 +122,11 @@ const ChatIACard = () => {
       setIsTyping(false);
       handleAction(action);
 
-      // Publish chat interaction via MQTT
+      // TTS — speak the response
+      if (ttsEnabled) {
+        try { speak(response); } catch { /* ignore */ }
+      }
+
       if (isConnected) {
         publish(`robot/${serial}/chat`, {
           user_message: text,
@@ -111,7 +136,50 @@ const ChatIACard = () => {
         });
       }
     }, 600 + Math.random() * 400);
-  }, [input, robotStore, isConnected, serial, publish, handleAction]);
+  }, [input, robotStore, isConnected, serial, publish, handleAction, isListening, stopListening, resetTranscript, ttsEnabled]);
+
+  const toggleMic = useCallback(() => {
+    if (isListening) {
+      stopListening();
+      // Auto-send if there's a transcript
+      if (transcript.trim()) {
+        setInput(transcript.trim());
+        setTimeout(() => {
+          const text = transcript.trim();
+          if (text) {
+            resetTranscript();
+            lastTranscriptRef.current = '';
+            const userMsg: ChatMessage = { id: Date.now().toString(), role: 'user', content: text, ts: Date.now() };
+            setMessages(prev => [...prev, userMsg]);
+            setInput('');
+            setIsTyping(true);
+            setTimeout(() => {
+              const { response, action } = matchIntent(text);
+              const context = getRobotContext(robotStore, isConnected, serial);
+              const botMsg: ChatMessage = {
+                id: (Date.now() + 1).toString(),
+                role: 'assistant',
+                content: `${response}\n\n_${context}_`,
+                ts: Date.now(),
+              };
+              setMessages(prev => [...prev, botMsg]);
+              setIsTyping(false);
+              handleAction(action);
+              if (ttsEnabled) { try { speak(response); } catch { /* */ } }
+              if (isConnected) {
+                publish(`robot/${serial}/chat`, { user_message: text, bot_response: response, action: action || null, timestamp: Date.now() });
+              }
+            }, 600 + Math.random() * 400);
+          }
+        }, 100);
+      }
+    } else {
+      resetTranscript();
+      lastTranscriptRef.current = '';
+      setInput('');
+      startListening();
+    }
+  }, [isListening, stopListening, startListening, resetTranscript, transcript, robotStore, isConnected, serial, publish, handleAction, ttsEnabled]);
 
   const clearChat = () => {
     setMessages([{ id: '0', role: 'assistant', content: '👋 Chat limpo. Como posso ajudar?', ts: Date.now() }]);
@@ -149,8 +217,23 @@ const ChatIACard = () => {
             transition={{ duration: 0.2 }}
             className="overflow-hidden"
           >
+            {/* TTS toggle */}
+            <div className="flex items-center gap-2 mt-2">
+              <button
+                onClick={() => setTtsEnabled(v => !v)}
+                className={`text-[10px] px-2 py-0.5 rounded-full border transition-all ${
+                  ttsEnabled ? 'border-primary/40 bg-primary/10 text-primary' : 'border-border bg-muted/30 text-muted-foreground'
+                }`}
+              >
+                🔊 Voz {ttsEnabled ? 'ON' : 'OFF'}
+              </button>
+              {sttSupported && (
+                <span className="text-[10px] text-muted-foreground">🎤 STT disponível</span>
+              )}
+            </div>
+
             {/* Messages */}
-            <div ref={scrollRef} className="mt-3 max-h-48 overflow-y-auto space-y-2 pr-1">
+            <div ref={scrollRef} className="mt-2 max-h-48 overflow-y-auto space-y-2 pr-1">
               {messages.map((m) => (
                 <div key={m.id} className={`flex gap-2 ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                   {m.role === 'assistant' && (
@@ -195,15 +278,32 @@ const ChatIACard = () => {
               )}
             </div>
 
+            {/* Interim transcript indicator */}
+            {isListening && interimTranscript && (
+              <div className="mt-1 px-2 py-1 rounded-lg bg-primary/5 border border-primary/20">
+                <p className="text-[10px] text-primary italic">🎤 {interimTranscript}</p>
+              </div>
+            )}
+
             {/* Input */}
             <div className="flex gap-2 mt-3">
               <Input
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-                placeholder="Pergunte ao Ken..."
+                placeholder={isListening ? '🎤 Ouvindo...' : 'Pergunte ao Ken...'}
                 className="text-xs h-9"
               />
+              {sttSupported && (
+                <Button
+                  size="sm"
+                  variant={isListening ? 'default' : 'outline'}
+                  className={`h-9 px-2.5 ${isListening ? 'animate-pulse' : ''}`}
+                  onClick={toggleMic}
+                >
+                  {isListening ? <MicOff className="w-3.5 h-3.5" /> : <Mic className="w-3.5 h-3.5" />}
+                </Button>
+              )}
               <Button size="sm" className="h-9 px-3" onClick={handleSend} disabled={!input.trim()}>
                 <Send className="w-3.5 h-3.5" />
               </Button>
