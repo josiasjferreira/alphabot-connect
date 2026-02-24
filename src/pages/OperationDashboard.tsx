@@ -12,6 +12,7 @@ import { Slider } from '@/components/ui/slider';
 import { Button } from '@/components/ui/button';
 import AnimationsCard from '@/components/AnimationsCard';
 import ChatIACard from '@/components/ChatIACard';
+import NetworkInfo from '@/components/NetworkInfo';
 import {
   RotateCcw, RotateCw, StopCircle, Compass, Radio,
   ShoppingBag, Settings2,
@@ -375,6 +376,9 @@ const OperationDashboard = () => {
         {/* Chat IA */}
         <ChatIACard />
 
+        {/* Network Info */}
+        <NetworkInfo />
+
         {/* Secondary cards */}
         <div className="grid grid-cols-1 gap-3">
           <PlaceholderCard
@@ -397,7 +401,7 @@ const OperationDashboard = () => {
       </div>
 
       <div className="flex flex-col items-center gap-1 py-4">
-        <p className="text-[10px] text-muted-foreground">AlphaBot Companion v3.0.0 • Iascom</p>
+        <p className="text-[10px] text-muted-foreground">AlphaBot Connect v2.0.0 • Iascom</p>
       </div>
     </div>
   );

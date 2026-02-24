@@ -5,6 +5,7 @@
  */
 
 import type { CalibrationProgress, CalibrationData, CalibrationState } from '@/services/bluetoothCalibrationBridge';
+import { NETWORK_CONFIG } from '@/config/mqtt';
 
 const DEFAULT_TIMEOUT = 10_000;
 
@@ -47,8 +48,8 @@ export class RobotHTTPClient {
   public onLog: RobotHTTPClientOptions['onLog'];
 
   constructor(opts: RobotHTTPClientOptions) {
-    // IP do robô — topologia final: 192.168.99.102
-    const rawIp = opts.ip ?? '192.168.99.102';
+    // IP do robô — Arquitetura PC-Centric v2.0: 192.168.99.101
+    const rawIp = opts.ip ?? NETWORK_CONFIG.ROBOT_IP;
     // Extrair só o host (sem porta) para construir as URLs
     const host = rawIp.includes(':') ? rawIp.split(':')[0] : rawIp;
     this.ip = host; // guardar sem porta
@@ -69,7 +70,7 @@ export class RobotHTTPClient {
   static async detectRobotIP(): Promise<string | null> {
     console.log('🔍 Detectando robô na rede local...');
 
-    const CANDIDATE_IPS = ['192.168.99.102', '192.168.99.197', '192.168.99.1'];
+    const CANDIDATE_IPS = [NETWORK_CONFIG.ROBOT_IP, NETWORK_CONFIG.PC_IP, NETWORK_CONFIG.GATEWAY_IP];
 
     for (const ip of CANDIDATE_IPS) {
       console.log(`🎯 Testando: http://${ip}/api/ping`);

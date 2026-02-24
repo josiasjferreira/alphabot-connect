@@ -1,21 +1,15 @@
 /**
  * @file RobotWiFiConnection.ts
- * @brief Detecção e gerenciamento de conexão WiFi local com robô CSJBot
- * @version 1.4.0
+ * @brief Detecção e gerenciamento de conexão WiFi local com robô
+ * @version 2.0.0 — Arquitetura PC-Centric
  */
 
-/**
- * Detecta se o app está rodando em contexto HTTPS (página servida via https://).
- * Navegadores bloqueiam requisições HTTP de páginas HTTPS (Mixed Content).
- */
+import { NETWORK_CONFIG, MQTT_CONFIG } from '@/config/mqtt';
+
 export function isHttpsContext(): boolean {
   return typeof window !== 'undefined' && window.location.protocol === 'https:';
 }
 
-/**
- * Detecta se o app está instalado como PWA (standalone).
- * PWAs instalados contornam a restrição de Mixed Content e conseguem acessar HTTP local.
- */
 export function isPWA(): boolean {
   if (typeof window === 'undefined') return false;
   return (
@@ -26,29 +20,27 @@ export function isPWA(): boolean {
 }
 
 /**
- * Topologia de rede final (Fev/2026):
- * Gateway:  192.168.99.1   (Tenda)
- * Broker:   192.168.99.197 (PC/Mosquitto)
- * Robô:     192.168.99.102
- * Tablet:   192.168.99.200
- * SLAM:     192.168.99.2
+ * Topologia de rede v2.0 (Fev/2026):
+ * PC (Broker):  192.168.99.100
+ * Robô:         192.168.99.101
+ * Gateway:      192.168.99.102
+ * Tablet:       192.168.99.200
  */
 export const ROBOT_NETWORK_CONFIG = {
-  router: '192.168.99.1',
-  broker: '192.168.99.197',
-  robot: '192.168.99.102',
-  tablet: '192.168.99.200',
-  robotInternal: '192.168.99.102',
+  router: NETWORK_CONFIG.GATEWAY_IP,
+  broker: NETWORK_CONFIG.PC_IP,
+  robot: NETWORK_CONFIG.ROBOT_IP,
+  tablet: NETWORK_CONFIG.TABLET_IP,
+  robotInternal: NETWORK_CONFIG.ROBOT_IP,
   ports: {
     http: 80,
-    mqttTcp: 1883,   // MQTT TCP nativo — NÃO funciona em navegadores
-    mqttWs: 9001,    // MQTT WebSocket — necessário para navegadores (Mosquitto listener ws)
+    mqttTcp: 1883,
+    mqttWs: MQTT_CONFIG.WEBSOCKET_PORT,
     ws: 8080,
   },
 } as const;
 
-/** Nomes de rede WiFi do robô */
-export const ROBOT_WIFI_NETWORKS = ['RoboKen_Controle_5G', 'RoboKen_Controle', 'CSJBot', 'CSJBot-CT300', 'AlphaBot', 'Ken-AlphaBot'] as const;
+export const ROBOT_WIFI_NETWORKS = ['Robo', 'RoboKen_Controle_5G', 'RoboKen_Controle', 'CSJBot', 'AlphaBot'] as const;
 
 export interface RobotInfo {
   ip: string;
@@ -67,38 +59,22 @@ export interface ConnectionResult {
   latencyMs: number;
 }
 
-/**
- * IPs testados — topologia final (Fev/2026):
- * Prioridade: robô direto → broker PC → gateway
- */
 const ROBOT_IPS = [
-  '192.168.99.102',   // Robô CSJBot CT300-H13307
-  '192.168.99.197',   // PC / Broker MQTT
-  '192.168.99.1',     // Gateway Tenda
+  NETWORK_CONFIG.ROBOT_IP,   // Robô AlphaBot
+  NETWORK_CONFIG.PC_IP,      // PC / Broker MQTT
+  NETWORK_CONFIG.GATEWAY_IP, // Gateway
 ] as const;
 
-const TIMEOUT_MS = 15000; // 15 segundos — tablet pode demorar para responder
+const TIMEOUT_MS = 15000;
 
-
-/**
- * Ping com CORS explícito, cache desabilitado e timeout de 15s.
- * Testa também a variante com :80 explícito se a implícita falhar.
- */
 async function pingRobot(ip: string, timeoutMs = TIMEOUT_MS): Promise<{ ok: boolean; latencyMs: number }> {
   const startGlobal = performance.now();
-
-  // Tentar primeiro sem porta (navegador usa 80 por padrão) e depois com :80 explícito
   const urls = [`http://${ip}/api/ping`, `http://${ip}:80/api/ping`];
 
   for (const pingUrl of urls) {
     const ctrl = new AbortController();
-    const timer = setTimeout(() => {
-      console.warn(`⏰ Timeout (${timeoutMs}ms) em ${pingUrl}`);
-      ctrl.abort();
-    }, timeoutMs);
+    const timer = setTimeout(() => { ctrl.abort(); }, timeoutMs);
     const start = performance.now();
-
-    console.log(`🔍 Testando: ${pingUrl}`);
 
     try {
       const res = await fetch(pingUrl, {
@@ -106,45 +82,22 @@ async function pingRobot(ip: string, timeoutMs = TIMEOUT_MS): Promise<{ ok: bool
         mode: 'cors',
         cache: 'no-cache',
         signal: ctrl.signal,
-        headers: {
-          'Accept': 'application/json',
-          'Cache-Control': 'no-cache',
-          'Pragma': 'no-cache',
-        },
+        headers: { 'Accept': 'application/json', 'Cache-Control': 'no-cache' },
       });
       clearTimeout(timer);
       const elapsed = Math.round(performance.now() - start);
-      console.log(`📡 ${pingUrl} → ${res.status} (${elapsed}ms)`);
-
-      if (res.ok) {
-        try {
-          const data = await res.json();
-          console.log(`✅ ROBÔ ENCONTRADO: ${pingUrl}`, data);
-        } catch {
-          console.log(`✅ ROBÔ ENCONTRADO: ${pingUrl} (resposta não-JSON)`);
-        }
-        return { ok: true, latencyMs: elapsed };
-      }
-    } catch (err: any) {
+      if (res.ok) return { ok: true, latencyMs: elapsed };
+    } catch {
       clearTimeout(timer);
-      if (err.name === 'AbortError') {
-        console.error(`❌ ${pingUrl} — TIMEOUT (${timeoutMs}ms)`);
-      } else {
-        console.error(`❌ ${pingUrl} — ${err.name}: ${err.message}`);
-      }
     }
   }
 
   return { ok: false, latencyMs: Math.round(performance.now() - startGlobal) };
 }
 
-/**
- * Busca informações completas do robô
- */
 async function fetchRobotInfo(ip: string, timeoutMs = 8000): Promise<RobotInfo | null> {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), timeoutMs);
-
   try {
     const res = await fetch(`http://${ip}/api/status`, { signal: ctrl.signal, cache: 'no-store' });
     clearTimeout(timer);
@@ -164,54 +117,33 @@ async function fetchRobotInfo(ip: string, timeoutMs = 8000): Promise<RobotInfo |
   }
 }
 
-/**
- * Detecta o IP do robô testando todos os candidatos em paralelo
- */
 export async function detectRobotIP(): Promise<ConnectionResult> {
   console.log('🔍 Iniciando detecção automática de IP do robô...');
-  console.log('📋 IPs testados com porta EXPLÍCITA :80:', [...ROBOT_IPS]);
 
-  // Aviso crítico se estiver em HTTPS sem ser PWA
   if (isHttpsContext() && !isPWA()) {
-    console.warn('⚠️ ==========================================');
-    console.warn('⚠️ AVISO: Rodando em HTTPS sem ser PWA!');
-    console.warn('⚠️ Navegadores BLOQUEIAM requisições HTTP de páginas HTTPS.');
-    console.warn('⚠️ SOLUÇÃO: Instale o app como PWA (Menu → Adicionar à tela inicial)');
-    console.warn('⚠️ ==========================================');
+    console.warn('⚠️ Rodando em HTTPS sem ser PWA — conexões HTTP podem ser bloqueadas');
   }
 
-  // Testar sequencialmente — parar no primeiro que responder
   let found: { ip: string; ok: boolean; latencyMs: number } | null = null;
   for (const ip of ROBOT_IPS) {
     const ping = await pingRobot(ip);
     if (ping.ok) {
       found = { ip, ...ping };
-      console.log(`🎉 ROBÔ ENCONTRADO em ${ip} (${ping.latencyMs}ms) — parando busca`);
       break;
     }
   }
 
   if (!found) {
-    console.error('\n❌ Robô não encontrado em nenhum IP testado');
-    console.error('📋 IPs tentados:', ROBOT_IPS.join(', '));
-    console.error('\n💡 Troubleshooting:');
-    console.error('1. Conecte ao Wi-Fi: RoboKen_Controle ou RoboKen_Controle_5G');
-    console.error('2. Verifique se o tablet está ligado e o app do robô está ativo');
-    console.error('3. Teste manual no browser: http://192.168.99.102:80/api/ping');
-    console.error('4. Verifique se o servidor HTTP está rodando no robô (porta 80)');
-
     return {
       success: false,
       ip: null,
       robotInfo: null,
-      error: 'Robô não encontrado.\n\nVerifique:\n1. Wi-Fi: RoboKen_Controle ou RoboKen_Controle_5G\n2. Robô ligado e conectado à rede\n3. Teste manual: http://192.168.99.102:80/api/ping\n\nRedes suportadas: ' + ROBOT_WIFI_NETWORKS.join(', '),
+      error: `Robô não encontrado.\n\nVerifique:\n1. Wi-Fi: Robo ou RoboKen_Controle\n2. Robô ligado e conectado à rede\n3. Teste: http://${NETWORK_CONFIG.ROBOT_IP}/api/ping`,
       latencyMs: -1,
     };
   }
 
-  console.log(`✅ [WiFi] Robô detectado em ${found.ip} (${found.latencyMs}ms)`);
   const robotInfo = await fetchRobotInfo(found.ip);
-
   return {
     success: true,
     ip: found.ip,
@@ -221,9 +153,6 @@ export async function detectRobotIP(): Promise<ConnectionResult> {
   };
 }
 
-/**
- * Verifica conectividade contínua (heartbeat)
- */
 export async function checkConnection(ip: string): Promise<boolean> {
   const { ok } = await pingRobot(ip, 3000);
   return ok;

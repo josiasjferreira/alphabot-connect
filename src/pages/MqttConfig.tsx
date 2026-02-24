@@ -246,7 +246,7 @@ const MqttConfig = () => {
                     key={p}
                     onClick={() => {
                       setProtocol(p);
-                      const ip = activeBroker.match(/wss?:\/\/([^:]+)/)?.[1] || '192.168.99.197';
+                      const ip = activeBroker.match(/wss?:\/\/([^:]+)/)?.[1] || '192.168.99.100';
                       const port = p === 'wss' ? '8084' : wsPort;
                       setActiveBroker(`${p}://${ip}:${port}`);
                       if (p === 'wss') setWsPort('8084');
@@ -273,7 +273,7 @@ const MqttConfig = () => {
                     <button
                       key={p}
                       onClick={() => {
-                        const ip = activeBroker.match(/wss?:\/\/([^:]+)/)?.[1] || '192.168.99.197';
+                        const ip = activeBroker.match(/wss?:\/\/([^:]+)/)?.[1] || '192.168.99.100';
                         setWsPort(String(p));
                         setActiveBroker(`wss://${ip}:${p}`);
                       }}
@@ -314,30 +314,26 @@ const MqttConfig = () => {
                   className="overflow-hidden"
                 >
                   <div className="mt-3 space-y-2 text-[11px] font-mono bg-muted/20 rounded-lg p-3">
-                    <p className="text-muted-foreground font-sans text-xs font-semibold mb-2">📡 Topologia de Rede (Fev/2026):</p>
-                    <div className="space-y-1">
-                      <p><span className="text-muted-foreground">Broker MQTT:</span> <span className="text-foreground">192.168.99.197</span> <span className="text-muted-foreground">(PC/Mosquitto v2.1.2)</span></p>
-                      <p><span className="text-muted-foreground">Robô CSJBot:</span> <span className="text-foreground">192.168.99.102</span></p>
-                      <p><span className="text-muted-foreground">Tablet:</span> <span className="text-foreground">192.168.99.200</span></p>
-                      <p><span className="text-muted-foreground">Gateway:</span> <span className="text-foreground">192.168.99.1</span> <span className="text-muted-foreground">(Tenda)</span></p>
-                      <p><span className="text-muted-foreground">IP SLAM:</span> <span className="text-foreground">192.168.99.2</span></p>
-                      <p><span className="text-muted-foreground">Porta MQTT TCP:</span> <span className="text-foreground">1883</span> <span className="text-destructive">(NÃO funciona em browsers)</span></p>
-                      <p><span className="text-muted-foreground">Porta MQTT WS:</span> <span className="text-foreground">9002</span> <span className="text-success">(preferencial)</span> / <span className="text-foreground">9001</span> <span className="text-muted-foreground">(alternativa)</span></p>
-                      <p><span className="text-muted-foreground">Serial:</span> <span className="text-foreground">H13307 (CT300)</span></p>
+                     <p className="text-muted-foreground font-sans text-xs font-semibold mb-2">📡 Topologia de Rede v2.0:</p>
+                     <div className="space-y-1">
+                       <p><span className="text-muted-foreground">PC (Broker):</span> <span className="text-foreground">192.168.99.100</span> <span className="text-muted-foreground">(Mosquitto)</span></p>
+                       <p><span className="text-muted-foreground">Robô AlphaBot:</span> <span className="text-foreground">192.168.99.101</span></p>
+                       <p><span className="text-muted-foreground">Tablet:</span> <span className="text-foreground">192.168.99.200</span> <span className="text-muted-foreground">(display)</span></p>
+                       <p><span className="text-muted-foreground">Gateway:</span> <span className="text-foreground">192.168.99.102</span> <span className="text-muted-foreground">(Router "Robo")</span></p>
+                       <p><span className="text-muted-foreground">Porta MQTT TCP:</span> <span className="text-foreground">1883</span> <span className="text-destructive">(NÃO funciona em browsers)</span></p>
+                       <p><span className="text-muted-foreground">Porta MQTT WS:</span> <span className="text-foreground">9002</span> <span className="text-success">(OBRIGATÓRIA — 9001 bloqueada)</span></p>
+                       <p><span className="text-muted-foreground">Serial:</span> <span className="text-foreground">H13307 (CT300)</span></p>
                     </div>
                     <div className="mt-2 pt-2 border-t border-border">
                       <p className="text-destructive font-sans text-[10px] font-bold mb-1">⚙️ Configuração obrigatória do Mosquitto:</p>
                       <div className="bg-background/50 rounded p-2 space-y-0.5">
-                        <p className="text-primary"># mosquitto.conf no PC 192.168.99.197</p>
-                        <p className="text-foreground">listener 1883</p>
-                        <p className="text-foreground">protocol mqtt</p>
-                        <p className="text-foreground">allow_anonymous true</p>
-                        <p className="text-foreground mt-1">listener 9002</p>
-                        <p className="text-foreground">protocol websockets</p>
-                        <p className="text-foreground">allow_anonymous true</p>
-                        <p className="text-foreground mt-1">listener 9001</p>
-                        <p className="text-foreground">protocol websockets</p>
-                        <p className="text-foreground">allow_anonymous true</p>
+                         <p className="text-primary"># mosquitto.conf no PC 192.168.99.100</p>
+                         <p className="text-foreground">listener 1883</p>
+                         <p className="text-foreground">protocol mqtt</p>
+                         <p className="text-foreground">allow_anonymous true</p>
+                         <p className="text-foreground mt-1">listener 9002</p>
+                         <p className="text-foreground">protocol websockets</p>
+                         <p className="text-foreground">allow_anonymous true</p>
                       </div>
                       <p className="text-muted-foreground mt-1">Reinicie: <span className="text-foreground">net stop mosquitto && net start mosquitto</span></p>
                     </div>
@@ -467,7 +463,7 @@ const MqttConfig = () => {
                 type="text"
                 value={activeBroker}
                 onChange={e => setActiveBroker(e.target.value)}
-                placeholder="ws://192.168.99.197:1883"
+                placeholder="ws://192.168.99.100:9002"
                 className="w-full h-10 px-3 rounded-lg bg-background border border-border text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 font-mono"
               />
             </div>
@@ -479,7 +475,7 @@ const MqttConfig = () => {
                   value={wsPort}
                   onChange={e => {
                     setWsPort(e.target.value);
-                    const ip = activeBroker.match(/wss?:\/\/([^:]+)/)?.[1] || '192.168.99.197';
+                    const ip = activeBroker.match(/wss?:\/\/([^:]+)/)?.[1] || '192.168.99.100';
                     setActiveBroker(`${protocol}://${ip}:${e.target.value}`);
                   }}
                   className="w-full h-10 px-2 rounded-lg bg-background border border-border text-foreground text-sm focus:outline-none font-mono"
@@ -578,7 +574,7 @@ const MqttConfig = () => {
               </div>
             </div>
             <button
-              onClick={() => { config.resetToDefaults(); setActiveBroker('ws://192.168.99.197:9002'); setSerial('H13307'); setWsPort('9002'); }}
+              onClick={() => { config.resetToDefaults(); setActiveBroker('ws://192.168.99.100:9002'); setSerial('H13307'); setWsPort('9002'); }}
               className="mt-3 w-full flex items-center justify-center gap-1 text-[11px] text-muted-foreground hover:text-foreground"
             >
               <RefreshCw className="w-3 h-3" /> Restaurar padrões
@@ -601,7 +597,7 @@ const MqttConfig = () => {
         )}
 
         <p className="text-[10px] text-center text-muted-foreground pb-4">
-          AlphaBot Companion v2.1.1 • Iascom
+          AlphaBot Connect v2.0.0 • Iascom
         </p>
       </div>
     </div>
