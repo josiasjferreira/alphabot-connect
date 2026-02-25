@@ -85,7 +85,7 @@ const MqttConfig = () => {
     // Determina quais portas testar de acordo com protocolo selecionado
     const portsToScan = useWss
       ? [...DEFAULT_WSS_PORTS, ...DEFAULT_WS_PORTS]   // WSS: 8084, 8883 primeiro, depois ws fallback
-      : DEFAULT_WS_PORTS;                              // WS: 9001, 1883, 8080, 8083
+      : DEFAULT_WS_PORTS;                              // WS: 9002, 8083, 8080
 
     addLog(`🔍 Protocolo: ${useWss ? 'WSS (seguro)' : 'WS'} — ${allUrls.length} endereços para testar`);
     if (useWss) {
