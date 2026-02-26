@@ -4,7 +4,7 @@ import StatusHeader from '@/components/StatusHeader';
 import {
   Wrench, Radio, Network, Stethoscope, Map, BarChart3,
   ScrollText, Download, Settings, Layers, Shield, Package,
-  FlaskConical, Users, MonitorPlay, Compass, Search, Wifi,
+  FlaskConical, Users, MonitorPlay, Compass, Search, Wifi, Cpu,
 } from 'lucide-react';
 
 interface ConfigItem {
@@ -34,6 +34,7 @@ const configItems: ConfigItem[] = [
   { icon: Users, title: 'Interações', desc: 'Gerenciar interações', path: '/interactions', gradient: 'from-primary to-secondary/80' },
   { icon: FlaskConical, title: 'Teste Delivery', desc: 'Fluxo de teste', path: '/delivery-test', gradient: 'from-primary to-destructive/80' },
   { icon: MonitorPlay, title: 'Mídia', desc: 'Streaming e gravações', path: '/media', gradient: 'from-primary to-success/80' },
+  { icon: Cpu, title: 'Eng. Reversa Android', desc: 'Diagnóstico placa Android .10', path: '/android-diag', gradient: 'from-destructive to-primary/80' },
   { icon: Settings, title: 'Configurações', desc: 'Idioma, tema, geral', path: '/settings', gradient: 'from-muted-foreground to-muted-foreground/60' },
 ];
 

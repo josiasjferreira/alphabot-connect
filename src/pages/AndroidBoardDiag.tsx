@@ -17,6 +17,14 @@ const BASE_URL = `http://${BOARD_IP}`;
 
 // ─── Port Scanner ───
 
+interface PathProbeResult {
+  path: string;
+  status: ProbeStatus;
+  httpStatus?: number;
+  latencyMs?: number;
+  contentSnippet?: string;
+}
+
 interface PortScanResult {
   port: number;
   protocol: string;
@@ -24,6 +32,7 @@ interface PortScanResult {
   latencyMs?: number;
   serverHeader?: string;
   contentSnippet?: string;
+  discoveredPaths?: PathProbeResult[];
 }
 
 const PORTS_TO_SCAN = [
@@ -40,6 +49,8 @@ const PORTS_TO_SCAN = [
   { port: 9001, protocol: 'MQTT WS' },
   { port: 9002, protocol: 'MQTT WS Alt' },
 ];
+
+const COMMON_PATHS = ['/', '/index.html', '/api', '/api/status', '/status', '/info', '/health', '/api/version', '/api/info', '/api/tts/speak'];
 
 // ─── Tipos ───
 
@@ -271,27 +282,72 @@ const AndroidBoardDiag = () => {
     }
   }, []);
 
+  // ─── Path Discovery on open ports ───
+  const discoverPaths = useCallback(async (port: number): Promise<PathProbeResult[]> => {
+    const isHttps = port === 443 || port === 8443;
+    const base = `${isHttps ? 'https' : 'http'}://${BOARD_IP}:${port}`;
+    const results: PathProbeResult[] = [];
+
+    for (const path of COMMON_PATHS) {
+      const start = performance.now();
+      try {
+        const ctrl = new AbortController();
+        const timer = setTimeout(() => ctrl.abort(), 2500);
+        const res = await fetch(`${base}${path}`, { signal: ctrl.signal, cache: 'no-store' });
+        clearTimeout(timer);
+        const latencyMs = Math.round(performance.now() - start);
+        const text = await res.text().catch(() => '');
+        results.push({
+          path,
+          status: res.ok ? 'success' : 'error',
+          httpStatus: res.status,
+          latencyMs,
+          contentSnippet: text.slice(0, 300) || undefined,
+        });
+      } catch (err) {
+        const latencyMs = Math.round(performance.now() - start);
+        const msg = (err as Error).message || '';
+        results.push({
+          path,
+          status: msg.includes('abort') ? 'timeout' : 'error',
+          latencyMs,
+        });
+      }
+    }
+    return results;
+  }, []);
+
+  const [autoDiscovery, setAutoDiscovery] = useState(false);
+
   const runPortScan = useCallback(async () => {
     setScanningPorts(true);
     setPortResults(PORTS_TO_SCAN.map(p => ({ port: p.port, protocol: p.protocol, status: 'running' as ProbeStatus })));
 
-    // Scan all ports in parallel for speed
     const promises = PORTS_TO_SCAN.map(async (p, i) => {
       const result = await scanPort(p.port);
       setPortResults(prev => prev.map((r, idx) => idx === i ? result : r));
       return result;
     });
 
-    await Promise.all(promises);
+    const results = await Promise.all(promises);
+
+    // Auto-discover paths on open ports
+    setAutoDiscovery(true);
+    const openResults = results.filter(r => r.status === 'success');
+    for (const open of openResults) {
+      const paths = await discoverPaths(open.port);
+      setPortResults(prev => prev.map(r => r.port === open.port ? { ...r, discoveredPaths: paths } : r));
+    }
+    setAutoDiscovery(false);
     setScanningPorts(false);
-  }, [scanPort]);
+  }, [scanPort, discoverPaths]);
 
   const statusIcon = (s: ProbeStatus) => {
     switch (s) {
       case 'running': return <Loader2 className="w-5 h-5 text-primary animate-spin" />;
-      case 'success': return <CheckCircle className="w-5 h-5 text-green-500" />;
+      case 'success': return <CheckCircle className="w-5 h-5 text-success" />;
       case 'error': return <XCircle className="w-5 h-5 text-destructive" />;
-      case 'timeout': return <AlertTriangle className="w-5 h-5 text-amber-500" />;
+      case 'timeout': return <AlertTriangle className="w-5 h-5 text-warning" />;
       default: return <div className="w-5 h-5 rounded-full border-2 border-muted-foreground/30" />;
     }
   };
@@ -324,7 +380,7 @@ const AndroidBoardDiag = () => {
                 <p className="font-bold text-foreground">Placa Android — Nó Crítico</p>
                 <p className="text-sm text-muted-foreground font-mono">{BASE_URL}</p>
               </div>
-              {successCount > 0 && <Wifi className="w-5 h-5 text-green-500" />}
+              {successCount > 0 && <Wifi className="w-5 h-5 text-success" />}
               {errorCount > 0 && successCount === 0 && <WifiOff className="w-5 h-5 text-destructive" />}
             </div>
           </CardContent>
@@ -333,7 +389,7 @@ const AndroidBoardDiag = () => {
         {/* Run all */}
         <div className="flex items-center justify-between">
           <div className="text-sm text-muted-foreground">
-            {successCount > 0 && <span className="text-green-500 font-semibold">{successCount} ✓</span>}
+            {successCount > 0 && <span className="text-success font-semibold">{successCount} ✓</span>}
             {errorCount > 0 && <span className="text-destructive font-semibold ml-2">{errorCount} ✗</span>}
           </div>
           <Button onClick={runAll} disabled={runningAll} className="gap-2">
@@ -426,16 +482,17 @@ const AndroidBoardDiag = () => {
             <div className="flex items-center justify-between">
               <CardTitle className="text-sm flex items-center gap-2">
                 <Radio className="w-4 h-4" />
-                Scanner de Portas — {BOARD_IP}
+                Scanner de Portas + Path Discovery — {BOARD_IP}
               </CardTitle>
               <Button onClick={runPortScan} disabled={scanningPorts} size="sm" variant="outline" className="gap-2">
                 {scanningPorts ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Search className="w-3.5 h-3.5" />}
-                {scanningPorts ? 'Escaneando…' : 'Escanear'}
+                {scanningPorts ? (autoDiscovery ? 'Descobrindo…' : 'Escaneando…') : 'Escanear'}
               </Button>
             </div>
             {scannedPorts > 0 && (
               <p className="text-xs text-muted-foreground mt-1">
                 {openPorts} porta{openPorts !== 1 ? 's' : ''} aberta{openPorts !== 1 ? 's' : ''} de {scannedPorts} testadas
+                {autoDiscovery && <span className="ml-2 text-primary animate-pulse">• Descobrindo caminhos…</span>}
               </p>
             )}
           </CardHeader>
@@ -446,9 +503,9 @@ const AndroidBoardDiag = () => {
                   key={pr.port}
                   className={`flex items-center gap-2 p-2 rounded-lg border text-sm font-mono ${
                     pr.status === 'success'
-                      ? 'border-green-500/30 bg-green-500/5'
+                      ? 'border-success/30 bg-success/5'
                       : pr.status === 'timeout'
-                        ? 'border-amber-500/30 bg-amber-500/5'
+                        ? 'border-warning/30 bg-warning/5'
                         : pr.status === 'error'
                           ? 'border-border bg-muted/30'
                           : 'border-border'
@@ -470,6 +527,34 @@ const AndroidBoardDiag = () => {
                 </motion.div>
               ))}
             </div>
+            {/* Discovered paths per open port */}
+            {portResults.filter(p => p.discoveredPaths && p.discoveredPaths.length > 0).map(p => (
+              <div key={`paths-${p.port}`} className="mt-3 border border-border rounded-lg p-3">
+                <p className="text-xs font-bold text-foreground mb-2">
+                  🔍 Porta {p.port} — Caminhos Descobertos
+                </p>
+                <div className="space-y-1">
+                  {p.discoveredPaths!.map(dp => (
+                    <div key={`${p.port}-${dp.path}`} className={`flex items-center gap-2 p-1.5 rounded text-xs font-mono ${
+                      dp.status === 'success' ? 'bg-success/10 border border-success/20' : 'bg-muted/30'
+                    }`}>
+                      {statusIcon(dp.status)}
+                      <span className="text-foreground font-semibold">{dp.path}</span>
+                      {dp.httpStatus && <span className="text-muted-foreground">HTTP {dp.httpStatus}</span>}
+                      {dp.latencyMs !== undefined && <span className="text-muted-foreground">{dp.latencyMs}ms</span>}
+                    </div>
+                  ))}
+                </div>
+                {p.discoveredPaths!.filter(dp => dp.contentSnippet && dp.status === 'success').map(dp => (
+                  <div key={`snippet-${p.port}-${dp.path}`} className="mt-2">
+                    <p className="text-[10px] font-semibold text-muted-foreground">{dp.path} — resposta:</p>
+                    <pre className="text-[10px] bg-muted p-2 rounded font-mono overflow-x-auto max-h-20 text-foreground">
+                      {dp.contentSnippet}
+                    </pre>
+                  </div>
+                ))}
+              </div>
+            ))}
             {portResults.some(p => p.contentSnippet) && (
               <div className="mt-3 space-y-2">
                 {portResults.filter(p => p.contentSnippet).map(p => (
