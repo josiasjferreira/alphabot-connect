@@ -1,0 +1,388 @@
+import { useState, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
+import { motion, AnimatePresence } from 'framer-motion';
+import {
+  Cpu, Wifi, WifiOff, Play, Loader2, CheckCircle, XCircle, AlertTriangle,
+  Volume2, Monitor, Navigation, Clock, Send, ChevronDown, ChevronUp
+} from 'lucide-react';
+import StatusHeader from '@/components/StatusHeader';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { NETWORK_CONFIG } from '@/config/mqtt';
+
+const BOARD_IP = NETWORK_CONFIG.ANDROID_BOARD_IP;
+const BASE_URL = `http://${BOARD_IP}`;
+
+// ─── Tipos ───
+
+type ProbeStatus = 'idle' | 'running' | 'success' | 'error' | 'timeout';
+
+interface ProbeResult {
+  status: ProbeStatus;
+  latencyMs?: number;
+  httpStatus?: number;
+  body?: string;
+  error?: string;
+}
+
+interface EndpointProbe {
+  id: string;
+  method: 'GET' | 'POST';
+  path: string;
+  description: string;
+  icon: typeof Cpu;
+  defaultBody?: Record<string, unknown>;
+  result: ProbeResult;
+}
+
+// ─── Endpoints conhecidos / suspeitos (eng. reversa V5.3.8) ───
+
+const INITIAL_PROBES: EndpointProbe[] = [
+  {
+    id: 'status',
+    method: 'GET',
+    path: '/api/status',
+    description: 'Status geral da placa Android',
+    icon: Cpu,
+    result: { status: 'idle' },
+  },
+  {
+    id: 'tts-speak',
+    method: 'POST',
+    path: '/api/tts/speak',
+    description: 'TTS — Fazer o robô falar',
+    icon: Volume2,
+    defaultBody: { text: 'Olá, eu sou o AlphaBot!', lang: 'pt-BR', speed: 1.0 },
+    result: { status: 'idle' },
+  },
+  {
+    id: 'tts-stop',
+    method: 'POST',
+    path: '/api/tts/stop',
+    description: 'TTS — Parar fala atual',
+    icon: Volume2,
+    defaultBody: {},
+    result: { status: 'idle' },
+  },
+  {
+    id: 'enterPage',
+    method: 'POST',
+    path: '/api/enterPage',
+    description: 'Navegar para página no app Android',
+    icon: Navigation,
+    defaultBody: { pageName: 'main' },
+    result: { status: 'idle' },
+  },
+  {
+    id: 'display-show',
+    method: 'POST',
+    path: '/api/display/show',
+    description: 'Exibir conteúdo na tela do robô',
+    icon: Monitor,
+    defaultBody: { type: 'image', url: '', duration: 5000 },
+    result: { status: 'idle' },
+  },
+  {
+    id: 'animation-play',
+    method: 'POST',
+    path: '/api/animation/play',
+    description: 'Executar animação/gesto',
+    icon: Play,
+    defaultBody: { name: 'wave', loop: false },
+    result: { status: 'idle' },
+  },
+  {
+    id: 'audio-play',
+    method: 'POST',
+    path: '/api/audio/play',
+    description: 'Tocar som/efeito',
+    icon: Volume2,
+    defaultBody: { preset: 'greeting' },
+    result: { status: 'idle' },
+  },
+  {
+    id: 'audio-volume',
+    method: 'POST',
+    path: '/api/audio/volume',
+    description: 'Ajustar volume',
+    icon: Volume2,
+    defaultBody: { volume: 50 },
+    result: { status: 'idle' },
+  },
+];
+
+// ─── Componente ───
+
+const AndroidBoardDiag = () => {
+  const { t } = useTranslation();
+  const [probes, setProbes] = useState<EndpointProbe[]>(INITIAL_PROBES);
+  const [runningAll, setRunningAll] = useState(false);
+  const [customPath, setCustomPath] = useState('');
+  const [customMethod, setCustomMethod] = useState<'GET' | 'POST'>('GET');
+  const [customBody, setCustomBody] = useState('{}');
+  const [customResult, setCustomResult] = useState<ProbeResult>({ status: 'idle' });
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+
+  const probeEndpoint = useCallback(async (
+    method: 'GET' | 'POST',
+    path: string,
+    body?: Record<string, unknown>
+  ): Promise<ProbeResult> => {
+    const start = performance.now();
+    try {
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), 5000);
+
+      const opts: RequestInit = {
+        method,
+        signal: ctrl.signal,
+        cache: 'no-store',
+      };
+      if (method === 'POST' && body) {
+        opts.headers = { 'Content-Type': 'application/json' };
+        opts.body = JSON.stringify(body);
+      }
+
+      const res = await fetch(`${BASE_URL}${path}`, opts);
+      clearTimeout(timer);
+      const latencyMs = Math.round(performance.now() - start);
+      const text = await res.text().catch(() => '');
+
+      return {
+        status: res.ok ? 'success' : 'error',
+        latencyMs,
+        httpStatus: res.status,
+        body: text.slice(0, 2000),
+      };
+    } catch (err) {
+      const latencyMs = Math.round(performance.now() - start);
+      const message = (err as Error).message || 'Unknown error';
+      return {
+        status: message.includes('abort') ? 'timeout' : 'error',
+        latencyMs,
+        error: message,
+      };
+    }
+  }, []);
+
+  const runSingle = useCallback(async (id: string) => {
+    const idx = probes.findIndex(p => p.id === id);
+    if (idx < 0) return;
+    const probe = probes[idx];
+
+    setProbes(prev => prev.map((p, i) => i === idx ? { ...p, result: { status: 'running' } } : p));
+    const result = await probeEndpoint(probe.method, probe.path, probe.defaultBody);
+    setProbes(prev => prev.map((p, i) => i === idx ? { ...p, result } : p));
+  }, [probes, probeEndpoint]);
+
+  const runAll = useCallback(async () => {
+    setRunningAll(true);
+    for (let i = 0; i < probes.length; i++) {
+      setProbes(prev => prev.map((p, idx) => idx === i ? { ...p, result: { status: 'running' } } : p));
+      const probe = probes[i];
+      const result = await probeEndpoint(probe.method, probe.path, probe.defaultBody);
+      setProbes(prev => prev.map((p, idx) => idx === i ? { ...p, result } : p));
+    }
+    setRunningAll(false);
+  }, [probes, probeEndpoint]);
+
+  const runCustom = useCallback(async () => {
+    if (!customPath) return;
+    setCustomResult({ status: 'running' });
+    let body: Record<string, unknown> | undefined;
+    if (customMethod === 'POST') {
+      try { body = JSON.parse(customBody); } catch { body = {}; }
+    }
+    const result = await probeEndpoint(customMethod, customPath, body);
+    setCustomResult(result);
+  }, [customPath, customMethod, customBody, probeEndpoint]);
+
+  const statusIcon = (s: ProbeStatus) => {
+    switch (s) {
+      case 'running': return <Loader2 className="w-5 h-5 text-primary animate-spin" />;
+      case 'success': return <CheckCircle className="w-5 h-5 text-green-500" />;
+      case 'error': return <XCircle className="w-5 h-5 text-destructive" />;
+      case 'timeout': return <AlertTriangle className="w-5 h-5 text-amber-500" />;
+      default: return <div className="w-5 h-5 rounded-full border-2 border-muted-foreground/30" />;
+    }
+  };
+
+  const statusLabel = (r: ProbeResult) => {
+    if (r.status === 'running') return 'Testando…';
+    if (r.status === 'success') return `✓ HTTP ${r.httpStatus} — ${r.latencyMs}ms`;
+    if (r.status === 'timeout') return `Timeout — ${r.latencyMs}ms`;
+    if (r.status === 'error' && r.httpStatus) return `✗ HTTP ${r.httpStatus} — ${r.latencyMs}ms`;
+    if (r.status === 'error') return `✗ ${r.error}`;
+    return 'Aguardando';
+  };
+
+  const successCount = probes.filter(p => p.result.status === 'success').length;
+  const errorCount = probes.filter(p => p.result.status === 'error' || p.result.status === 'timeout').length;
+
+  return (
+    <div className="min-h-screen bg-background safe-bottom flex flex-col">
+      <StatusHeader title="Eng. Reversa — Placa Android" />
+      <div className="flex-1 p-4 space-y-4 max-w-2xl mx-auto w-full">
+
+        {/* Header info */}
+        <Card className="border-primary/30 bg-primary/5">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <Cpu className="w-8 h-8 text-primary" />
+              <div className="flex-1">
+                <p className="font-bold text-foreground">Placa Android — Nó Crítico</p>
+                <p className="text-sm text-muted-foreground font-mono">{BASE_URL}</p>
+              </div>
+              {successCount > 0 && <Wifi className="w-5 h-5 text-green-500" />}
+              {errorCount > 0 && successCount === 0 && <WifiOff className="w-5 h-5 text-destructive" />}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Run all */}
+        <div className="flex items-center justify-between">
+          <div className="text-sm text-muted-foreground">
+            {successCount > 0 && <span className="text-green-500 font-semibold">{successCount} ✓</span>}
+            {errorCount > 0 && <span className="text-destructive font-semibold ml-2">{errorCount} ✗</span>}
+          </div>
+          <Button onClick={runAll} disabled={runningAll} className="gap-2">
+            {runningAll ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
+            Testar Todos
+          </Button>
+        </div>
+
+        {/* Probes list */}
+        <div className="space-y-2">
+          {probes.map((probe, i) => {
+            const expanded = expandedId === probe.id;
+            return (
+              <motion.div
+                key={probe.id}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: i * 0.03 }}
+              >
+                <Card className="overflow-hidden">
+                  <div
+                    className="flex items-center gap-3 p-3 cursor-pointer hover:bg-muted/50 transition-colors"
+                    onClick={() => setExpandedId(expanded ? null : probe.id)}
+                  >
+                    <probe.icon className="w-5 h-5 text-muted-foreground shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-mono px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
+                          {probe.method}
+                        </span>
+                        <span className="text-sm font-mono text-foreground truncate">{probe.path}</span>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-0.5">{probe.description}</p>
+                    </div>
+                    {statusIcon(probe.result.status)}
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={(e) => { e.stopPropagation(); runSingle(probe.id); }}
+                      disabled={probe.result.status === 'running'}
+                      className="shrink-0"
+                    >
+                      <Send className="w-3.5 h-3.5" />
+                    </Button>
+                    {expanded ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
+                  </div>
+
+                  <AnimatePresence>
+                    {expanded && (
+                      <motion.div
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: 'auto', opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        className="overflow-hidden"
+                      >
+                        <div className="px-3 pb-3 space-y-2 border-t border-border pt-2">
+                          <p className="text-xs text-muted-foreground">{statusLabel(probe.result)}</p>
+                          {probe.defaultBody && (
+                            <div>
+                              <p className="text-xs font-semibold text-muted-foreground mb-1">Request body:</p>
+                              <pre className="text-xs bg-muted p-2 rounded font-mono overflow-x-auto text-foreground">
+                                {JSON.stringify(probe.defaultBody, null, 2)}
+                              </pre>
+                            </div>
+                          )}
+                          {probe.result.body && (
+                            <div>
+                              <p className="text-xs font-semibold text-muted-foreground mb-1">Response:</p>
+                              <pre className="text-xs bg-muted p-2 rounded font-mono overflow-x-auto max-h-40 text-foreground">
+                                {probe.result.body}
+                              </pre>
+                            </div>
+                          )}
+                          {probe.result.error && !probe.result.httpStatus && (
+                            <p className="text-xs text-destructive">{probe.result.error}</p>
+                          )}
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </Card>
+              </motion.div>
+            );
+          })}
+        </div>
+
+        {/* Custom endpoint */}
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm flex items-center gap-2">
+              <Clock className="w-4 h-4" />
+              Endpoint Customizado
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="flex gap-2">
+              <select
+                value={customMethod}
+                onChange={e => setCustomMethod(e.target.value as 'GET' | 'POST')}
+                className="bg-muted text-foreground text-sm rounded px-2 py-1 border border-border"
+              >
+                <option value="GET">GET</option>
+                <option value="POST">POST</option>
+              </select>
+              <Input
+                value={customPath}
+                onChange={e => setCustomPath(e.target.value)}
+                placeholder="/api/..."
+                className="font-mono text-sm"
+              />
+              <Button onClick={runCustom} disabled={customResult.status === 'running' || !customPath} size="sm">
+                <Send className="w-4 h-4" />
+              </Button>
+            </div>
+            {customMethod === 'POST' && (
+              <textarea
+                value={customBody}
+                onChange={e => setCustomBody(e.target.value)}
+                rows={3}
+                className="w-full bg-muted text-foreground text-xs font-mono rounded p-2 border border-border resize-y"
+                placeholder='{"key": "value"}'
+              />
+            )}
+            {customResult.status !== 'idle' && (
+              <div className="flex items-center gap-2 text-sm">
+                {statusIcon(customResult.status)}
+                <span className="text-muted-foreground">{statusLabel(customResult)}</span>
+              </div>
+            )}
+            {customResult.body && (
+              <pre className="text-xs bg-muted p-2 rounded font-mono overflow-x-auto max-h-40 text-foreground">
+                {customResult.body}
+              </pre>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+};
+
+export default AndroidBoardDiag;
