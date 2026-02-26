@@ -164,34 +164,67 @@ const ProductShowcase = () => {
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 1.05 }}
             transition={{ duration: 0.6 }}
-            className="mx-4 mt-2 rounded-3xl gradient-solar overflow-hidden shadow-xl cursor-pointer"
+            className="mx-4 mt-2 rounded-3xl overflow-hidden shadow-xl cursor-pointer"
             onClick={() => { setSlideshowActive(false); handleProductClick(slideshowProduct); }}
           >
-            <div className="relative p-6 flex items-center gap-5">
-              <span className="text-7xl drop-shadow-lg">{slideshowProduct.icon}</span>
-              <div className="flex-1 min-w-0">
-                <span className="text-[10px] font-bold uppercase tracking-widest text-white/70">
-                  Solar Life Energy
-                </span>
-                <h2 className="text-2xl font-black text-white leading-tight">
-                  {t(slideshowProduct.nameKey)}
-                </h2>
-                <p className="text-sm text-white/80 mt-1 line-clamp-2">
-                  {t(slideshowProduct.descKey)}
-                </p>
+            {slideshowProduct.videoUrl ? (
+              <div className="relative">
+                <video
+                  key={`video-${slideshowProduct.id}`}
+                  src={slideshowProduct.videoUrl}
+                  autoPlay
+                  muted
+                  playsInline
+                  className="w-full aspect-video object-cover"
+                />
+                <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/70 to-transparent">
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-white/70">
+                    Solar Life Energy
+                  </span>
+                  <h2 className="text-xl font-black text-white leading-tight">
+                    {t(slideshowProduct.nameKey)}
+                  </h2>
+                </div>
+                {/* Progress bar */}
+                <div className="h-1 bg-white/20">
+                  <motion.div
+                    key={`bar-${slideshowIndex}`}
+                    initial={{ width: '0%' }}
+                    animate={{ width: '100%' }}
+                    transition={{ duration: SLIDESHOW_INTERVAL / 1000, ease: 'linear' }}
+                    className="h-full bg-white/60"
+                  />
+                </div>
               </div>
-              <Sparkles className="w-6 h-6 text-white/60 animate-pulse" />
-            </div>
-            {/* Progress bar */}
-            <div className="h-1 bg-white/20">
-              <motion.div
-                key={`bar-${slideshowIndex}`}
-                initial={{ width: '0%' }}
-                animate={{ width: '100%' }}
-                transition={{ duration: SLIDESHOW_INTERVAL / 1000, ease: 'linear' }}
-                className="h-full bg-white/60"
-              />
-            </div>
+            ) : (
+              <>
+                <div className="relative p-6 flex items-center gap-5 gradient-solar">
+                  <span className="text-7xl drop-shadow-lg">{slideshowProduct.icon}</span>
+                  <div className="flex-1 min-w-0">
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-white/70">
+                      Solar Life Energy
+                    </span>
+                    <h2 className="text-2xl font-black text-white leading-tight">
+                      {t(slideshowProduct.nameKey)}
+                    </h2>
+                    <p className="text-sm text-white/80 mt-1 line-clamp-2">
+                      {t(slideshowProduct.descKey)}
+                    </p>
+                  </div>
+                  <Sparkles className="w-6 h-6 text-white/60 animate-pulse" />
+                </div>
+                {/* Progress bar */}
+                <div className="h-1 bg-white/20">
+                  <motion.div
+                    key={`bar-${slideshowIndex}`}
+                    initial={{ width: '0%' }}
+                    animate={{ width: '100%' }}
+                    transition={{ duration: SLIDESHOW_INTERVAL / 1000, ease: 'linear' }}
+                    className="h-full bg-white/60"
+                  />
+                </div>
+              </>
+            )}
           </motion.div>
         )}
       </AnimatePresence>
