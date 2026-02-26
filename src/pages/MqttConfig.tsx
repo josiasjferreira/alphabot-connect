@@ -315,12 +315,13 @@ const MqttConfig = () => {
                   className="overflow-hidden"
                 >
                   <div className="mt-3 space-y-2 text-[11px] font-mono bg-muted/20 rounded-lg p-3">
-                     <p className="text-muted-foreground font-sans text-xs font-semibold mb-2">📡 Topologia de Rede v2.0:</p>
+                     <p className="text-muted-foreground font-sans text-xs font-semibold mb-2">📡 Topologia de Rede v3.0 (Mapa Final):</p>
                      <div className="space-y-1">
+                       <p><span className="text-muted-foreground">Gateway:</span> <span className="text-foreground">192.168.99.1</span> <span className="text-muted-foreground">(Panda Router)</span></p>
+                       <p><span className="text-muted-foreground">SLAMWARE:</span> <span className="text-foreground">192.168.99.2</span> <span className="text-muted-foreground">(Navegação)</span></p>
+                       <p><span className="text-muted-foreground">Placa Android:</span> <span className="text-foreground">192.168.99.10</span> <span className="text-muted-foreground">(Cérebro do robô)</span></p>
                        <p><span className="text-muted-foreground">PC (Broker):</span> <span className="text-foreground">192.168.99.100</span> <span className="text-muted-foreground">(Mosquitto)</span></p>
-                       <p><span className="text-muted-foreground">Robô AlphaBot:</span> <span className="text-foreground">192.168.99.101</span></p>
-                       <p><span className="text-muted-foreground">Tablet:</span> <span className="text-foreground">192.168.99.200</span> <span className="text-muted-foreground">(display)</span></p>
-                       <p><span className="text-muted-foreground">Gateway:</span> <span className="text-foreground">192.168.99.102</span> <span className="text-muted-foreground">(Router "Robo")</span></p>
+                       <p><span className="text-muted-foreground">Tablet:</span> <span className="text-foreground">192.168.99.200</span> <span className="text-muted-foreground">(app Lovable)</span></p>
                        <p><span className="text-muted-foreground">Porta MQTT TCP:</span> <span className="text-foreground">1883</span> <span className="text-destructive">(NÃO funciona em browsers)</span></p>
                        <p><span className="text-muted-foreground">Porta MQTT WS:</span> <span className="text-foreground">9002</span> <span className="text-success">(OBRIGATÓRIA — 9001 bloqueada)</span></p>
                        <p><span className="text-muted-foreground">Serial:</span> <span className="text-foreground">H13307 (CT300)</span></p>

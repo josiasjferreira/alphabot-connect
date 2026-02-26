@@ -582,8 +582,9 @@ const RobotCalibrationPanel = () => {
                     <p className="text-xs font-bold text-primary mb-1.5">ℹ️ Arquitetura MQTT</p>
                     <div className="space-y-0.5 text-[10px] text-muted-foreground">
                       <p>• Broker: <code className="bg-muted px-1 rounded text-foreground">ws://192.168.99.100:9002</code> (PC/Mosquitto WebSocket)</p>
-                      <p>• Tablet: <code className="bg-muted px-1 rounded text-foreground">192.168.99.200</code></p>
-                      <p>• Robô: <code className="bg-muted px-1 rounded text-foreground">192.168.99.101</code></p>
+                      <p>• Placa Android: <code className="bg-muted px-1 rounded text-foreground">192.168.99.10</code> (Cérebro do robô)</p>
+                      <p>• SLAMWARE: <code className="bg-muted px-1 rounded text-foreground">192.168.99.2</code> (Navegação)</p>
+                      <p>• Tablet: <code className="bg-muted px-1 rounded text-foreground">192.168.99.200</code> (app Lovable)</p>
                     </div>
                   </div>
                 </motion.div>

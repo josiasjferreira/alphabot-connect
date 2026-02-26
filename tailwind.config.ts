@@ -73,6 +73,12 @@ export default {
           bot: "hsl(var(--chat-bot))",
           "bot-foreground": "hsl(var(--chat-bot-foreground))",
         },
+        solar: {
+          gold: "hsl(var(--solar-gold))",
+          orange: "hsl(var(--solar-orange))",
+          green: "hsl(var(--solar-green))",
+          sky: "hsl(var(--solar-sky))",
+        },
       },
       borderRadius: {
         lg: "var(--radius)",

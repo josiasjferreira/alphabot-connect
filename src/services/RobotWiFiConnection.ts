@@ -1,7 +1,14 @@
 /**
  * @file RobotWiFiConnection.ts
  * @brief Detecção e gerenciamento de conexão WiFi local com robô
- * @version 2.0.0 — Arquitetura PC-Centric
+ * @version 3.0.0 — Arquitetura PC-Centric (Mapa Final Confirmado)
+ *
+ * Topologia 192.168.99.0/24:
+ *   .1   → Panda Router (Gateway)
+ *   .2   → SLAMWARE (Navegação)
+ *   .10  → PLACA ANDROID (Cérebro do robô)
+ *   .100 → PC (Broker MQTT)
+ *   .200 → Tablet (app Lovable)
  */
 
 import { NETWORK_CONFIG, MQTT_CONFIG } from '@/config/mqtt';
@@ -19,19 +26,21 @@ export function isPWA(): boolean {
   );
 }
 
-/**
- * Topologia de rede v2.0 (Fev/2026):
- * PC (Broker):  192.168.99.100
- * Robô:         192.168.99.101
- * Gateway:      192.168.99.102
- * Tablet:       192.168.99.200
- */
 export const ROBOT_NETWORK_CONFIG = {
+  /** Panda Router — Gateway */
   router: NETWORK_CONFIG.GATEWAY_IP,
+  /** PC — Broker MQTT */
   broker: NETWORK_CONFIG.PC_IP,
-  robot: NETWORK_CONFIG.ROBOT_IP,
+  /** Placa Android — Cérebro do robô */
+  androidBoard: NETWORK_CONFIG.ANDROID_BOARD_IP,
+  /** SLAMWARE */
+  slam: NETWORK_CONFIG.SLAM_IP,
+  /** Tablet — app Lovable */
   tablet: NETWORK_CONFIG.TABLET_IP,
-  robotInternal: NETWORK_CONFIG.ROBOT_IP,
+  /** @deprecated — firmware APK antigo */
+  robotInternal: NETWORK_CONFIG.ROBOT_FIRMWARE_IP,
+  /** @deprecated — alias para retrocompatibilidade */
+  robot: NETWORK_CONFIG.ROBOT_FIRMWARE_IP,
   ports: {
     http: 80,
     mqttTcp: 1883,
@@ -59,10 +68,15 @@ export interface ConnectionResult {
   latencyMs: number;
 }
 
+/**
+ * IPs a testar na detecção automática.
+ * Prioridade: Placa Android (.10) → PC (.100) → Gateway (.1)
+ * O firmware APK (.101) foi removido da lista.
+ */
 const ROBOT_IPS = [
-  NETWORK_CONFIG.ROBOT_IP,   // Robô AlphaBot
-  NETWORK_CONFIG.PC_IP,      // PC / Broker MQTT
-  NETWORK_CONFIG.GATEWAY_IP, // Gateway
+  NETWORK_CONFIG.ANDROID_BOARD_IP,  // Placa Android — cérebro do robô
+  NETWORK_CONFIG.PC_IP,             // PC / Broker MQTT
+  NETWORK_CONFIG.GATEWAY_IP,        // Panda Router
 ] as const;
 
 const TIMEOUT_MS = 15000;
@@ -118,7 +132,7 @@ async function fetchRobotInfo(ip: string, timeoutMs = 8000): Promise<RobotInfo |
 }
 
 export async function detectRobotIP(): Promise<ConnectionResult> {
-  console.log('🔍 Iniciando detecção automática de IP do robô...');
+  console.log('🔍 Iniciando detecção automática — Topologia v3.0...');
 
   if (isHttpsContext() && !isPWA()) {
     console.warn('⚠️ Rodando em HTTPS sem ser PWA — conexões HTTP podem ser bloqueadas');
@@ -138,7 +152,7 @@ export async function detectRobotIP(): Promise<ConnectionResult> {
       success: false,
       ip: null,
       robotInfo: null,
-      error: `Robô não encontrado.\n\nVerifique:\n1. Wi-Fi: Robo ou RoboKen_Controle\n2. Robô ligado e conectado à rede\n3. Teste: http://${NETWORK_CONFIG.ROBOT_IP}/api/ping`,
+      error: `Robô não encontrado.\n\nVerifique:\n1. Wi-Fi: Robo ou RoboKen_Controle\n2. Robô ligado e conectado à rede\n3. Teste: http://${NETWORK_CONFIG.ANDROID_BOARD_IP}/api/ping\n4. Placa Android (.10) ou PC (.100) devem responder`,
       latencyMs: -1,
     };
   }

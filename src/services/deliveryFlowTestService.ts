@@ -35,7 +35,7 @@ export interface DeliveryFlowConfig {
 
 export const DEFAULT_FLOW_CONFIG: DeliveryFlowConfig = {
   robotSN: 'CT300-H13307',
-  robotIP: '192.168.99.101',
+  robotIP: '192.168.99.10', // Placa Android — cérebro do robô
   httpPort: 80,
   mqttPort: 1883,
   wsPort: 9090,

@@ -1,14 +1,13 @@
 /**
  * useMQTTConfigStore — Configurações MQTT persistidas no localStorage.
  *
- * Arquitetura PC-Centric v2.0 (Fev/2026):
- *   - PC (Broker):   192.168.99.100 (Mosquitto, porta WS 9002)
- *   - Robô AlphaBot: 192.168.99.101
- *   - Tablet:        192.168.99.200 (display secundário)
- *   - Gateway:       192.168.99.102 (Router "Robo")
- *   - Porta MQTT:    1883 (TCP nativo)
- *   - Porta WS:      9002 (WebSocket — 9001 bloqueada pelo Windows)
- *   - Serial:        H13307
+ * Arquitetura PC-Centric v3.0 (Mapa Final Confirmado):
+ *   .1   → Panda Router (Gateway)
+ *   .2   → SLAMWARE (Navegação)
+ *   .10  → Placa Android (Cérebro do robô)
+ *   .100 → PC (Broker MQTT, Mosquitto, porta WS 9002)
+ *   .200 → Tablet (app Lovable)
+ *   Porta WS: 9002 (9001 bloqueada pelo Windows)
  */
 
 import { create } from 'zustand';
@@ -42,15 +41,15 @@ export const DEFAULT_WS_PORTS = [9002, 8083, 8080];
 export const DEFAULT_WSS_PORTS = [8084, 8883];
 
 /**
- * IPs candidatos — Arquitetura PC-Centric v2.0:
+ * IPs candidatos — Arquitetura v3.0 (Mapa Final):
  * - 192.168.99.100: PC (Broker MQTT + Web Server)
- * - 192.168.99.101: Robô AlphaBot H13307
- * - 192.168.99.102: Gateway Router "Robo"
+ * - 192.168.99.10:  Placa Android (pode ter broker local)
+ * - 192.168.99.1:   Panda Router (Gateway)
  */
 export const DEFAULT_BROKER_IPS = [
-  NETWORK_CONFIG.PC_IP,      // 192.168.99.100 — Broker
-  NETWORK_CONFIG.ROBOT_IP,   // 192.168.99.101 — Robô
-  NETWORK_CONFIG.GATEWAY_IP, // 192.168.99.102 — Gateway
+  NETWORK_CONFIG.PC_IP,              // 192.168.99.100 — Broker
+  NETWORK_CONFIG.ANDROID_BOARD_IP,   // 192.168.99.10  — Placa Android
+  NETWORK_CONFIG.GATEWAY_IP,         // 192.168.99.1   — Gateway
 ];
 
 const DEFAULT_CONFIG: MQTTConfig = {
