@@ -318,28 +318,24 @@
     "endReception": "Encerrar",
     "products": {
       "residential": {
-        "name": "Kit Solar Residencial",
-        "desc": "Sistema completo de energia solar para residências. Inclui painéis fotovoltaicos, inversor, estrutura de fixação e monitoramento inteligente. Economia de até 95% na conta de luz."
+        "name": "Solar Life Energy",
+        "desc": "Energia solar inteligente para o futuro. Conheça nossas soluções de energia limpa e sustentável."
       },
       "commercial": {
-        "name": "Sistema Comercial/Industrial",
-        "desc": "Soluções de grande porte para empresas e indústrias. Projetos customizados com alta eficiência energética e retorno do investimento em até 4 anos."
+        "name": "Na Solar Life Energy, nós paramos de vender o futuro. Nós entregamos o presente.",
+        "desc": "Porque o maior risco não é adotar a robótica cedo demais. É adotá-la tarde demais."
       },
       "portable": {
-        "name": "Estação Solar Portátil",
-        "desc": "Gerador solar portátil para uso em campo, eventos e emergências. Bateria de lítio integrada com múltiplas saídas USB e AC."
+        "name": "Conheça a Revolução Humanoide",
+        "desc": "Robôs humanoides de telepresença e atendimento autônomo. A tecnologia que transforma a experiência do cliente."
       },
       "irrigation": {
-        "name": "Irrigação Solar",
-        "desc": "Bombeamento solar para irrigação agrícola. Sistema autônomo sem necessidade de rede elétrica, ideal para áreas remotas."
+        "name": "Iascom Consultoria",
+        "desc": "Consultoria especializada em automação, robótica e soluções tecnológicas para empresas que querem liderar a transformação digital."
       },
       "lighting": {
-        "name": "Iluminação Solar",
-        "desc": "Postes e luminárias solares autônomas para iluminação pública, condomínios e áreas rurais. LED de alta eficiência com sensor crepuscular."
-      },
-      "monitoring": {
-        "name": "Monitoramento Solar",
-        "desc": "Sistema inteligente de monitoramento de geração solar em tempo real. Relatórios de economia, alertas de performance e integração com inversores via app."
+        "name": "Chat IA — Cadastro",
+        "desc": "Converse com nosso assistente inteligente e cadastre-se para receber mais informações sobre nossos produtos e serviços."
       }
     }
   },
