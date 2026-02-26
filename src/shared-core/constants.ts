@@ -1,7 +1,15 @@
 /**
  * shared-core/constants.ts
- * Constantes da rede e hardware — AlphaBot Connect v2.0
- * Arquitetura PC-Centric (3 dispositivos)
+ * Constantes da rede e hardware — AlphaBot Connect v3.0
+ * Arquitetura PC-Centric (Mapa Final Confirmado)
+ *
+ * Topologia 192.168.99.0/24:
+ *   .1   → Panda Router (Gateway Wi-Fi)
+ *   .2   → SLAMWARE (Navegação / Mapeamento)
+ *   .10  → PLACA ANDROID (Cérebro do robô, multimídia)
+ *   .100 → PC (Broker MQTT + Web Server)
+ *   .200 → Tablet (Interface de controle / app Lovable)
+ *   .101 → AlphaBot firmware (DESCONSIDERADO)
  */
 
 import { NETWORK_CONFIG, MQTT_CONFIG } from '@/config/mqtt';
@@ -11,15 +19,17 @@ import { NETWORK_CONFIG, MQTT_CONFIG } from '@/config/mqtt';
 export const NETWORK = {
   /** PC (Broker MQTT + Web Server) */
   BROKER_IP: NETWORK_CONFIG.PC_IP,
-  /** Robô AlphaBot H13307 */
-  ROBOT_IP: NETWORK_CONFIG.ROBOT_IP,
-  /** Tablet (display secundário) */
+  /** Placa Android — Cérebro do robô (multimídia, TTS, display) */
+  ANDROID_BOARD_IP: NETWORK_CONFIG.ANDROID_BOARD_IP,
+  /** SLAMWARE — Navegação / mapeamento */
+  SLAM_IP: NETWORK_CONFIG.SLAM_IP,
+  /** Tablet (display secundário / app Lovable) */
   TABLET_IP: NETWORK_CONFIG.TABLET_IP,
-  /** Gateway / Router "Robo" */
+  /** Panda Router — Gateway Wi-Fi */
   GATEWAY_IP: NETWORK_CONFIG.GATEWAY_IP,
-  /** SLAM IP — mantido para compatibilidade */
-  SLAM_IP: '192.168.99.2',
-  /** @deprecated — IPs removidos da arquitetura v2.0 */
+  /** @deprecated — AlphaBot firmware APK (desconsiderado) */
+  ROBOT_FIRMWARE_IP: NETWORK_CONFIG.ROBOT_FIRMWARE_IP,
+  /** @deprecated — IPs removidos da arquitetura v3.0 */
   LEGACY_ROBOT_TABLET_IP: '192.168.99.197',
 } as const;
 
@@ -31,6 +41,10 @@ export const PORTS = {
   MQTT_WSS_STANDARD: 8883,
   SLAM_TCP: 1445,
   WEBSOCKET: 8080,
+  /** Porta HTTP da placa Android (a confirmar via engenharia reversa) */
+  ANDROID_HTTP: 80,
+  /** Porta WebSocket da placa Android (a confirmar) */
+  ANDROID_WS: 8080,
 } as const;
 
 // ─── Hardware ───
@@ -69,21 +83,23 @@ export const TIMEOUTS = {
 // ─── App ───
 
 export const APP = {
-  VERSION: '2.0.0',
+  VERSION: '3.0.1',
   NAME: 'AlphaBot Connect',
   AUTHOR: 'Iascom',
-  FOOTER: 'AlphaBot Connect v2.0.0 • Iascom',
+  FOOTER: 'AlphaBot Connect v3.0.1 • Iascom',
 } as const;
 
-// ─── Rede: Topologia v2.0 ───
+// ─── Rede: Topologia v3.0 (Mapa Final Confirmado) ───
 
 export const NETWORK_TOPOLOGY = {
   subnet: '192.168.99.0/24',
   devices: {
-    pc:      { ip: NETWORK_CONFIG.PC_IP,      role: 'Broker MQTT + Web Server (Mosquitto)' },
-    robot:   { ip: NETWORK_CONFIG.ROBOT_IP,    role: 'Robô AlphaBot H13307' },
-    tablet:  { ip: NETWORK_CONFIG.TABLET_IP,   role: 'Display secundário (browser)' },
-    gateway: { ip: NETWORK_CONFIG.GATEWAY_IP,  role: 'Router Wi-Fi "Robo"' },
+    gateway:      { ip: NETWORK_CONFIG.GATEWAY_IP,        role: 'Panda Router — Gateway Wi-Fi da rede do robô' },
+    slamware:     { ip: NETWORK_CONFIG.SLAM_IP,            role: 'SLAMWARE — Navegação / mapeamento' },
+    androidBoard: { ip: NETWORK_CONFIG.ANDROID_BOARD_IP,   role: 'PLACA ANDROID — Cérebro do robô (SO Android, multimídia)' },
+    pc:           { ip: NETWORK_CONFIG.PC_IP,              role: 'PC — Broker MQTT + Web Server (Mosquitto)' },
+    tablet:       { ip: NETWORK_CONFIG.TABLET_IP,          role: 'Tablet — Interface de controle (app Lovable)' },
+    firmware:     { ip: NETWORK_CONFIG.ROBOT_FIRMWARE_IP,  role: 'AlphaBot firmware (DESCONSIDERADO)' },
   },
   mqtt: {
     port: 1883,

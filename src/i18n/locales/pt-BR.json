@@ -336,6 +336,10 @@
       "lighting": {
         "name": "Iluminação Solar",
         "desc": "Postes e luminárias solares autônomas para iluminação pública, condomínios e áreas rurais. LED de alta eficiência com sensor crepuscular."
+      },
+      "monitoring": {
+        "name": "Monitoramento Solar",
+        "desc": "Sistema inteligente de monitoramento de geração solar em tempo real. Relatórios de economia, alertas de performance e integração com inversores via app."
       }
     }
   },

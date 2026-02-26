@@ -20,7 +20,9 @@ export class VideoStreamService {
   private onDisconnectCallback?: StatusCallback;
   private _connected = false;
 
-  constructor(robotIP = '192.168.99.101', wsPort = 8080) {
+  // TODO: Priorizar placa Android (192.168.99.10) para streaming de vídeo
+  // quando APIs de câmera da placa Android forem mapeadas
+  constructor(robotIP = '192.168.99.10', wsPort = 8080) {
     this.robotIP = robotIP;
     this.wsPort = wsPort;
   }

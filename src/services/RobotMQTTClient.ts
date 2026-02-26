@@ -2,10 +2,11 @@
  * RobotMQTTClient — Connects to the CSJBot via MQTT over WebSocket.
  *
  * Arquitetura PC-Centric v2.0 (Fev/2026):
+ *   Gateway:         192.168.99.1   (Panda Router)
+ *   SLAMWARE:        192.168.99.2   (Navegação / mapeamento)
+ *   Placa Android:   192.168.99.10  (Cérebro do robô, multimídia)
  *   Broker MQTT:     192.168.99.100 (PC/Mosquitto, porta WS 9002)
- *   Robô AlphaBot:   192.168.99.101
- *   Tablet:          192.168.99.200 (display secundário)
- *   Gateway:         192.168.99.102 (Router "Robo")
+ *   Tablet:          192.168.99.200 (app Lovable)
  *
  * IMPORTANTE: Porta 9001 BLOQUEADA pelo Windows.
  * Usar SEMPRE porta 9002 para WebSocket MQTT.
@@ -43,11 +44,11 @@ const ROBOT_TOPICS = [
   'status/#',
 ];
 
-// IPs candidatos — Arquitetura PC-Centric v2.0
+// IPs candidatos — Arquitetura PC-Centric v3.0 (Mapa Final)
 const CANDIDATE_IPS = [
-  NETWORK_CONFIG.PC_IP,      // 192.168.99.100 — Broker MQTT central
-  NETWORK_CONFIG.ROBOT_IP,   // 192.168.99.101 — Robô AlphaBot
-  NETWORK_CONFIG.GATEWAY_IP, // 192.168.99.102 — Gateway Router
+  NETWORK_CONFIG.PC_IP,              // 192.168.99.100 — Broker MQTT central
+  NETWORK_CONFIG.ANDROID_BOARD_IP,   // 192.168.99.10  — Placa Android (pode ter broker local)
+  NETWORK_CONFIG.GATEWAY_IP,         // 192.168.99.1   — Panda Router
 ];
 
 // Portas WebSocket MQTT — 9002 preferencial (9001 bloqueada pelo Windows)

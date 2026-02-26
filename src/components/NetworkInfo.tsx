@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { NETWORK_CONFIG, MQTT_CONFIG } from '@/config/mqtt';
 import { useMQTT } from '@/hooks/useMQTT';
-import { Network, Monitor, Bot, Tablet, Router, ChevronDown, ChevronUp } from 'lucide-react';
+import { Network, Monitor, Bot, Tablet, Router, ChevronDown, ChevronUp, Cpu, MapPin } from 'lucide-react';
 
 interface DeviceStatus {
   name: string;
@@ -16,10 +16,11 @@ const NetworkInfo = () => {
   const { isConnected, brokerUrl } = useMQTT();
   const [expanded, setExpanded] = useState(false);
   const [devices, setDevices] = useState<DeviceStatus[]>([
-    { name: 'PC (Broker)', ip: NETWORK_CONFIG.PC_IP, role: 'Broker MQTT + Servidor Web', icon: <Monitor className="w-4 h-4" />, status: 'unknown' },
-    { name: 'Robô H13307', ip: NETWORK_CONFIG.ROBOT_IP, role: 'AlphaBot (controlado)', icon: <Bot className="w-4 h-4" />, status: 'unknown' },
-    { name: 'Tablet', ip: NETWORK_CONFIG.TABLET_IP, role: 'Display secundário (browser)', icon: <Tablet className="w-4 h-4" />, status: 'unknown' },
-    { name: 'Gateway', ip: NETWORK_CONFIG.GATEWAY_IP, role: 'Router Wi-Fi "Robo"', icon: <Router className="w-4 h-4" />, status: 'unknown' },
+    { name: 'Panda Router', ip: NETWORK_CONFIG.GATEWAY_IP, role: 'Gateway Wi-Fi', icon: <Router className="w-4 h-4" />, status: 'unknown' },
+    { name: 'SLAMWARE', ip: NETWORK_CONFIG.SLAM_IP, role: 'Navegação / mapeamento', icon: <MapPin className="w-4 h-4" />, status: 'unknown' },
+    { name: 'Placa Android', ip: NETWORK_CONFIG.ANDROID_BOARD_IP, role: 'Cérebro do robô (multimídia)', icon: <Cpu className="w-4 h-4" />, status: 'unknown' },
+    { name: 'PC (Broker)', ip: NETWORK_CONFIG.PC_IP, role: 'Broker MQTT + Web Server', icon: <Monitor className="w-4 h-4" />, status: 'unknown' },
+    { name: 'Tablet', ip: NETWORK_CONFIG.TABLET_IP, role: 'Interface de controle (app Lovable)', icon: <Tablet className="w-4 h-4" />, status: 'unknown' },
   ]);
 
   // Update PC broker status based on MQTT connection

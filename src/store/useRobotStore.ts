@@ -69,7 +69,7 @@ export const useRobotStore = create<RobotState>()(
   persist(
     (set, get) => ({
       connectionStatus: 'disconnected',
-      ip: '192.168.99.101',
+      ip: '192.168.99.10',
       port: '8080',
       authToken: '',
       error: null,

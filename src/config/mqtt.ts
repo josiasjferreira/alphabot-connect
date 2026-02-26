@@ -13,14 +13,20 @@ export const NETWORK_CONFIG = {
   /** PC (Broker MQTT + Servidor Web) — IP ESTÁTICO */
   PC_IP: '192.168.99.100',
 
-  /** Robô AlphaBot H13307 — IP ESTÁTICO */
-  ROBOT_IP: '192.168.99.101',
+  /** Placa Android — CÉREBRO DO ROBÔ (SO Android, apps internos, multimídia) — NÓ CRÍTICO */
+  ANDROID_BOARD_IP: '192.168.99.10',
 
-  /** Tablet (display secundário via browser) — IP ESTÁTICO */
+  /** SLAMWARE — Navegação / mapeamento */
+  SLAM_IP: '192.168.99.2',
+
+  /** Tablet (display secundário via browser / app Lovable) — IP ESTÁTICO */
   TABLET_IP: '192.168.99.200',
 
-  /** Gateway / Router Wi-Fi "Robo" */
-  GATEWAY_IP: '192.168.99.102',
+  /** Panda Router — Gateway Wi-Fi da rede do robô */
+  GATEWAY_IP: '192.168.99.1',
+
+  /** AlphaBot firmware (APK antigo — DESCONSIDERADO no momento) */
+  ROBOT_FIRMWARE_IP: '192.168.99.101',
 
   /** Subrede */
   SUBNET: '192.168.99',
@@ -64,7 +70,7 @@ export function validateMQTTConfig(): boolean {
 }
 
 /** IPs legados que devem ser migrados para o novo PC_IP */
-export const LEGACY_IPS = ['192.168.99.197', '192.168.99.103', '192.168.99.101'] as const;
+export const LEGACY_IPS = ['192.168.99.197', '192.168.99.103', '192.168.99.102'] as const;
 
 /** Portas legadas que devem ser migradas para 9002 */
 export const LEGACY_PORTS = [9001] as const;

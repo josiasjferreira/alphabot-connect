@@ -11,7 +11,9 @@ export class AudioService {
   private onPlayCb?: StatusCallback;
   private onStopCb?: StatusCallback;
 
-  constructor(robotIP = '192.168.99.102', httpPort = 80) {
+  // TODO: Priorizar placa Android (192.168.99.10) para áudio/TTS
+  // quando APIs de áudio da placa forem mapeadas
+  constructor(robotIP = '192.168.99.10', httpPort = 80) {
     this.robotIP = robotIP;
     this.httpPort = httpPort;
     this.audioElement = new Audio();

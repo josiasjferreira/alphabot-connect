@@ -48,8 +48,9 @@ export class RobotHTTPClient {
   public onLog: RobotHTTPClientOptions['onLog'];
 
   constructor(opts: RobotHTTPClientOptions) {
-    // IP do robô — Arquitetura PC-Centric v2.0: 192.168.99.101
-    const rawIp = opts.ip ?? NETWORK_CONFIG.ROBOT_IP;
+    // IP do robô — Arquitetura v3.0: priorizar Placa Android 192.168.99.10
+    // TODO: Quando APIs da placa Android forem mapeadas, usar ANDROID_BOARD_IP como padrão
+    const rawIp = opts.ip ?? NETWORK_CONFIG.ANDROID_BOARD_IP;
     // Extrair só o host (sem porta) para construir as URLs
     const host = rawIp.includes(':') ? rawIp.split(':')[0] : rawIp;
     this.ip = host; // guardar sem porta
@@ -70,7 +71,7 @@ export class RobotHTTPClient {
   static async detectRobotIP(): Promise<string | null> {
     console.log('🔍 Detectando robô na rede local...');
 
-    const CANDIDATE_IPS = [NETWORK_CONFIG.ROBOT_IP, NETWORK_CONFIG.PC_IP, NETWORK_CONFIG.GATEWAY_IP];
+    const CANDIDATE_IPS = [NETWORK_CONFIG.ANDROID_BOARD_IP, NETWORK_CONFIG.PC_IP, NETWORK_CONFIG.GATEWAY_IP];
 
     for (const ip of CANDIDATE_IPS) {
       console.log(`🎯 Testando: http://${ip}/api/ping`);
