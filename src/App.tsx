@@ -31,6 +31,7 @@ import Calibration from "./pages/Calibration";
 import RobotCalibrationPanel from "./components/RobotCalibrationPanel";
 import NetworkDiagnostics from "./pages/NetworkDiagnostics";
 import MqttConfig from "./pages/MqttConfig";
+import AndroidBoardDiag from "./pages/AndroidBoardDiag";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -70,6 +71,7 @@ const App = () => (
           <Route path="/calibration-wifi" element={<RobotCalibrationPanel />} />
           <Route path="/network-diagnostics" element={<NetworkDiagnostics />} />
           <Route path="/mqtt-config" element={<MqttConfig />} />
+          <Route path="/android-diag" element={<AndroidBoardDiag />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </HashRouter>
