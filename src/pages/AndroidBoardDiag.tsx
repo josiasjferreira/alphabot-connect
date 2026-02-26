@@ -3,7 +3,8 @@ import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Cpu, Wifi, WifiOff, Play, Loader2, CheckCircle, XCircle, AlertTriangle,
-  Volume2, Monitor, Navigation, Clock, Send, ChevronDown, ChevronUp
+  Volume2, Monitor, Navigation, Clock, Send, ChevronDown, ChevronUp,
+  Search, Radio
 } from 'lucide-react';
 import StatusHeader from '@/components/StatusHeader';
 import { Button } from '@/components/ui/button';
@@ -13,6 +14,32 @@ import { NETWORK_CONFIG } from '@/config/mqtt';
 
 const BOARD_IP = NETWORK_CONFIG.ANDROID_BOARD_IP;
 const BASE_URL = `http://${BOARD_IP}`;
+
+// ─── Port Scanner ───
+
+interface PortScanResult {
+  port: number;
+  protocol: string;
+  status: ProbeStatus;
+  latencyMs?: number;
+  serverHeader?: string;
+  contentSnippet?: string;
+}
+
+const PORTS_TO_SCAN = [
+  { port: 80, protocol: 'HTTP' },
+  { port: 443, protocol: 'HTTPS' },
+  { port: 8080, protocol: 'HTTP Alt / WebSocket' },
+  { port: 8443, protocol: 'HTTPS Alt' },
+  { port: 3000, protocol: 'Dev Server' },
+  { port: 5000, protocol: 'Flask / API' },
+  { port: 8000, protocol: 'HTTP Alt' },
+  { port: 8888, protocol: 'HTTP Alt' },
+  { port: 9090, protocol: 'WebSocket / Admin' },
+  { port: 1883, protocol: 'MQTT (TCP)' },
+  { port: 9001, protocol: 'MQTT WS' },
+  { port: 9002, protocol: 'MQTT WS Alt' },
+];
 
 // ─── Tipos ───
 
@@ -124,6 +151,12 @@ const AndroidBoardDiag = () => {
   const [customResult, setCustomResult] = useState<ProbeResult>({ status: 'idle' });
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
+  // Port scanner state
+  const [portResults, setPortResults] = useState<PortScanResult[]>(
+    PORTS_TO_SCAN.map(p => ({ port: p.port, protocol: p.protocol, status: 'idle' as ProbeStatus }))
+  );
+  const [scanningPorts, setScanningPorts] = useState(false);
+
   const probeEndpoint = useCallback(async (
     method: 'GET' | 'POST',
     path: string,
@@ -198,6 +231,61 @@ const AndroidBoardDiag = () => {
     setCustomResult(result);
   }, [customPath, customMethod, customBody, probeEndpoint]);
 
+  // ─── Port Scanner ───
+
+  const scanPort = useCallback(async (port: number): Promise<PortScanResult> => {
+    const start = performance.now();
+    const protocol = PORTS_TO_SCAN.find(p => p.port === port)?.protocol ?? 'Unknown';
+    const isHttps = port === 443 || port === 8443;
+    const url = `${isHttps ? 'https' : 'http'}://${BOARD_IP}:${port}/`;
+
+    try {
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), 3000);
+      const res = await fetch(url, { signal: ctrl.signal, cache: 'no-store', mode: 'no-cors' });
+      clearTimeout(timer);
+      const latencyMs = Math.round(performance.now() - start);
+
+      // In no-cors mode, opaque responses have type 'opaque' and status 0
+      // but the fact that we got a response means the port is open
+      const serverHeader = res.headers?.get('server') ?? undefined;
+      const snippet = res.type !== 'opaque' ? await res.text().catch(() => '') : '';
+
+      return {
+        port, protocol,
+        status: 'success',
+        latencyMs,
+        serverHeader,
+        contentSnippet: snippet.slice(0, 500) || undefined,
+      };
+    } catch (err) {
+      const latencyMs = Math.round(performance.now() - start);
+      const msg = (err as Error).message || '';
+      // If we got a quick rejection, port is likely closed
+      // If timeout, port might be filtered
+      return {
+        port, protocol,
+        status: msg.includes('abort') ? 'timeout' : 'error',
+        latencyMs,
+      };
+    }
+  }, []);
+
+  const runPortScan = useCallback(async () => {
+    setScanningPorts(true);
+    setPortResults(PORTS_TO_SCAN.map(p => ({ port: p.port, protocol: p.protocol, status: 'running' as ProbeStatus })));
+
+    // Scan all ports in parallel for speed
+    const promises = PORTS_TO_SCAN.map(async (p, i) => {
+      const result = await scanPort(p.port);
+      setPortResults(prev => prev.map((r, idx) => idx === i ? result : r));
+      return result;
+    });
+
+    await Promise.all(promises);
+    setScanningPorts(false);
+  }, [scanPort]);
+
   const statusIcon = (s: ProbeStatus) => {
     switch (s) {
       case 'running': return <Loader2 className="w-5 h-5 text-primary animate-spin" />;
@@ -219,6 +307,8 @@ const AndroidBoardDiag = () => {
 
   const successCount = probes.filter(p => p.result.status === 'success').length;
   const errorCount = probes.filter(p => p.result.status === 'error' || p.result.status === 'timeout').length;
+  const openPorts = portResults.filter(p => p.status === 'success').length;
+  const scannedPorts = portResults.filter(p => p.status !== 'idle' && p.status !== 'running').length;
 
   return (
     <div className="min-h-screen bg-background safe-bottom flex flex-col">
@@ -330,7 +420,71 @@ const AndroidBoardDiag = () => {
           })}
         </div>
 
-        {/* Custom endpoint */}
+        {/* ─── Port Scanner ─── */}
+        <Card>
+          <CardHeader className="pb-2">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-sm flex items-center gap-2">
+                <Radio className="w-4 h-4" />
+                Scanner de Portas — {BOARD_IP}
+              </CardTitle>
+              <Button onClick={runPortScan} disabled={scanningPorts} size="sm" variant="outline" className="gap-2">
+                {scanningPorts ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Search className="w-3.5 h-3.5" />}
+                {scanningPorts ? 'Escaneando…' : 'Escanear'}
+              </Button>
+            </div>
+            {scannedPorts > 0 && (
+              <p className="text-xs text-muted-foreground mt-1">
+                {openPorts} porta{openPorts !== 1 ? 's' : ''} aberta{openPorts !== 1 ? 's' : ''} de {scannedPorts} testadas
+              </p>
+            )}
+          </CardHeader>
+          <CardContent className="pt-0">
+            <div className="grid grid-cols-2 gap-2">
+              {portResults.map((pr) => (
+                <motion.div
+                  key={pr.port}
+                  className={`flex items-center gap-2 p-2 rounded-lg border text-sm font-mono ${
+                    pr.status === 'success'
+                      ? 'border-green-500/30 bg-green-500/5'
+                      : pr.status === 'timeout'
+                        ? 'border-amber-500/30 bg-amber-500/5'
+                        : pr.status === 'error'
+                          ? 'border-border bg-muted/30'
+                          : 'border-border'
+                  }`}
+                  animate={pr.status === 'running' ? { opacity: [0.5, 1, 0.5] } : { opacity: 1 }}
+                  transition={pr.status === 'running' ? { repeat: Infinity, duration: 1 } : {}}
+                >
+                  {statusIcon(pr.status)}
+                  <div className="flex-1 min-w-0">
+                    <span className="font-bold text-foreground">:{pr.port}</span>
+                    <p className="text-xs text-muted-foreground truncate">{pr.protocol}</p>
+                    {pr.latencyMs !== undefined && pr.status !== 'idle' && (
+                      <p className="text-xs text-muted-foreground">{pr.latencyMs}ms</p>
+                    )}
+                    {pr.serverHeader && (
+                      <p className="text-xs text-primary truncate">{pr.serverHeader}</p>
+                    )}
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+            {portResults.some(p => p.contentSnippet) && (
+              <div className="mt-3 space-y-2">
+                {portResults.filter(p => p.contentSnippet).map(p => (
+                  <div key={`snippet-${p.port}`}>
+                    <p className="text-xs font-semibold text-muted-foreground">Porta {p.port} — conteúdo:</p>
+                    <pre className="text-xs bg-muted p-2 rounded font-mono overflow-x-auto max-h-24 text-foreground">
+                      {p.contentSnippet}
+                    </pre>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm flex items-center gap-2">
