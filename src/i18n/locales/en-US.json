@@ -318,24 +318,24 @@
     "endReception": "End",
     "products": {
       "residential": {
-        "name": "Residential Solar Kit",
-        "desc": "Complete solar energy system for homes. Includes photovoltaic panels, inverter, mounting structure and smart monitoring. Save up to 95% on your electricity bill."
+        "name": "Solar Life Energy",
+        "desc": "Smart solar energy for the future. Discover our clean and sustainable energy solutions."
       },
       "commercial": {
-        "name": "Commercial/Industrial System",
-        "desc": "Large-scale solutions for businesses and industries. Custom projects with high energy efficiency and return on investment within 4 years."
+        "name": "At Solar Life Energy, we stopped selling the future. We deliver the present.",
+        "desc": "Because the biggest risk isn't adopting robotics too early. It's adopting it too late."
       },
       "portable": {
-        "name": "Portable Solar Station",
-        "desc": "Portable solar generator for field use, events and emergencies. Integrated lithium battery with multiple USB and AC outputs."
+        "name": "Meet the Humanoid Revolution",
+        "desc": "Humanoid robots for telepresence and autonomous service. Technology that transforms the customer experience."
       },
       "irrigation": {
-        "name": "Solar Irrigation",
-        "desc": "Solar pumping for agricultural irrigation. Autonomous system without grid power, ideal for remote areas."
+        "name": "Iascom Consulting",
+        "desc": "Specialized consulting in automation, robotics and technology solutions for companies that want to lead digital transformation."
       },
       "lighting": {
-        "name": "Solar Lighting",
-        "desc": "Autonomous solar poles and luminaires for public lighting, condominiums and rural areas. High-efficiency LED with twilight sensor."
+        "name": "AI Chat — Register",
+        "desc": "Talk to our intelligent assistant and register to receive more information about our products and services."
       }
     }
   },

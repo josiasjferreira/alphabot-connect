@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Play, Pause, Save, User, Phone, CheckCircle, LogOut,
-  Maximize2, Minimize2, ChevronRight, Sparkles,
+  Maximize2, Minimize2, ChevronRight, Sparkles, MessageCircle,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import StatusHeader from '@/components/StatusHeader';
@@ -61,6 +61,11 @@ const ProductShowcase = () => {
   }, [slideshowActive]);
 
   const handleProductClick = useCallback((product: SolarProduct) => {
+    // Card 5 (action: open-chat) → navigate to Chat IA
+    if (product.action === 'open-chat') {
+      navigate('/chat');
+      return;
+    }
     setSelectedProduct(product);
     // Log view
     saveInteraction({
@@ -72,14 +77,13 @@ const ProductShowcase = () => {
       createdAt: Date.now(),
       synced: false,
     });
-    // TODO: Publicar seleção no MQTT para placa Android reagir
     if (isConnected) {
       publish('solar-life/product-viewed', {
         productId: product.id,
         timestamp: Date.now(),
       });
     }
-  }, [clientName, clientWhatsapp, isConnected, publish]);
+  }, [clientName, clientWhatsapp, isConnected, publish, navigate]);
 
   const handleSave = useCallback(async () => {
     if (!clientName.trim()) {
@@ -194,6 +198,21 @@ const ProductShowcase = () => {
 
       {/* Product Grid */}
       <div className="flex-1 overflow-y-auto px-4 pt-3 pb-4">
+        {/* Video for first product */}
+        {SOLAR_PRODUCTS[0]?.videoUrl && (
+          <div className="mb-4 rounded-2xl overflow-hidden shadow-lg border border-border">
+            <video
+              src={SOLAR_PRODUCTS[0].videoUrl}
+              controls
+              autoPlay
+              muted
+              loop
+              playsInline
+              className="w-full aspect-video object-cover bg-black"
+            />
+          </div>
+        )}
+
         <div className="grid grid-cols-2 gap-3">
           {SOLAR_PRODUCTS.map((product, i) => (
             <motion.button
@@ -206,16 +225,25 @@ const ProductShowcase = () => {
               className={`relative rounded-2xl border overflow-hidden text-left transition-all shadow-card hover:shadow-lg ${
                 product.highlight
                   ? 'border-solar-gold/40 bg-gradient-to-br from-card to-solar-gold/5'
+                  : product.action === 'open-chat'
+                  ? 'border-primary/30 bg-gradient-to-br from-card to-primary/5'
                   : 'border-border bg-card'
               }`}
             >
               {product.highlight && (
                 <div className="absolute top-0 left-0 right-0 h-1 gradient-solar" />
               )}
+              {product.action === 'open-chat' && (
+                <div className="absolute top-0 left-0 right-0 h-1 bg-primary" />
+              )}
               <div className="p-4">
                 <div className="flex items-start justify-between mb-2">
                   <span className="text-3xl">{product.icon}</span>
-                  <span className="text-lg">{product.emoji}</span>
+                  {product.action === 'open-chat' ? (
+                    <MessageCircle className="w-5 h-5 text-primary" />
+                  ) : (
+                    <span className="text-lg">{product.emoji}</span>
+                  )}
                 </div>
                 <h3 className="font-bold text-sm text-foreground leading-snug mb-1">
                   {t(product.nameKey)}
@@ -224,7 +252,9 @@ const ProductShowcase = () => {
                   {t(product.descKey)}
                 </p>
                 <div className="flex items-center gap-1 mt-3 text-solar-orange">
-                  <span className="text-[10px] font-bold uppercase tracking-wider">Ver detalhes</span>
+                  <span className="text-[10px] font-bold uppercase tracking-wider">
+                    {product.action === 'open-chat' ? 'Abrir Chat' : 'Ver detalhes'}
+                  </span>
                   <ChevronRight className="w-3 h-3" />
                 </div>
               </div>
