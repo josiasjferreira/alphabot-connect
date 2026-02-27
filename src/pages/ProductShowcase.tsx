@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -51,15 +51,17 @@ const ProductShowcase = () => {
   }, [machineState, navigate]);
 
   // Only slideshow products that have video (skip chat-only card)
-  const slideshowProducts = SOLAR_PRODUCTS.filter(p => p.videoUrl);
+  const slideshowProducts = useMemo(() => SOLAR_PRODUCTS.filter(p => p.videoUrl), []);
 
   const advanceSlideshow = useCallback(() => {
-    setSlideshowIndex(i => (i + 1) % slideshowProducts.length);
+    setSlideshowIndex(prev => (prev + 1) % slideshowProducts.length);
   }, [slideshowProducts.length]);
 
   // Slideshow auto-play — timer fallback for non-video cards
   useEffect(() => {
-    if (slideshowActive && !slideshowProducts[slideshowIndex]?.videoUrl) {
+    if (!slideshowActive) return;
+    const current = slideshowProducts[slideshowIndex];
+    if (!current?.videoUrl) {
       slideshowRef.current = setInterval(advanceSlideshow, SLIDESHOW_INTERVAL);
     }
     return () => { if (slideshowRef.current) clearInterval(slideshowRef.current); };
@@ -161,26 +163,29 @@ const ProductShowcase = () => {
       </div>
 
       {/* Slideshow Hero (when active) */}
-      <AnimatePresence mode="wait">
-        {slideshowActive && (
+      <AnimatePresence mode="popLayout">
+        {slideshowActive && slideshowProduct && (
           <motion.div
             key={`slide-${slideshowIndex}`}
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 1.05 }}
-            transition={{ duration: 0.6 }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.4 }}
             className="mx-4 mt-2 rounded-3xl overflow-hidden shadow-xl cursor-pointer"
             onClick={() => { setSlideshowActive(false); handleProductClick(slideshowProduct); }}
           >
             {slideshowProduct.videoUrl ? (
               <div className="relative">
                 <video
-                  key={`video-${slideshowProduct.id}`}
+                  key={`video-${slideshowIndex}-${slideshowProduct.id}`}
                   src={slideshowProduct.videoUrl}
                   autoPlay
                   muted
                   playsInline
-                  onEnded={advanceSlideshow}
+                  onEnded={() => {
+                    console.log(`Video ended: ${slideshowProduct.id}, advancing...`);
+                    advanceSlideshow();
+                  }}
                   className="w-full aspect-video object-cover"
                 />
                 <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/70 to-transparent">
