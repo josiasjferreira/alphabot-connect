@@ -50,17 +50,20 @@ const ProductShowcase = () => {
     if (machineState === 'ERROR') navigate('/dashboard');
   }, [machineState, navigate]);
 
-  const advanceSlideshow = useCallback(() => {
-    setSlideshowIndex(i => (i + 1) % SOLAR_PRODUCTS.length);
-  }, []);
+  // Only slideshow products that have video (skip chat-only card)
+  const slideshowProducts = SOLAR_PRODUCTS.filter(p => p.videoUrl);
 
-  // Slideshow auto-play — timer only for non-video cards
+  const advanceSlideshow = useCallback(() => {
+    setSlideshowIndex(i => (i + 1) % slideshowProducts.length);
+  }, [slideshowProducts.length]);
+
+  // Slideshow auto-play — timer fallback for non-video cards
   useEffect(() => {
-    if (slideshowActive && !SOLAR_PRODUCTS[slideshowIndex]?.videoUrl) {
+    if (slideshowActive && !slideshowProducts[slideshowIndex]?.videoUrl) {
       slideshowRef.current = setInterval(advanceSlideshow, SLIDESHOW_INTERVAL);
     }
     return () => { if (slideshowRef.current) clearInterval(slideshowRef.current); };
-  }, [slideshowActive, slideshowIndex, advanceSlideshow]);
+  }, [slideshowActive, slideshowIndex, advanceSlideshow, slideshowProducts]);
 
   const handleProductClick = useCallback((product: SolarProduct) => {
     // Card 5 (action: open-chat) → navigate to Chat IA
@@ -114,7 +117,7 @@ const ProductShowcase = () => {
   const toggleFairMode = () => setFairMode(f => !f);
   const toggleSlideshow = () => setSlideshowActive(s => !s);
 
-  const slideshowProduct = SOLAR_PRODUCTS[slideshowIndex];
+  const slideshowProduct = slideshowProducts[slideshowIndex];
 
   return (
     <div className={`min-h-screen bg-background flex flex-col ${fairMode ? 'fixed inset-0 z-50' : ''}`}>
@@ -161,7 +164,7 @@ const ProductShowcase = () => {
       <AnimatePresence mode="wait">
         {slideshowActive && (
           <motion.div
-            key={slideshowProduct.id}
+            key={`slide-${slideshowIndex}`}
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 1.05 }}
