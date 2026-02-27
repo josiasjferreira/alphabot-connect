@@ -231,7 +231,7 @@ const ProductShowcase = () => {
 
       {/* Product Grid */}
       <div className="flex-1 overflow-y-auto px-4 pt-3 pb-4">
-        {/* Video for first product */}
+        {/* Video de abertura */}
         {SOLAR_PRODUCTS[0]?.videoUrl && (
           <div className="mb-4 rounded-2xl overflow-hidden shadow-lg border border-border">
             <video
@@ -268,6 +268,20 @@ const ProductShowcase = () => {
               )}
               {product.action === 'open-chat' && (
                 <div className="absolute top-0 left-0 right-0 h-1 bg-primary" />
+              )}
+              {/* Video thumbnail para cards com vídeo */}
+              {product.videoUrl && !product.highlight && (
+                <div className="relative">
+                  <video
+                    src={product.videoUrl}
+                    muted
+                    playsInline
+                    autoPlay
+                    loop
+                    className="w-full aspect-video object-cover"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-card via-transparent to-transparent" />
+                </div>
               )}
               <div className="p-4">
                 <div className="flex items-start justify-between mb-2">
