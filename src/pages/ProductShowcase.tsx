@@ -31,7 +31,8 @@ const ProductShowcase = () => {
   const [fairMode, setFairMode] = useState(false);
   const [slideshowActive, setSlideshowActive] = useState(false);
   const [slideshowIndex, setSlideshowIndex] = useState(0);
-  const slideshowRef = useRef<ReturnType<typeof setInterval>>();
+  const slideshowRef = useRef<ReturnType<typeof setTimeout>>();
+  const videoFallbackRef = useRef<ReturnType<typeof setTimeout>>();
 
   // Auto-log page access
   useEffect(() => {
@@ -57,14 +58,20 @@ const ProductShowcase = () => {
     setSlideshowIndex(prev => (prev + 1) % slideshowProducts.length);
   }, [slideshowProducts.length]);
 
-  // Slideshow auto-play — timer fallback for non-video cards
+  // Slideshow auto-play — timer for non-video cards, fallback for video cards
   useEffect(() => {
     if (!slideshowActive) return;
     const current = slideshowProducts[slideshowIndex];
     if (!current?.videoUrl) {
-      slideshowRef.current = setInterval(advanceSlideshow, SLIDESHOW_INTERVAL);
+      slideshowRef.current = setTimeout(advanceSlideshow, SLIDESHOW_INTERVAL);
+    } else {
+      // Safety fallback: if onEnded doesn't fire after 120s, advance anyway
+      videoFallbackRef.current = setTimeout(advanceSlideshow, 120000);
     }
-    return () => { if (slideshowRef.current) clearInterval(slideshowRef.current); };
+    return () => {
+      if (slideshowRef.current) clearTimeout(slideshowRef.current);
+      if (videoFallbackRef.current) clearTimeout(videoFallbackRef.current);
+    };
   }, [slideshowActive, slideshowIndex, advanceSlideshow, slideshowProducts]);
 
   const handleProductClick = useCallback((product: SolarProduct) => {
@@ -183,7 +190,12 @@ const ProductShowcase = () => {
                   muted
                   playsInline
                   onEnded={() => {
+                    if (videoFallbackRef.current) clearTimeout(videoFallbackRef.current);
                     console.log(`Video ended: ${slideshowProduct.id}, advancing...`);
+                    advanceSlideshow();
+                  }}
+                  onError={() => {
+                    console.log(`Video error: ${slideshowProduct.id}, skipping...`);
                     advanceSlideshow();
                   }}
                   className="w-full aspect-video object-cover"
