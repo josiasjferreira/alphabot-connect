@@ -50,15 +50,17 @@ const ProductShowcase = () => {
     if (machineState === 'ERROR') navigate('/dashboard');
   }, [machineState, navigate]);
 
-  // Slideshow auto-play
+  const advanceSlideshow = useCallback(() => {
+    setSlideshowIndex(i => (i + 1) % SOLAR_PRODUCTS.length);
+  }, []);
+
+  // Slideshow auto-play — timer only for non-video cards
   useEffect(() => {
-    if (slideshowActive) {
-      slideshowRef.current = setInterval(() => {
-        setSlideshowIndex(i => (i + 1) % SOLAR_PRODUCTS.length);
-      }, SLIDESHOW_INTERVAL);
+    if (slideshowActive && !SOLAR_PRODUCTS[slideshowIndex]?.videoUrl) {
+      slideshowRef.current = setInterval(advanceSlideshow, SLIDESHOW_INTERVAL);
     }
     return () => { if (slideshowRef.current) clearInterval(slideshowRef.current); };
-  }, [slideshowActive]);
+  }, [slideshowActive, slideshowIndex, advanceSlideshow]);
 
   const handleProductClick = useCallback((product: SolarProduct) => {
     // Card 5 (action: open-chat) → navigate to Chat IA
@@ -175,6 +177,7 @@ const ProductShowcase = () => {
                   autoPlay
                   muted
                   playsInline
+                  onEnded={advanceSlideshow}
                   className="w-full aspect-video object-cover"
                 />
                 <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/70 to-transparent">
@@ -184,16 +187,6 @@ const ProductShowcase = () => {
                   <h2 className="text-xl font-black text-white leading-tight">
                     {t(slideshowProduct.nameKey)}
                   </h2>
-                </div>
-                {/* Progress bar */}
-                <div className="h-1 bg-white/20">
-                  <motion.div
-                    key={`bar-${slideshowIndex}`}
-                    initial={{ width: '0%' }}
-                    animate={{ width: '100%' }}
-                    transition={{ duration: SLIDESHOW_INTERVAL / 1000, ease: 'linear' }}
-                    className="h-full bg-white/60"
-                  />
                 </div>
               </div>
             ) : (
