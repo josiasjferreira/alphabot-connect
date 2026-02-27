@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { Camera, Volume2, VolumeX, Download, Circle, Square, Maximize, Minimize, Wifi, WifiOff, Play, Hand, AlertTriangle, Video } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import StatusHeader from '@/components/StatusHeader';
+import AudioControlPanel from '@/components/AudioControlPanel';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -352,7 +353,10 @@ const Media = () => {
           </CardContent>
         </Card>
 
-        {/* Audio Section */}
+        {/* MQTT Audio Control — Guia de Integração v3.0 */}
+        <AudioControlPanel />
+
+        {/* Local Audio Section */}
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-base flex items-center gap-2">

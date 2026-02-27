@@ -55,6 +55,13 @@ export const MQTT_CONFIG = {
     STATUS: `alphabot/H13307/status`,
     SENSORS: `alphabot/H13307/sensors`,
     HEARTBEAT: `alphabot/H13307/heartbeat`,
+
+    // ─── Áudio (Guia de Integração v3.0) ───
+    AUDIO_TTS: 'alphabot/audio/tts',
+    AUDIO_BEEP: 'alphabot/audio/beep',
+    AUDIO_ALERT: 'alphabot/audio/alert',
+    AUDIO_VOLUME: 'alphabot/audio/volume',
+    AUDIO_STATUS: 'alphabot/audio/status',
   },
 
   /** Timeouts */
