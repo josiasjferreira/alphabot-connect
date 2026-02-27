@@ -56,24 +56,52 @@ const SolarProductModal = ({ product, open, onClose }: Props) => {
           onClick={(e) => e.stopPropagation()}
         >
           {/* Hero */}
-          <div className="relative h-48 gradient-solar flex items-center justify-center rounded-t-3xl overflow-hidden">
-            <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/30" />
-            <span className="text-8xl relative z-10 drop-shadow-lg">{product.icon}</span>
-            <button
-              onClick={onClose}
-              className="absolute top-4 right-4 z-20 w-8 h-8 rounded-full bg-black/30 backdrop-blur flex items-center justify-center text-white"
-            >
-              <X className="w-4 h-4" />
-            </button>
-            <div className="absolute bottom-4 left-5 right-5 z-10">
-              <span className="text-xs font-bold uppercase tracking-wider text-white/80">
-                Solar Life Energy
-              </span>
-              <h2 className="text-2xl font-black text-white leading-tight">
-                {t(product.nameKey)}
-              </h2>
+          {product.videoUrl ? (
+            <div className="relative rounded-t-3xl overflow-hidden">
+              <video
+                key={product.videoUrl}
+                src={product.videoUrl}
+                autoPlay
+                muted
+                loop
+                playsInline
+                className="w-full aspect-video object-cover"
+              />
+              <button
+                onClick={onClose}
+                className="absolute top-4 right-4 z-20 w-8 h-8 rounded-full bg-black/30 backdrop-blur flex items-center justify-center text-white"
+              >
+                <X className="w-4 h-4" />
+              </button>
+              <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/70 to-transparent">
+                <span className="text-xs font-bold uppercase tracking-wider text-white/80">
+                  Solar Life Energy
+                </span>
+                <h2 className="text-2xl font-black text-white leading-tight">
+                  {t(product.nameKey)}
+                </h2>
+              </div>
             </div>
-          </div>
+          ) : (
+            <div className="relative h-48 gradient-solar flex items-center justify-center rounded-t-3xl overflow-hidden">
+              <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/30" />
+              <span className="text-8xl relative z-10 drop-shadow-lg">{product.icon}</span>
+              <button
+                onClick={onClose}
+                className="absolute top-4 right-4 z-20 w-8 h-8 rounded-full bg-black/30 backdrop-blur flex items-center justify-center text-white"
+              >
+                <X className="w-4 h-4" />
+              </button>
+              <div className="absolute bottom-4 left-5 right-5 z-10">
+                <span className="text-xs font-bold uppercase tracking-wider text-white/80">
+                  Solar Life Energy
+                </span>
+                <h2 className="text-2xl font-black text-white leading-tight">
+                  {t(product.nameKey)}
+                </h2>
+              </div>
+            </div>
+          )}
 
           {/* Content */}
           <div className="p-5 space-y-5">

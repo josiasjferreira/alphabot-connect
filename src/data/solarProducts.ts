@@ -47,6 +47,7 @@ export const SOLAR_PRODUCTS: SolarProduct[] = [
       'Suporte técnico especializado',
     ],
     category: 'commercial',
+    videoUrl: '/videos/na-solar-life-energy.mp4',
   },
   {
     id: 'portable',
@@ -62,6 +63,7 @@ export const SOLAR_PRODUCTS: SolarProduct[] = [
       'Integração com sistemas de gestão',
     ],
     category: 'portable',
+    videoUrl: '/videos/revolucao-humanoide.mp4',
   },
   {
     id: 'irrigation',
@@ -77,6 +79,7 @@ export const SOLAR_PRODUCTS: SolarProduct[] = [
       'Transformação digital completa',
     ],
     category: 'agriculture',
+    videoUrl: '/videos/iascom-institucional.mp4',
   },
   {
     id: 'lighting',
