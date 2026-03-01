@@ -18,6 +18,10 @@ import {
   Wifi,
   WifiOff,
   Trash2,
+  Sparkles,
+  ThumbsUp,
+  MousePointer,
+  SmilePlus,
 } from 'lucide-react';
 import { useMQTT } from '@/hooks/useMQTT';
 import {
@@ -25,6 +29,7 @@ import {
   type MotionModel,
   type MotionExecutor,
   type MotionHistoryEntry,
+  type GestureType,
   SDK_TOPICS,
 } from '@/shared-core/types/csjbot-sdk';
 
@@ -42,6 +47,14 @@ const EXECUTORS: { id: MotionExecutor; label: string }[] = [
   { id: 'resident', label: 'Residente' },
 ];
 
+// ─── Gestos pré-definidos (SDK nativo: robot/motion/gesture) ───────
+const GESTURES: { id: GestureType; label: string; emoji: string; icon: typeof Sparkles; desc: string }[] = [
+  { id: 'wave', label: 'Acenar', emoji: '👋', icon: Hand, desc: 'Acena com a mão direita' },
+  { id: 'nod', label: 'Cumprimentar', emoji: '🙂', icon: SmilePlus, desc: 'Acena com a cabeça' },
+  { id: 'thumbsup', label: 'Joinha', emoji: '👍', icon: ThumbsUp, desc: 'Polegar para cima' },
+  { id: 'point', label: 'Apontar', emoji: '👉', icon: MousePointer, desc: 'Aponta para frente' },
+];
+
 const MotionControl = () => {
   const navigate = useNavigate();
   const { isConnected, publish } = useMQTT();
@@ -51,6 +64,7 @@ const MotionControl = () => {
   const [executor, setExecutor] = useState<MotionExecutor>('processor');
   const [intensity, setIntensity] = useState(0.5);
   const [history, setHistory] = useState<MotionHistoryEntry[]>([]);
+  const [runningGesture, setRunningGesture] = useState<GestureType | null>(null);
 
   const sendCommand = useCallback(() => {
     const cmd = {
@@ -71,6 +85,30 @@ const MotionControl = () => {
     setHistory(prev => [entry, ...prev].slice(0, 30));
   }, [action, model, executor, intensity, publish, isConnected]);
 
+  const sendGesture = useCallback((gesture: GestureType) => {
+    setRunningGesture(gesture);
+    publish(SDK_TOPICS.MOTION_GESTURE, {
+      gesture,
+      intensity: Math.round(intensity * 100) / 100,
+      timestamp: Date.now(),
+    });
+
+    // Add to history as a special entry
+    const entry: MotionHistoryEntry = {
+      action: `gesture:${gesture}` as MotionAction,
+      model,
+      executor,
+      intensity,
+      timestamp: Date.now(),
+      id: `g-${Date.now()}`,
+      status: isConnected ? 'sent' : 'error',
+    };
+    setHistory(prev => [entry, ...prev].slice(0, 30));
+
+    // Clear running state after estimated execution time
+    setTimeout(() => setRunningGesture(null), 2500);
+  }, [intensity, publish, isConnected, model, executor]);
+
   return (
     <div className="min-h-screen bg-background safe-bottom">
       {/* Header */}
@@ -89,6 +127,46 @@ const MotionControl = () => {
       </div>
 
       <div className="p-4 space-y-4">
+        {/* Gestures */}
+        <div className="bg-card rounded-2xl border border-border p-4 shadow-card">
+          <div className="flex items-center gap-2 mb-3">
+            <Sparkles className="w-4 h-4 text-warning" />
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Gestos Pré-definidos</p>
+            <span className="text-[10px] bg-warning/15 text-warning px-1.5 py-0.5 rounded-full font-medium">SDK Nativo</span>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            {GESTURES.map(g => {
+              const isRunning = runningGesture === g.id;
+              return (
+                <motion.button
+                  key={g.id}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => sendGesture(g.id)}
+                  disabled={isRunning}
+                  className={`relative flex items-center gap-2.5 p-3 rounded-xl text-left transition-all ${
+                    isRunning
+                      ? 'bg-warning/20 border border-warning/40 ring-2 ring-warning/20'
+                      : 'bg-muted/50 hover:bg-muted border border-transparent'
+                  }`}
+                >
+                  <span className="text-xl">{g.emoji}</span>
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-foreground">{g.label}</p>
+                    <p className="text-[10px] text-muted-foreground truncate">{g.desc}</p>
+                  </div>
+                  {isRunning && (
+                    <motion.div
+                      className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-warning"
+                      animate={{ opacity: [1, 0.3, 1] }}
+                      transition={{ repeat: Infinity, duration: 0.8 }}
+                    />
+                  )}
+                </motion.button>
+              );
+            })}
+          </div>
+        </div>
+
         {/* Action selector */}
         <div className="bg-card rounded-2xl border border-border p-4 shadow-card">
           <p className="text-xs font-semibold text-muted-foreground mb-3 uppercase tracking-wider">Ação</p>
