@@ -62,9 +62,8 @@ const SolarProductModal = ({ product, open, onClose }: Props) => {
                 key={product.videoUrl}
                 src={product.videoUrl}
                 autoPlay
-                muted
-                loop
                 playsInline
+                controls
                 className="w-full aspect-video object-cover"
               />
               <button
