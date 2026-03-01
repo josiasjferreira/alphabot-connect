@@ -59,6 +59,24 @@ export interface CameraPacket {
   timestamp: number;
 }
 
+// ─── Person Detection ──────────────────────────────────────────────
+
+export interface DetectionBox {
+  id: string;
+  label: string;         // e.g. 'person', 'face'
+  confidence: number;    // 0.0 – 1.0
+  x: number;             // top-left X (pixels or 0-1 normalized)
+  y: number;             // top-left Y
+  width: number;
+  height: number;
+}
+
+export interface DetectionPayload {
+  detections: DetectionBox[];
+  timestamp: number;
+  frameId?: number;
+}
+
 // ─── MQTT Topics (SDK pattern) ─────────────────────────────────────
 
 export const SDK_TOPICS = {
@@ -80,6 +98,10 @@ export const SDK_TOPICS = {
   SENSORS_DISTANCE: 'robot/sensors/distance',
   SENSORS_TOUCH: 'robot/sensors/touch',
   SENSORS_ALL: 'robot/sensors/+',
+
+  // Detection
+  DETECTION_PERSON: 'robot/detection/person',
+  DETECTION_FACE: 'robot/detection/face',
 
   // Status
   STATUS: 'robot/status',

@@ -219,6 +219,8 @@ export class RobotMQTTClient {
           try { payload = JSON.parse(raw); } catch { /* keep as string */ }
           console.log(`📨 MQTT [${topic}]:`, typeof payload === 'object' ? payload : raw.slice(0, 100));
           this.callbacks.onMessage?.(topic, payload);
+          // Dispatch global event for cross-component MQTT listening
+          window.dispatchEvent(new CustomEvent('mqtt-message', { detail: { topic, payload } }));
         });
 
         this.client.on('error', (err) => {

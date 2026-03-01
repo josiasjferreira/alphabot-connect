@@ -3,12 +3,12 @@ import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
   ArrowLeft, Camera, CameraOff, Video, Circle, Download,
-  Maximize2, Minimize2, Settings2, Wifi, WifiOff, RotateCcw,
+  Maximize2, Minimize2, Settings2, Wifi, WifiOff, RotateCcw, Users,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useRobotStore } from '@/store/useRobotStore';
 import { useMQTT } from '@/hooks/useMQTT';
-import { SDK_TOPICS } from '@/shared-core/types/csjbot-sdk';
+import { SDK_TOPICS, type DetectionBox, type DetectionPayload } from '@/shared-core/types/csjbot-sdk';
 import { NETWORK, PORTS } from '@/shared-core/constants';
 import { VideoStreamService, type VideoFrame } from '@/services/videoStreamService';
 
@@ -22,6 +22,7 @@ const CameraStream = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const imgRef = useRef<HTMLImageElement | null>(null);
   const serviceRef = useRef<VideoStreamService | null>(null);
+  const detectionsRef = useRef<DetectionBox[]>([]);
 
   const [camStatus, setCamStatus] = useState<CamStatus>('disconnected');
   const [fps, setFps] = useState(0);
@@ -31,6 +32,8 @@ const CameraStream = () => {
   const [recording, setRecording] = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [detectionEnabled, setDetectionEnabled] = useState(true);
+  const [detectionCount, setDetectionCount] = useState(0);
 
   const fpsCounter = useRef({ count: 0, lastTime: Date.now() });
   const containerRef = useRef<HTMLDivElement>(null);
@@ -57,11 +60,95 @@ const CameraStream = () => {
       canvas.width = img.naturalWidth || 640;
       canvas.height = img.naturalHeight || 480;
       ctx.drawImage(img, 0, 0);
+      if (detectionEnabled) drawDetections(ctx, canvas.width, canvas.height);
       drawHUD(ctx, canvas.width, canvas.height);
       URL.revokeObjectURL(url);
     };
     img.src = url;
-  }, []);
+  }, [detectionEnabled]);
+
+  // Draw person detection bounding boxes
+  const drawDetections = (ctx: CanvasRenderingContext2D, w: number, h: number) => {
+    const dets = detectionsRef.current;
+    if (!dets.length) return;
+
+    dets.forEach((det, i) => {
+      // Support both pixel and normalized (0-1) coords
+      const bx = det.x <= 1 ? det.x * w : det.x;
+      const by = det.y <= 1 ? det.y * h : det.y;
+      const bw = det.width <= 1 ? det.width * w : det.width;
+      const bh = det.height <= 1 ? det.height * h : det.height;
+
+      const color = det.label === 'person' ? 'rgba(0, 200, 120, 0.85)' : 'rgba(255, 200, 50, 0.85)';
+
+      // Bounding box
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 2;
+      ctx.strokeRect(bx, by, bw, bh);
+
+      // Corner highlights
+      const ck = 8;
+      ctx.lineWidth = 3;
+      [[bx, by, 1, 1], [bx + bw, by, -1, 1], [bx, by + bh, 1, -1], [bx + bw, by + bh, -1, -1]].forEach(([x, y, dx, dy]) => {
+        ctx.beginPath();
+        ctx.moveTo(x, y + dy * ck);
+        ctx.lineTo(x, y);
+        ctx.lineTo(x + dx * ck, y);
+        ctx.stroke();
+      });
+
+      // Label background
+      const label = `${det.label} ${Math.round(det.confidence * 100)}%`;
+      ctx.font = 'bold 11px monospace';
+      const tw = ctx.measureText(label).width + 8;
+      ctx.fillStyle = color;
+      ctx.fillRect(bx, by - 18, tw, 18);
+
+      // Label text
+      ctx.fillStyle = '#000';
+      ctx.fillText(label, bx + 4, by - 5);
+
+      // ID tag
+      if (det.id) {
+        ctx.fillStyle = 'rgba(0,0,0,0.5)';
+        ctx.fillRect(bx, by + bh, 40, 14);
+        ctx.fillStyle = color;
+        ctx.font = '9px monospace';
+        ctx.fillText(`#${det.id.slice(0, 4)}`, bx + 3, by + bh + 10);
+      }
+    });
+
+    // Detection count badge
+    ctx.fillStyle = 'rgba(0, 200, 120, 0.9)';
+    ctx.font = 'bold 12px monospace';
+    ctx.fillText(`👤 ${dets.length}`, 8, 16);
+  };
+
+  // Listen for MQTT detection messages via the global client's message handler
+  useEffect(() => {
+    if (!detectionEnabled) {
+      detectionsRef.current = [];
+      setDetectionCount(0);
+      return;
+    }
+
+    const handler = (e: Event) => {
+      const { topic, payload } = (e as CustomEvent).detail;
+      if (topic !== SDK_TOPICS.DETECTION_PERSON && topic !== SDK_TOPICS.DETECTION_FACE) return;
+      try {
+        const msg = typeof payload === 'string' ? JSON.parse(payload) : payload;
+        detectionsRef.current = msg.detections || [];
+        setDetectionCount(detectionsRef.current.length);
+      } catch { /* ignore */ }
+    };
+
+    window.addEventListener('mqtt-message', handler);
+    return () => {
+      window.removeEventListener('mqtt-message', handler);
+      detectionsRef.current = [];
+      setDetectionCount(0);
+    };
+  }, [detectionEnabled]);
 
   const drawHUD = (ctx: CanvasRenderingContext2D, w: number, h: number) => {
     // Corner brackets
@@ -330,11 +417,12 @@ const CameraStream = () => {
         </div>
 
         {/* Status cards */}
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid grid-cols-4 gap-2">
           {[
             { label: 'Status', value: camStatus === 'connected' ? 'LIVE' : 'OFF', color: camStatus === 'connected' ? 'text-success' : 'text-muted-foreground' },
             { label: 'FPS', value: `${fps}`, color: fps > 20 ? 'text-success' : fps > 0 ? 'text-warning' : 'text-muted-foreground' },
             { label: 'Frames', value: `${frameCount}`, color: 'text-foreground' },
+            { label: '👤 Detect', value: `${detectionCount}`, color: detectionCount > 0 ? 'text-success' : 'text-muted-foreground' },
           ].map(s => (
             <div key={s.label} className="bg-card rounded-xl border border-border p-3 text-center">
               <p className="text-[10px] text-muted-foreground uppercase">{s.label}</p>
@@ -395,6 +483,22 @@ const CameraStream = () => {
               <span className="text-[11px] font-mono text-muted-foreground">
                 {SDK_TOPICS.CAMERA_START}
               </span>
+            </div>
+            <div className="flex items-center justify-between">
+              <label className="text-xs text-muted-foreground flex items-center gap-1">
+                <Users className="w-3 h-3" />
+                Detecção de Pessoas
+              </label>
+              <button
+                onClick={() => setDetectionEnabled(!detectionEnabled)}
+                className={`w-8 h-4 rounded-full transition-colors ${
+                  detectionEnabled ? 'bg-success' : 'bg-muted'
+                }`}
+              >
+                <div className={`w-3 h-3 rounded-full bg-background transition-transform mx-0.5 ${
+                  detectionEnabled ? 'translate-x-4' : 'translate-x-0'
+                }`} />
+              </button>
             </div>
           </motion.div>
         )}
