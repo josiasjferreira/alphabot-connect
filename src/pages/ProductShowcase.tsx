@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Play, Pause, Save, User, Phone, CheckCircle, LogOut,
   Maximize2, Minimize2, ChevronRight, Sparkles, MessageCircle,
+  Volume2, VolumeX,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import StatusHeader from '@/components/StatusHeader';
@@ -14,6 +15,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useRobotStore } from '@/store/useRobotStore';
 import { useMQTT } from '@/hooks/useMQTT';
 import { saveInteraction } from '@/db/interactionDatabase';
+import { unlockAudio } from '@/lib/audioEffects';
 
 const SLIDESHOW_INTERVAL = 6000; // ms
 
@@ -34,6 +36,8 @@ const ProductShowcase = () => {
   const [slideshowIndex, setSlideshowIndex] = useState(0);
   const slideshowRef = useRef<ReturnType<typeof setTimeout>>();
   const videoFallbackRef = useRef<ReturnType<typeof setTimeout>>();
+  const slideshowVideoRef = useRef<HTMLVideoElement>(null);
+  const [audioUnlocked, setAudioUnlocked] = useState(false);
 
   // Auto-log page access
   useEffect(() => {
@@ -125,7 +129,19 @@ const ProductShowcase = () => {
   }, [dispatchEvent, navigate]);
 
   const toggleFairMode = () => setFairMode(f => !f);
-  const toggleSlideshow = () => setSlideshowActive(s => !s);
+  const toggleSlideshow = () => {
+    // User gesture — unlock audio for autoplay with sound
+    unlockAudio();
+    setAudioUnlocked(true);
+    setSlideshowActive(s => !s);
+  };
+  const toggleAudio = () => {
+    unlockAudio();
+    setAudioUnlocked(prev => !prev);
+    if (slideshowVideoRef.current) {
+      slideshowVideoRef.current.muted = audioUnlocked; // toggle
+    }
+  };
 
   const slideshowProduct = slideshowProducts[slideshowIndex];
 
@@ -152,6 +168,16 @@ const ProductShowcase = () => {
           </div>
         )}
         <div className="flex items-center gap-2">
+          {slideshowActive && (
+            <button
+              onClick={toggleAudio}
+              className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+                audioUnlocked ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
+              }`}
+            >
+              {audioUnlocked ? <Volume2 className="w-3.5 h-3.5" /> : <VolumeX className="w-3.5 h-3.5" />}
+            </button>
+          )}
           <button
             onClick={toggleSlideshow}
             className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
@@ -185,10 +211,11 @@ const ProductShowcase = () => {
             {slideshowProduct.videoUrl ? (
               <div className="relative">
                 <video
+                  ref={slideshowVideoRef}
                   key={`video-${slideshowIndex}-${slideshowProduct.id}`}
                   src={slideshowProduct.videoUrl}
                   autoPlay
-                  muted
+                  muted={!audioUnlocked}
                   playsInline
                   onEnded={() => {
                     if (videoFallbackRef.current) clearTimeout(videoFallbackRef.current);
@@ -198,6 +225,12 @@ const ProductShowcase = () => {
                   onError={() => {
                     console.log(`Video error: ${slideshowProduct.id}, skipping...`);
                     advanceSlideshow();
+                  }}
+                  onCanPlay={(e) => {
+                    // Ensure unmuted after user gesture
+                    if (audioUnlocked) {
+                      (e.target as HTMLVideoElement).muted = false;
+                    }
                   }}
                   className="w-full aspect-video object-cover"
                 />
