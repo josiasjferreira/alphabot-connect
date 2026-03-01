@@ -492,7 +492,7 @@ const MqttMonitor = () => {
         </div>
 
         <p className="text-[10px] text-center text-muted-foreground pb-2">
-          AlphaBot Companion v2.1.1 • Iascom
+          AlphaBot Connect v3.1.7 • Iascom 2026
         </p>
       </div>
     </div>

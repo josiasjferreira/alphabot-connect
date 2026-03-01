@@ -405,7 +405,7 @@ const OperationDashboard = () => {
       </div>
 
       <div className="flex flex-col items-center gap-1 py-4">
-        <p className="text-[10px] text-muted-foreground">AlphaBot Connect v2.0.0 • Iascom</p>
+        <p className="text-[10px] text-muted-foreground">AlphaBot Connect v3.1.7 • Iascom 2026</p>
       </div>
     </div>
   );

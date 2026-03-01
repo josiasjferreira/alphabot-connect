@@ -370,7 +370,7 @@ const ProductShowcase = () => {
 
         {/* Footer */}
         <p className="text-center text-[10px] text-muted-foreground mt-4 mb-2">
-          Solar Life Energy • AlphaBot Connect v3.0.1 • Iascom
+          Solar Life Energy • AlphaBot Connect v3.1.7 • Iascom 2026
         </p>
       </div>
 
