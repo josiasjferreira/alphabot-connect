@@ -306,13 +306,17 @@ const QuickVoiceCard = () => {
   const [mqttOn, setMqttOn] = useState(false);
 
   useEffect(() => {
-    const c = mqtt.connect('ws://192.168.99.100:9002', { reconnectPeriod: 3000, connectTimeout: 5000 });
-    c.on('connect', () => setMqttOn(true));
-    c.on('offline', () => setMqttOn(false));
-    c.on('close', () => setMqttOn(false));
-    c.on('error', () => setMqttOn(false));
-    ttsRef.current = c;
-    return () => { c.end(true); ttsRef.current = null; };
+    // Skip MQTT on HTTPS pages (mixed content blocked by browsers)
+    if (window.location.protocol === 'https:') return;
+    try {
+      const c = mqtt.connect('ws://192.168.99.100:9002', { reconnectPeriod: 3000, connectTimeout: 5000 });
+      c.on('connect', () => setMqttOn(true));
+      c.on('offline', () => setMqttOn(false));
+      c.on('close', () => setMqttOn(false));
+      c.on('error', () => setMqttOn(false));
+      ttsRef.current = c;
+      return () => { c.end(true); ttsRef.current = null; };
+    } catch { /* mixed content or network error */ }
   }, []);
 
   useEffect(() => {
