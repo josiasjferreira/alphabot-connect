@@ -32,6 +32,7 @@ import RobotCalibrationPanel from "./components/RobotCalibrationPanel";
 import NetworkDiagnostics from "./pages/NetworkDiagnostics";
 import MqttConfig from "./pages/MqttConfig";
 import AndroidBoardDiag from "./pages/AndroidBoardDiag";
+import SlamAudioControl from "./pages/SlamAudioControl";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -72,6 +73,7 @@ const App = () => (
           <Route path="/network-diagnostics" element={<NetworkDiagnostics />} />
           <Route path="/mqtt-config" element={<MqttConfig />} />
           <Route path="/android-diag" element={<AndroidBoardDiag />} />
+          <Route path="/slam-audio" element={<SlamAudioControl />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </HashRouter>
