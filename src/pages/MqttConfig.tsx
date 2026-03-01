@@ -599,7 +599,7 @@ const MqttConfig = () => {
         )}
 
         <p className="text-[10px] text-center text-muted-foreground pb-4">
-          AlphaBot Connect v2.0.0 • Iascom
+          AlphaBot Connect v3.1.7 • Iascom 2026
         </p>
       </div>
     </div>

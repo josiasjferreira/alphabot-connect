@@ -616,7 +616,7 @@ const RobotCalibrationPanel = () => {
         </Card>
 
         <p className="text-[10px] text-center text-muted-foreground pb-4">
-          AlphaBot Companion v2.1.1 • Iascom
+          AlphaBot Connect v3.1.7 • Iascom 2026
         </p>
       </div>
     </div>

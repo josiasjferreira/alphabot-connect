@@ -83,10 +83,10 @@ export const TIMEOUTS = {
 // ─── App ───
 
 export const APP = {
-  VERSION: '3.0.1',
+  VERSION: '3.1.7',
   NAME: 'AlphaBot Connect',
   AUTHOR: 'Iascom',
-  FOOTER: 'AlphaBot Connect v3.0.1 • Iascom',
+  FOOTER: 'AlphaBot Connect v3.1.7 • Iascom 2026',
 } as const;
 
 // ─── Rede: Topologia v3.0 (Mapa Final Confirmado) ───

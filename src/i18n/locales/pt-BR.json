@@ -19,7 +19,7 @@
     "connectingButton": "CONECTANDO...",
     "offlineButton": "Modo Offline (Simulação)",
     "externalIpWarning": "Atenção: Você está conectando a um IP externo ({{ip}}). Isso pode expor comandos do robô a redes não confiáveis. Deseja continuar?",
-"version": "AlphaBot Companion v2.1.1 • Iascom",
+"version": "AlphaBot Connect v3.1.7 • Iascom 2026",
     "guide": {
       "title": "📖 Guia Rápido do Administrador",
       "step1Title": "1. Conecte à Rede Wi-Fi",
@@ -265,7 +265,7 @@
       "videoUrlPlaceholder": "URL do vídeo (mp4, webm...)",
       "mediaLabel": "Rótulo"
     },
-"version": "AlphaBot Companion v2.1.1 • Iascom"
+"version": "AlphaBot Connect v3.1.7 • Iascom 2026"
   },
   "map": {
     "title": "🗺️ Mapa de Navegação",

@@ -333,7 +333,7 @@ const Dashboard = () => {
         <button onClick={() => navigate('/')} className="text-xs text-primary font-semibold active:opacity-70">
           {t('dashboard.backToConnection', 'Voltar à tela de conexão')}
         </button>
-        <p className="text-[10px] text-muted-foreground">AlphaBot Companion v2.1.1 • Iascom</p>
+        <p className="text-[10px] text-muted-foreground">AlphaBot Connect v3.1.7 • Iascom 2026</p>
       </div>
     </div>
   );
