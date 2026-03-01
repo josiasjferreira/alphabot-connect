@@ -7,6 +7,7 @@ import { useTranslation } from 'react-i18next';
 import StatusHeader from '@/components/StatusHeader';
 import Joystick from '@/components/Joystick';
 import EmergencyButton from '@/components/EmergencyButton';
+import VoiceInputPanel from '@/components/VoiceInputPanel';
 import { useRobotStore } from '@/store/useRobotStore';
 import { useMQTT } from '@/hooks/useMQTT';
 import { useMQTTConfigStore } from '@/store/useMQTTConfigStore';
@@ -101,6 +102,20 @@ const Control = () => {
     setIsRotating(null);
     if (isMqttConnected) mqttMove('stop');
   };
+
+  // Voice command handler
+  const handleVoiceCommand = useCallback((text: string) => {
+    const cmd = text.toLowerCase();
+    if (/frente|avan[cç]|forward/.test(cmd)) mqttMove('forward', speed);
+    else if (/tr[aá]s|recue|backward/.test(cmd)) mqttMove('backward', speed);
+    else if (/esquerda|left/.test(cmd)) mqttMove('left', speed);
+    else if (/direita|right/.test(cmd)) mqttMove('right', speed);
+    else if (/par[ea]|stop/.test(cmd)) mqttMove('stop');
+    else if (/gir.*esquerda|rotate.*left/.test(cmd)) handleRotateLeft();
+    else if (/gir.*direita|rotate.*right/.test(cmd)) handleRotateRight();
+    else if (/emerg[eê]ncia|emergency/.test(cmd)) handleEmergency();
+    addLog(`🗣️ Comando de voz: "${text}"`, 'info');
+  }, [speed, mqttMove, addLog]);
 
   return (
     <div className="min-h-screen bg-background safe-bottom flex flex-col">
@@ -211,6 +226,9 @@ const Control = () => {
             <p className="text-2xl font-bold text-primary">{currentDist}%</p>
           </div>
         </div>
+
+        {/* Voice Input */}
+        <VoiceInputPanel onCommand={handleVoiceCommand} compact />
 
         {/* Sliders */}
         <div className="space-y-3">
