@@ -1,7 +1,8 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
+import mqtt, { type MqttClient } from 'mqtt';
 import StatusHeader from '@/components/StatusHeader';
 import { useMQTT } from '@/hooks/useMQTT';
 import { useMQTTConfigStore } from '@/store/useMQTTConfigStore';
@@ -10,6 +11,8 @@ import Joystick from '@/components/Joystick';
 import EmergencyButton from '@/components/EmergencyButton';
 import { Slider } from '@/components/ui/slider';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
 import AnimationsCard from '@/components/AnimationsCard';
 import ChatIACard from '@/components/ChatIACard';
 import NetworkInfo from '@/components/NetworkInfo';
@@ -18,6 +21,7 @@ import {
   RotateCcw, RotateCw, StopCircle, Compass, Radio,
   ShoppingBag, Settings2,
   Wifi, WifiOff, Loader2,
+  Send, MapPin, ArrowRight,
 } from 'lucide-react';
 
 // ─── Manual Control Card ───
@@ -293,6 +297,121 @@ const MqttBadge = () => {
   );
 };
 
+// ─── Quick Voice Control Card ───
+const QuickVoiceCard = () => {
+  const [ttsText, setTtsText] = useState('');
+  const [slamOnline, setSlamOnline] = useState<boolean | null>(null);
+  const [isSpeaking, setIsSpeaking] = useState(false);
+  const ttsRef = useRef<MqttClient | null>(null);
+  const [mqttOn, setMqttOn] = useState(false);
+
+  useEffect(() => {
+    const c = mqtt.connect('ws://192.168.99.100:9002', { reconnectPeriod: 3000, connectTimeout: 5000 });
+    c.on('connect', () => setMqttOn(true));
+    c.on('offline', () => setMqttOn(false));
+    c.on('close', () => setMqttOn(false));
+    c.on('error', () => setMqttOn(false));
+    ttsRef.current = c;
+    return () => { c.end(true); ttsRef.current = null; };
+  }, []);
+
+  useEffect(() => {
+    const check = async () => {
+      try {
+        const res = await fetch('http://192.168.99.2:1445/api/core/system/v1/capabilities', { signal: AbortSignal.timeout(3000) });
+        setSlamOnline(res.ok);
+      } catch { setSlamOnline(false); }
+    };
+    check();
+    const iv = setInterval(check, 15_000);
+    return () => clearInterval(iv);
+  }, []);
+
+  const speak = useCallback((text: string) => {
+    if (ttsRef.current?.connected) {
+      ttsRef.current.publish('alphabot/cmd/audio/tts', JSON.stringify({ text, lang: 'pt-BR', type: 'tts' }));
+    } else if ('speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+      const u = new SpeechSynthesisUtterance(text);
+      u.lang = 'pt-BR';
+      u.onstart = () => setIsSpeaking(true);
+      u.onend = () => setIsSpeaking(false);
+      window.speechSynthesis.speak(u);
+    }
+  }, []);
+
+  const handleSpeak = () => {
+    if (!ttsText.trim()) return;
+    speak(ttsText.trim());
+    setTtsText('');
+  };
+
+  const announcePosition = async () => {
+    try {
+      const res = await fetch('http://192.168.99.2:1445/api/core/system/v1/robot/info', { signal: AbortSignal.timeout(3000) });
+      if (!res.ok) throw new Error('offline');
+      const data = await res.json();
+      const loc = data.localization ?? data;
+      const x = (loc.x ?? 0).toFixed(1);
+      const y = (loc.y ?? 0).toFixed(1);
+      const theta = Math.round(((loc.theta ?? 0) * 180) / Math.PI);
+      speak(`Estou em X vírgula ${x}m, Y vírgula ${y}m, ângulo ${theta} graus.`);
+    } catch {
+      speak('Não foi possível obter a posição. SLAMWARE offline.');
+    }
+  };
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: 0.03 }}
+      className="bg-card rounded-2xl border border-border p-4 shadow-card"
+    >
+      <div className="flex items-center justify-between mb-3">
+        <h2 className="text-sm font-bold text-foreground flex items-center gap-2">
+          🔊 Controle Rápido de Voz
+        </h2>
+        <div className="flex items-center gap-1.5">
+          <Badge variant={slamOnline ? 'default' : 'destructive'} className="text-[10px]">
+            SLAM {slamOnline ? '✓' : '✗'}
+          </Badge>
+          <Badge variant={mqttOn ? 'default' : 'secondary'} className="text-[10px]">
+            {mqttOn ? 'MQTT ✓' : 'Local'}
+          </Badge>
+          {isSpeaking && (
+            <Badge variant="secondary" className="text-[10px] animate-pulse bg-success/20 text-success border-success/30">
+              🔊
+            </Badge>
+          )}
+        </div>
+      </div>
+
+      <div className="flex gap-2 mb-2">
+        <Input
+          value={ttsText}
+          onChange={e => setTtsText(e.target.value)}
+          placeholder="O que o robô deve falar..."
+          onKeyDown={e => e.key === 'Enter' && handleSpeak()}
+          className="flex-1 text-sm"
+        />
+        <Button size="sm" onClick={handleSpeak} disabled={!ttsText.trim()}>
+          <Send className="w-4 h-4" />
+        </Button>
+      </div>
+
+      <div className="flex items-center gap-2">
+        <Button size="sm" variant="outline" className="text-xs flex-1" onClick={announcePosition}>
+          <MapPin className="w-3 h-3 mr-1" /> 📍 Anunciar Posição
+        </Button>
+        <Link to="/slam-audio" className="text-[11px] text-primary hover:underline flex items-center gap-1 whitespace-nowrap">
+          Ver controle completo <ArrowRight className="w-3 h-3" />
+        </Link>
+      </div>
+    </motion.div>
+  );
+};
+
 // ─── Placeholder cards ───
 const PlaceholderCard = ({ icon, title, desc, onClick }: {
   icon: React.ReactNode; title: string; desc: string; onClick?: () => void;
@@ -367,6 +486,9 @@ const OperationDashboard = () => {
       <div className="flex-1 p-4 flex flex-col gap-4 overflow-y-auto">
         {/* Manual Control */}
         <ManualControlCard />
+
+        {/* Quick Voice Control */}
+        <QuickVoiceCard />
 
         {/* Rotation Control */}
         <RotationControlCard />
