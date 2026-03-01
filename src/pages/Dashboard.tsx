@@ -1,7 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { motion } from 'framer-motion';
-import { Gamepad2, MessageCircle, Map, BarChart3, Mic, Settings, ShoppingBag, Stethoscope, Package, Shield, Sparkles, Layers, Radio, Download, ScrollText, Camera, VideoOff, Users, Search, FlaskConical, MonitorPlay, Compass, Wrench, Wifi, Network, Volume2 } from 'lucide-react';
+import { Gamepad2, MessageCircle, Map, BarChart3, Mic, Settings, ShoppingBag, Stethoscope, Package, Shield, Sparkles, Layers, Radio, Download, ScrollText, Camera, VideoOff, Users, Search, FlaskConical, MonitorPlay, Compass, Wrench, Wifi, Network, Volume2, MoveHorizontal, Activity } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import StatusHeader from '@/components/StatusHeader';
 import { useRobotStore } from '@/store/useRobotStore';
@@ -297,6 +297,8 @@ const Dashboard = () => {
     { icon: Wrench, titleKey: 'dashboard.menu.calibration', descKey: 'dashboard.menu.calibrationDesc', path: '/calibration', gradient: 'from-warning to-secondary/80' },
     { icon: Wifi, titleKey: 'dashboard.menu.calibrationWifi', descKey: 'dashboard.menu.calibrationWifiDesc', path: '/calibration-wifi', gradient: 'from-success to-primary/80' },
     { icon: Settings, titleKey: 'dashboard.menu.mqttConfig', descKey: 'dashboard.menu.mqttConfigDesc', path: '/mqtt-config', gradient: 'from-secondary to-warning/80' },
+    { icon: MoveHorizontal, titleKey: 'Movimentos', descKey: 'Cabeça e mãos do robô', path: '/motion', gradient: 'from-primary to-secondary/80' },
+    { icon: Activity, titleKey: 'Sensores', descKey: 'IMU, distância e toque', path: '/sensors', gradient: 'from-success to-warning/80' },
     { icon: Settings, titleKey: 'dashboard.menu.settings', descKey: 'dashboard.menu.settingsDesc', path: '/settings', gradient: 'from-muted-foreground to-muted-foreground/60' },
   ];
 
