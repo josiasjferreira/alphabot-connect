@@ -1,11 +1,9 @@
 /**
  * SlamEventAudio.tsx
- * Monitora eventos SLAMWARE em tempo real e aciona falas automáticas.
- * REST: http://192.168.99.2:1445  |  MQTT TTS: ws://192.168.99.100:9002
+ * Monitora eventos SLAMWARE em tempo real via AudioService singleton.
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import mqtt, { type MqttClient } from 'mqtt';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Volume2, VolumeX, Play, Square, Wifi, WifiOff,
@@ -20,156 +18,67 @@ import { Switch } from '@/components/ui/switch';
 import { Slider } from '@/components/ui/slider';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { audioService } from '@/services/audioService';
 
-// ─── Constants ──────────────────────────────────────────────────────
 const SLAM_BASE = 'http://192.168.99.2:1445';
-const MQTT_WS = 'ws://192.168.99.100:9002';
-const TOPIC_TTS = 'alphabot/cmd/audio/tts';
-const TOPIC_VOLUME = 'alphabot/cmd/audio/volume';
-const TOPIC_STOP = 'alphabot/cmd/audio/stop';
-const TOPIC_STATUS = 'alphabot/status/audio';
 const POLL_MS = 2_000;
 const MAX_EVENTS = 10;
-const VOL_KEY = 'alphabot-slam-event-volume';
 
 // ─── Event → Speech mapping ────────────────────────────────────────
 interface EventMapping {
   match: (evt: SlamEvent) => boolean;
   phrase: string;
-  icon: typeof Battery;
   emoji: string;
   label: string;
 }
 
 const EVENT_MAP: EventMapping[] = [
-  {
-    match: (e) => e.type?.includes('power_low') || e.event_type?.includes('power_low'),
-    phrase: 'Bateria abaixo de 15%, por favor me leve ao carregador.',
-    icon: Battery, emoji: '🔋', label: 'Bateria Baixa',
-  },
-  {
-    match: (e) => e.type?.includes('bumper') || e.event_type?.includes('bumper'),
-    phrase: 'Senti um impacto, verificando obstáculo.',
-    icon: AlertTriangle, emoji: '🚧', label: 'Obstáculo',
-  },
-  {
-    match: (e) => e.type?.includes('cliff') || e.event_type?.includes('cliff'),
-    phrase: 'Detectei um degrau, parando por segurança.',
-    icon: AlertTriangle, emoji: '🚧', label: 'Degrau',
-  },
-  {
-    match: (e) => e.type?.includes('arrived') || e.event_type?.includes('arrived'),
-    phrase: 'Entrega concluída. Obrigado!',
-    icon: CheckCircle, emoji: '✅', label: 'Chegada',
-  },
-  {
-    match: (e) => e.type?.includes('pickup_done') || e.event_type?.includes('pickup_done'),
-    phrase: 'Item coletado, seguindo para entrega.',
-    icon: CheckCircle, emoji: '📦', label: 'Coleta',
-  },
-  {
-    match: (e) => e.type?.includes('charging') || e.event_type?.includes('charging'),
-    phrase: 'Conectado ao carregador. Recarregando.',
-    icon: Zap, emoji: '⚡', label: 'Carregando',
-  },
+  { match: (e) => !!(e.type?.includes('power_low') || e.event_type?.includes('power_low')), phrase: 'Bateria abaixo de 15%, por favor me leve ao carregador.', emoji: '🔋', label: 'Bateria Baixa' },
+  { match: (e) => !!(e.type?.includes('bumper') || e.event_type?.includes('bumper')), phrase: 'Senti um impacto, verificando obstáculo.', emoji: '🚧', label: 'Obstáculo' },
+  { match: (e) => !!(e.type?.includes('cliff') || e.event_type?.includes('cliff')), phrase: 'Detectei um degrau, parando por segurança.', emoji: '🚧', label: 'Degrau' },
+  { match: (e) => !!(e.type?.includes('arrived') || e.event_type?.includes('arrived')), phrase: 'Entrega concluída. Obrigado!', emoji: '✅', label: 'Chegada' },
+  { match: (e) => !!(e.type?.includes('pickup_done') || e.event_type?.includes('pickup_done')), phrase: 'Item coletado, seguindo para entrega.', emoji: '📦', label: 'Coleta' },
+  { match: (e) => !!(e.type?.includes('charging') || e.event_type?.includes('charging')), phrase: 'Conectado ao carregador. Recarregando.', emoji: '⚡', label: 'Carregando' },
 ];
 
-interface SlamEvent {
-  type?: string;
-  event_type?: string;
-  [key: string]: unknown;
-}
+interface SlamEvent { type?: string; event_type?: string; [key: string]: unknown; }
+interface ParsedEvent { id: number; raw: SlamEvent; timestamp: Date; phrase: string; emoji: string; label: string; }
 
-interface ParsedEvent {
-  id: number;
-  raw: SlamEvent;
-  timestamp: Date;
-  phrase: string;
-  emoji: string;
-  label: string;
-}
-
-function loadVol(): number {
-  try { return Number(localStorage.getItem(VOL_KEY)) || 70; } catch { return 70; }
-}
-
-// ─── Component ──────────────────────────────────────────────────────
 const SlamEventAudio = () => {
   const [polling, setPolling] = useState(false);
   const [autoSpeak, setAutoSpeak] = useState(true);
   const [useMqtt, setUseMqtt] = useState(true);
-  const [volume, setVolumeState] = useState(loadVol);
+  const [volume, setVolumeLocal] = useState(audioService.volume);
   const [mqttOnline, setMqttOnline] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [events, setEvents] = useState<ParsedEvent[]>([]);
   const [expandedId, setExpandedId] = useState<number | null>(null);
 
-  const mqttRef = useRef<MqttClient | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const idRef = useRef(0);
 
-  // ── MQTT lifecycle ──
+  // Subscribe to AudioService state
   useEffect(() => {
-    const c = mqtt.connect(MQTT_WS, { reconnectPeriod: 3000, connectTimeout: 5000 });
-    c.on('connect', () => { setMqttOnline(true); c.subscribe(TOPIC_STATUS); });
-    c.on('offline', () => setMqttOnline(false));
-    c.on('close', () => setMqttOnline(false));
-    c.on('error', () => setMqttOnline(false));
-    c.on('message', (_t, p) => {
-      try {
-        const d = JSON.parse(p.toString());
-        if (typeof d.playing === 'boolean') setIsPlaying(d.playing);
-      } catch { /* */ }
+    return audioService.subscribe((state) => {
+      setMqttOnline(state.mqttOnline);
+      setIsPlaying(state.isPlaying);
+      setVolumeLocal(state.volume);
     });
-    mqttRef.current = c;
-    return () => { c.end(true); mqttRef.current = null; };
   }, []);
 
-  // ── Speak function ──
-  const speak = useCallback((text: string) => {
-    if (useMqtt && mqttRef.current?.connected) {
-      mqttRef.current.publish(TOPIC_TTS, JSON.stringify({ text, lang: 'pt-BR', type: 'tts' }));
-    } else if ('speechSynthesis' in window) {
-      window.speechSynthesis.cancel();
-      const u = new SpeechSynthesisUtterance(text);
-      u.lang = 'pt-BR';
-      u.volume = volume / 100;
-      u.onstart = () => setIsPlaying(true);
-      u.onend = () => setIsPlaying(false);
-      window.speechSynthesis.speak(u);
-    }
-  }, [useMqtt, volume]);
+  const speak = useCallback((text: string) => { audioService.speak(text); }, []);
+  const setVolume = useCallback((n: number) => { audioService.setVolume(n); }, []);
+  const stopAudio = useCallback(() => { audioService.stop(); }, []);
 
-  const setVolume = useCallback((n: number) => {
-    setVolumeState(n);
-    try { localStorage.setItem(VOL_KEY, String(n)); } catch { /* */ }
-    if (mqttRef.current?.connected) {
-      mqttRef.current.publish(TOPIC_VOLUME, JSON.stringify({ level: n }));
-    }
-  }, []);
-
-  const stopAudio = useCallback(() => {
-    if (mqttRef.current?.connected) {
-      mqttRef.current.publish(TOPIC_STOP, JSON.stringify({ timestamp: Date.now() }));
-    }
-    if ('speechSynthesis' in window) window.speechSynthesis.cancel();
-    setIsPlaying(false);
-  }, []);
-
-  // ── Parse SLAM event ──
   const parseEvent = useCallback((raw: SlamEvent): ParsedEvent => {
     const mapping = EVENT_MAP.find(m => m.match(raw));
     return {
-      id: ++idRef.current,
-      raw,
-      timestamp: new Date(),
+      id: ++idRef.current, raw, timestamp: new Date(),
       phrase: mapping?.phrase ?? `Evento desconhecido: ${raw.type ?? raw.event_type ?? 'N/A'}`,
-      emoji: mapping?.emoji ?? '❓',
-      label: mapping?.label ?? 'Desconhecido',
+      emoji: mapping?.emoji ?? '❓', label: mapping?.label ?? 'Desconhecido',
     };
   }, []);
 
-  // ── Polling ──
   const fetchEvents = useCallback(async () => {
     try {
       const res = await fetch(`${SLAM_BASE}/api/platform/v1/events`, { signal: AbortSignal.timeout(2500) });
@@ -177,14 +86,10 @@ const SlamEventAudio = () => {
       const data = await res.json();
       const list: SlamEvent[] = Array.isArray(data) ? data : data.events ?? [];
       if (list.length === 0) return;
-
       const parsed = list.map(parseEvent);
       setEvents(prev => [...parsed, ...prev].slice(0, MAX_EVENTS));
-
-      if (autoSpeak) {
-        for (const p of parsed) speak(p.phrase);
-      }
-    } catch { /* SLAM offline — ignore */ }
+      if (autoSpeak) for (const p of parsed) speak(p.phrase);
+    } catch { /* SLAM offline */ }
   }, [parseEvent, autoSpeak, speak]);
 
   const startPolling = useCallback(() => {
@@ -201,7 +106,6 @@ const SlamEventAudio = () => {
 
   useEffect(() => () => { if (timerRef.current) clearInterval(timerRef.current); }, []);
 
-  // ── Simulate events ──
   const simulate = useCallback((type: string) => {
     const raw: SlamEvent = { type, timestamp: Date.now() };
     const parsed = parseEvent(raw);
@@ -216,15 +120,12 @@ const SlamEventAudio = () => {
       const data = await res.json();
       const loc = data.localization ?? data;
       speak(`Posição atual: ${(loc.x ?? 0).toFixed(1)} metros, ${(loc.y ?? 0).toFixed(1)} metros. Qualidade: ${loc.quality ?? 0}%.`);
-    } catch {
-      speak('Não foi possível obter a posição. SLAMWARE offline.');
-    }
+    } catch { speak('Não foi possível obter a posição. SLAMWARE offline.'); }
   }, [speak]);
 
   return (
     <div className="min-h-screen bg-background safe-bottom flex flex-col">
       <StatusHeader title="🔊 Áudio Autônomo SLAMWARE" />
-
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {/* Status bar */}
         <div className="flex items-center justify-between">
@@ -256,27 +157,17 @@ const SlamEventAudio = () => {
           <CardContent>
             <ScrollArea className="h-[280px]">
               {events.length === 0 ? (
-                <p className="text-xs text-muted-foreground text-center py-8">
-                  Nenhum evento recebido. Inicie o polling ou simule um evento.
-                </p>
+                <p className="text-xs text-muted-foreground text-center py-8">Nenhum evento recebido. Inicie o polling ou simule um evento.</p>
               ) : (
                 <AnimatePresence initial={false}>
                   {events.map((evt) => (
-                    <motion.div
-                      key={evt.id}
-                      initial={{ opacity: 0, y: -10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0 }}
-                      className="border-b border-border last:border-0 py-2"
-                    >
+                    <motion.div key={evt.id} initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="border-b border-border last:border-0 py-2">
                       <div className="flex items-start gap-2">
                         <span className="text-lg flex-shrink-0">{evt.emoji}</span>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center justify-between">
                             <span className="text-xs font-semibold text-foreground">{evt.label}</span>
-                            <span className="text-[10px] text-muted-foreground font-mono">
-                              {evt.timestamp.toLocaleTimeString('pt-BR')}
-                            </span>
+                            <span className="text-[10px] text-muted-foreground font-mono">{evt.timestamp.toLocaleTimeString('pt-BR')}</span>
                           </div>
                           <p className="text-xs text-muted-foreground mt-0.5">{evt.phrase}</p>
                           <Collapsible open={expandedId === evt.id} onOpenChange={(o) => setExpandedId(o ? evt.id : null)}>
@@ -305,9 +196,7 @@ const SlamEventAudio = () => {
         {/* Control Card */}
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm flex items-center gap-2">
-              <Play className="w-4 h-4 text-primary" /> Controle Manual
-            </CardTitle>
+            <CardTitle className="text-sm flex items-center gap-2"><Play className="w-4 h-4 text-primary" /> Controle Manual</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             <div className="flex items-center justify-between">
@@ -315,9 +204,7 @@ const SlamEventAudio = () => {
                 {polling ? <><Square className="w-4 h-4 mr-1" /> Parar Polling</> : <><Play className="w-4 h-4 mr-1" /> Iniciar Polling</>}
               </Button>
               {isPlaying && (
-                <Button size="sm" variant="outline" onClick={stopAudio}>
-                  <VolumeX className="w-4 h-4 mr-1" /> Parar Áudio
-                </Button>
+                <Button size="sm" variant="outline" onClick={stopAudio}><VolumeX className="w-4 h-4 mr-1" /> Parar Áudio</Button>
               )}
             </div>
             <div className="flex items-center justify-between">
@@ -330,9 +217,7 @@ const SlamEventAudio = () => {
         {/* Voice Settings Card */}
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm flex items-center gap-2">
-              <Settings2 className="w-4 h-4 text-primary" /> Configurações de Voz
-            </CardTitle>
+            <CardTitle className="text-sm flex items-center gap-2"><Settings2 className="w-4 h-4 text-primary" /> Configurações de Voz</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             <div className="flex items-center justify-between">
@@ -356,21 +241,13 @@ const SlamEventAudio = () => {
         {/* Quick Test Card */}
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm flex items-center gap-2">
-              <Zap className="w-4 h-4 text-primary" /> Teste Rápido
-            </CardTitle>
+            <CardTitle className="text-sm flex items-center gap-2"><Zap className="w-4 h-4 text-primary" /> Teste Rápido</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-2 gap-2">
-              <Button variant="outline" size="sm" className="text-xs justify-start" onClick={() => simulate('power_low')}>
-                🔋 Simular Bateria Baixa
-              </Button>
-              <Button variant="outline" size="sm" className="text-xs justify-start" onClick={() => simulate('bumper')}>
-                🚧 Simular Obstáculo
-              </Button>
-              <Button variant="outline" size="sm" className="text-xs justify-start" onClick={() => simulate('arrived')}>
-                ✅ Simular Chegada
-              </Button>
+              <Button variant="outline" size="sm" className="text-xs justify-start" onClick={() => simulate('power_low')}>🔋 Simular Bateria Baixa</Button>
+              <Button variant="outline" size="sm" className="text-xs justify-start" onClick={() => simulate('bumper')}>🚧 Simular Obstáculo</Button>
+              <Button variant="outline" size="sm" className="text-xs justify-start" onClick={() => simulate('arrived')}>✅ Simular Chegada</Button>
               <Button variant="outline" size="sm" className="text-xs justify-start" onClick={() => speakPosition()}>
                 <MapPin className="w-3 h-3 mr-1" /> Falar Posição Atual
               </Button>
@@ -378,9 +255,7 @@ const SlamEventAudio = () => {
           </CardContent>
         </Card>
 
-        <p className="text-[10px] text-center text-muted-foreground pb-2">
-          AlphaBot Connect v3.1.7 • Iascom 2026
-        </p>
+        <p className="text-[10px] text-center text-muted-foreground pb-2">AlphaBot Connect v3.1.7 • Iascom 2026</p>
       </div>
     </div>
   );
