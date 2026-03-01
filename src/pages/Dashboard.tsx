@@ -299,6 +299,7 @@ const Dashboard = () => {
     { icon: Settings, titleKey: 'dashboard.menu.mqttConfig', descKey: 'dashboard.menu.mqttConfigDesc', path: '/mqtt-config', gradient: 'from-secondary to-warning/80' },
     { icon: MoveHorizontal, titleKey: 'Movimentos', descKey: 'Cabeça e mãos do robô', path: '/motion', gradient: 'from-primary to-secondary/80' },
     { icon: Activity, titleKey: 'Sensores', descKey: 'IMU, distância e toque', path: '/sensors', gradient: 'from-success to-warning/80' },
+    { icon: Camera, titleKey: 'Câmera', descKey: 'Streaming MJPEG em tempo real', path: '/camera', gradient: 'from-primary to-destructive/80' },
     { icon: Settings, titleKey: 'dashboard.menu.settings', descKey: 'dashboard.menu.settingsDesc', path: '/settings', gradient: 'from-muted-foreground to-muted-foreground/60' },
   ];
 
