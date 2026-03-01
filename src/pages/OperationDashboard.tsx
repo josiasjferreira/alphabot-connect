@@ -2,8 +2,8 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
-import mqtt, { type MqttClient } from 'mqtt';
 import StatusHeader from '@/components/StatusHeader';
+import { audioService } from '@/services/audioService';
 import { useMQTT } from '@/hooks/useMQTT';
 import { useMQTTConfigStore } from '@/store/useMQTTConfigStore';
 import { useRobotStore } from '@/store/useRobotStore';
@@ -297,28 +297,22 @@ const MqttBadge = () => {
   );
 };
 
-// ─── Quick Voice Control Card ───
+// ─── Quick Voice Control Card (via AudioService singleton) ───
 const QuickVoiceCard = () => {
   const [ttsText, setTtsText] = useState('');
   const [slamOnline, setSlamOnline] = useState<boolean | null>(null);
-  const [isSpeaking, setIsSpeaking] = useState(false);
-  const ttsRef = useRef<MqttClient | null>(null);
   const [mqttOn, setMqttOn] = useState(false);
+  const [isPlaying, setIsPlaying] = useState(false);
 
+  // Subscribe to AudioService state (single MQTT connection)
   useEffect(() => {
-    // Skip MQTT on HTTPS pages (mixed content blocked by browsers)
-    if (window.location.protocol === 'https:') return;
-    try {
-      const c = mqtt.connect('ws://192.168.99.100:9002', { reconnectPeriod: 3000, connectTimeout: 5000 });
-      c.on('connect', () => setMqttOn(true));
-      c.on('offline', () => setMqttOn(false));
-      c.on('close', () => setMqttOn(false));
-      c.on('error', () => setMqttOn(false));
-      ttsRef.current = c;
-      return () => { c.end(true); ttsRef.current = null; };
-    } catch { /* mixed content or network error */ }
+    return audioService.subscribe((state) => {
+      setMqttOn(state.mqttOnline);
+      setIsPlaying(state.isPlaying);
+    });
   }, []);
 
+  // SLAMWARE health check
   useEffect(() => {
     const check = async () => {
       try {
@@ -331,22 +325,9 @@ const QuickVoiceCard = () => {
     return () => clearInterval(iv);
   }, []);
 
-  const speak = useCallback((text: string) => {
-    if (ttsRef.current?.connected) {
-      ttsRef.current.publish('alphabot/cmd/audio/tts', JSON.stringify({ text, lang: 'pt-BR', type: 'tts' }));
-    } else if ('speechSynthesis' in window) {
-      window.speechSynthesis.cancel();
-      const u = new SpeechSynthesisUtterance(text);
-      u.lang = 'pt-BR';
-      u.onstart = () => setIsSpeaking(true);
-      u.onend = () => setIsSpeaking(false);
-      window.speechSynthesis.speak(u);
-    }
-  }, []);
-
   const handleSpeak = () => {
     if (!ttsText.trim()) return;
-    speak(ttsText.trim());
+    audioService.speak(ttsText.trim());
     setTtsText('');
   };
 
@@ -359,9 +340,9 @@ const QuickVoiceCard = () => {
       const x = (loc.x ?? 0).toFixed(1);
       const y = (loc.y ?? 0).toFixed(1);
       const theta = Math.round(((loc.theta ?? 0) * 180) / Math.PI);
-      speak(`Estou em X vírgula ${x}m, Y vírgula ${y}m, ângulo ${theta} graus.`);
+      audioService.speak(`Estou em X vírgula ${x}m, Y vírgula ${y}m, ângulo ${theta} graus.`);
     } catch {
-      speak('Não foi possível obter a posição. SLAMWARE offline.');
+      audioService.speak('Não foi possível obter a posição. SLAMWARE offline.');
     }
   };
 
@@ -383,7 +364,7 @@ const QuickVoiceCard = () => {
           <Badge variant={mqttOn ? 'default' : 'secondary'} className="text-[10px]">
             {mqttOn ? 'MQTT ✓' : 'Local'}
           </Badge>
-          {isSpeaking && (
+          {isPlaying && (
             <Badge variant="secondary" className="text-[10px] animate-pulse bg-success/20 text-success border-success/30">
               🔊
             </Badge>
