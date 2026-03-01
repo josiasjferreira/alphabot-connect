@@ -8,6 +8,7 @@ import {
 import { useTranslation } from 'react-i18next';
 import StatusHeader from '@/components/StatusHeader';
 import SolarProductModal from '@/components/SolarProductModal';
+import AudioPanel from '@/components/AudioPanel';
 import { SOLAR_PRODUCTS, type SolarProduct } from '@/data/solarProducts';
 import { useToast } from '@/hooks/use-toast';
 import { useRobotStore } from '@/store/useRobotStore';
@@ -320,6 +321,11 @@ const ProductShowcase = () => {
               </div>
             </motion.button>
           ))}
+        </div>
+
+        {/* Audio Control Panel */}
+        <div className="mt-5">
+          <AudioPanel />
         </div>
 
         {/* Client Lead Capture */}
