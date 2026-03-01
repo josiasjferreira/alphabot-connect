@@ -9,6 +9,15 @@ export type MotionAction = 'head_left_right' | 'head_up_down' | 'left_hand' | 'r
 export type MotionModel = 'alice' | 'alicebig';
 export type MotionExecutor = 'processor' | 'vip' | 'resident';
 
+/** Gestos nativos suportados pelo SDK (robot/motion/gesture) */
+export type GestureType = 'wave' | 'point' | 'thumbsup' | 'nod';
+
+export interface GestureCommand {
+  gesture: GestureType;
+  intensity: number; // 0.0 – 1.0
+  timestamp: number;
+}
+
 export interface MotionCommand {
   action: MotionAction;
   model: MotionModel;
