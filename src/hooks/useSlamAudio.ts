@@ -142,30 +142,39 @@ export function useSlamAudio() {
       const res = await fetch(`${SLAM_BASE}/api/core/system/v1/robot/info`, { signal: AbortSignal.timeout(2500) });
       if (!res.ok) throw new Error(String(res.status));
       const data = await res.json();
+      const loc = data.localization ?? data;
       const newPose: SlamPose = {
-        x: data.x ?? data.pose?.x ?? 0,
-        y: data.y ?? data.pose?.y ?? 0,
-        theta: data.theta ?? data.pose?.yaw ?? 0,
-        quality: data.localization_quality ?? data.quality ?? 0,
+        x: loc.x ?? 0,
+        y: loc.y ?? 0,
+        theta: loc.theta ?? loc.yaw ?? 0,
+        quality: loc.quality ?? 0,
         timestamp: Date.now(),
       };
       setPose(newPose);
-
-      // Verificar chegada ao destino
-      const target = navTargetRef.current;
-      if (target && isNavigating) {
-        const dist = Math.sqrt((newPose.x - target.x) ** 2 + (newPose.y - target.y) ** 2);
-        if (dist < 0.3) {
-          speak(`Cheguei ao destino: ${target.label || `${target.x.toFixed(1)}, ${target.y.toFixed(1)}`}.`);
-          setIsNavigating(false);
-          navTargetRef.current = null;
-          currentActionRef.current = null;
-        }
-      }
     } catch {
       // silently fail — status already set on connect/disconnect
     }
-  }, [isNavigating, speak]);
+  }, []);
+
+  // ────────────────────────────────────────────────────────────────────
+  // SLAMWARE REST — polling action status
+  // ────────────────────────────────────────────────────────────────────
+  const fetchActionStatus = useCallback(async () => {
+    if (!currentActionRef.current || !navTargetRef.current) return;
+    try {
+      const res = await fetch(`${SLAM_BASE}/api/core/motion/v1/actions/current`, { signal: AbortSignal.timeout(2500) });
+      if (!res.ok) return;
+      const data = await res.json();
+      const status = (data.status ?? data.state ?? '').toLowerCase();
+      if (status === 'finished' || status === 'stopped') {
+        const label = navTargetRef.current?.label ?? 'programado';
+        speak(`Cheguei ao destino ${label}.`);
+        setIsNavigating(false);
+        navTargetRef.current = null;
+        currentActionRef.current = null;
+      }
+    } catch { /* */ }
+  }, [speak]);
 
   // ────────────────────────────────────────────────────────────────────
   // SLAMWARE REST — polling events
@@ -200,8 +209,8 @@ export function useSlamAudio() {
       setSlamStatus('connected');
       speak('SLAMWARE conectado. Navegação disponível.');
 
-      // Start polling
-      poseTimerRef.current = setInterval(fetchPose, POLL_INTERVAL);
+      // Start polling (pose + events + action status)
+      poseTimerRef.current = setInterval(() => { fetchPose(); fetchActionStatus(); }, POLL_INTERVAL);
       eventsTimerRef.current = setInterval(fetchEvents, POLL_INTERVAL);
       fetchPose();
       return true;
@@ -210,7 +219,7 @@ export function useSlamAudio() {
       speak('Erro na conexão com SLAMWARE.');
       return false;
     }
-  }, [fetchPose, fetchEvents, speak]);
+  }, [fetchPose, fetchEvents, fetchActionStatus, speak]);
 
   const stopPolling = useCallback(() => {
     if (poseTimerRef.current) { clearInterval(poseTimerRef.current); poseTimerRef.current = null; }
@@ -247,8 +256,11 @@ export function useSlamAudio() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          action_name: 'slamware.agent.actions.MoveToAction',
-          target_pose: { x: target.x, y: target.y, theta: 0 },
+          action_name: 'slamtec.agent.actions.MoveToAction',
+          options: {
+            target_pose: { x: target.x, y: target.y, theta: 0 },
+            move_options: { mode: 0, flags: [] },
+          },
         }),
         signal: AbortSignal.timeout(5000),
       });
@@ -265,15 +277,12 @@ export function useSlamAudio() {
   }, [slamStatus, speak]);
 
   const cancelNav = useCallback(async () => {
-    const actionId = currentActionRef.current;
-    if (actionId) {
-      try {
-        await fetch(`${SLAM_BASE}/api/core/motion/v1/actions/${actionId}`, {
-          method: 'DELETE',
-          signal: AbortSignal.timeout(3000),
-        });
-      } catch { /* */ }
-    }
+    try {
+      await fetch(`${SLAM_BASE}/api/core/motion/v1/actions/current`, {
+        method: 'DELETE',
+        signal: AbortSignal.timeout(3000),
+      });
+    } catch { /* */ }
     setIsNavigating(false);
     navTargetRef.current = null;
     currentActionRef.current = null;
