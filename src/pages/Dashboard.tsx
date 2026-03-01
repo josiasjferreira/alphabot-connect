@@ -1,7 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { motion } from 'framer-motion';
-import { Gamepad2, MessageCircle, Map, BarChart3, Mic, Settings, ShoppingBag, Stethoscope, Package, Shield, Sparkles, Layers, Radio, Download, ScrollText, Camera, VideoOff, Users, Search, FlaskConical, MonitorPlay, Compass, Wrench, Wifi, Network } from 'lucide-react';
+import { Gamepad2, MessageCircle, Map, BarChart3, Mic, Settings, ShoppingBag, Stethoscope, Package, Shield, Sparkles, Layers, Radio, Download, ScrollText, Camera, VideoOff, Users, Search, FlaskConical, MonitorPlay, Compass, Wrench, Wifi, Network, Volume2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import StatusHeader from '@/components/StatusHeader';
 import { useRobotStore } from '@/store/useRobotStore';
@@ -284,6 +284,7 @@ const Dashboard = () => {
     { icon: Shield, titleKey: 'dashboard.menu.patrol', descKey: 'dashboard.menu.patrolDesc', path: '/patrol', gradient: 'from-secondary to-secondary/60' },
     { icon: Sparkles, titleKey: 'dashboard.menu.blessing', descKey: 'dashboard.menu.blessingDesc', path: '/blessing', gradient: 'from-primary to-warning/80' },
     { icon: Layers, titleKey: 'dashboard.menu.slam', descKey: 'dashboard.menu.slamDesc', path: '/slam', gradient: 'from-success to-secondary/80' },
+    { icon: Volume2, titleKey: 'SLAM + Áudio', descKey: 'Navegação com feedback sonoro', path: '/slam-audio', gradient: 'from-primary to-success/80' },
     { icon: Search, titleKey: 'dashboard.menu.scanner', descKey: 'dashboard.menu.scannerDesc', path: '/scanner', gradient: 'from-warning to-success/80' },
     { icon: Network, titleKey: 'dashboard.menu.networkDiag', descKey: 'dashboard.menu.networkDiagDesc', path: '/network-diagnostics', gradient: 'from-primary to-cyan-500/80' },
     { icon: Radio, titleKey: 'dashboard.menu.mqtt', descKey: 'dashboard.menu.mqttDesc', path: '/mqtt', gradient: 'from-destructive to-warning/80' },
