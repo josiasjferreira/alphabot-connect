@@ -24,8 +24,8 @@ import {
   Send, MapPin, ArrowRight,
 } from 'lucide-react';
 
-// ─── Manual Control Card ───
-const ManualControlCard = () => {
+// ─── Unified Control Card (Manual + Rotation) ───
+const UnifiedControlCard = () => {
   const { t } = useTranslation();
   const { client, isConnected, publish } = useMQTT();
   const serial = useMQTTConfigStore((s) => s.robotSerial) || 'H13307';
@@ -34,7 +34,11 @@ const ManualControlCard = () => {
   const [speed, setSpeed] = useState(50);
   const [currentAngle, setCurrentAngle] = useState(0);
   const [currentDist, setCurrentDist] = useState(0);
+  const [heading, setHeading] = useState(0);
+  const [rotationSpeed, setRotationSpeed] = useState(40);
+  const [isRotating, setIsRotating] = useState<'left' | 'right' | null>(null);
   const throttleRef = useRef<ReturnType<typeof setTimeout>>();
+  const simInterval = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const angleToDirection = (angle: number): 'forward' | 'backward' | 'left' | 'right' => {
     const norm = ((angle % 360) + 360) % 360;
@@ -47,10 +51,8 @@ const ManualControlCard = () => {
   const handleMove = useCallback((angle: number, distance: number) => {
     setCurrentAngle(Math.round(angle));
     setCurrentDist(Math.round(distance));
-
     if (throttleRef.current) return;
     throttleRef.current = setTimeout(() => { throttleRef.current = undefined; }, 100);
-
     if (isConnected && distance > 5) {
       const dir = angleToDirection(angle);
       const spd = (distance / 100) * speed;
@@ -66,6 +68,8 @@ const ManualControlCard = () => {
 
   const handleEmergency = () => {
     addLog('🚨 PARADA DE EMERGÊNCIA', 'error');
+    stopSimRotation();
+    setIsRotating(null);
     if (isConnected) {
       publish(`robot/${serial}/movement/stop`, { timestamp: Date.now() });
       publish(`robot/${serial}/cmd`, { cmd: 'emergency_stop', force: true, timestamp: Date.now() });
@@ -73,62 +77,6 @@ const ManualControlCard = () => {
     }
   };
 
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="bg-card rounded-2xl border border-border p-4 shadow-card"
-    >
-      <h2 className="text-sm font-bold text-foreground mb-3 flex items-center gap-2">
-        🕹️ Controle Manual
-        <MqttBadge />
-      </h2>
-
-      <div className="flex flex-col items-center gap-3">
-        <Joystick size={180} onMove={handleMove} onRelease={handleRelease} />
-
-        <div className="grid grid-cols-2 gap-2 w-full max-w-[200px]">
-          <div className="bg-muted rounded-lg p-2 text-center">
-            <p className="text-[10px] text-muted-foreground">Ângulo</p>
-            <p className="text-lg font-bold text-foreground">{currentAngle}°</p>
-          </div>
-          <div className="bg-muted rounded-lg p-2 text-center">
-            <p className="text-[10px] text-muted-foreground">Potência</p>
-            <p className="text-lg font-bold text-primary">{currentDist}%</p>
-          </div>
-        </div>
-
-        <div className="w-full">
-          <label className="text-xs text-muted-foreground font-semibold mb-1 block">
-            Velocidade máx: {speed}%
-          </label>
-          <Slider
-            value={[speed]}
-            onValueChange={([v]) => setSpeed(v)}
-            min={10}
-            max={100}
-            step={5}
-          />
-        </div>
-
-        <EmergencyButton onEmergency={handleEmergency} />
-      </div>
-    </motion.div>
-  );
-};
-
-// ─── Rotation Control Card ───
-const RotationControlCard = () => {
-  const { client, isConnected } = useMQTT();
-  const serial = useMQTTConfigStore((s) => s.robotSerial) || 'H13307';
-  const { addLog } = useRobotStore();
-
-  const [heading, setHeading] = useState(0);
-  const [rotationSpeed, setRotationSpeed] = useState(40);
-  const [isRotating, setIsRotating] = useState<'left' | 'right' | null>(null);
-  const simInterval = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  // Simulate heading rotation locally for visual feedback
   const startSimRotation = useCallback((dir: 'left' | 'right') => {
     if (simInterval.current) clearInterval(simInterval.current);
     simInterval.current = setInterval(() => {
@@ -145,36 +93,29 @@ const RotationControlCard = () => {
 
   const handleRotateLeft = () => {
     setIsRotating('left');
-    addLog(`↺ Rotação esquerda (${rotationSpeed}%)`, 'info');
     startSimRotation('left');
     if (isConnected) client?.rotate('left', rotationSpeed / 100, 0, serial);
   };
 
   const handleRotateRight = () => {
     setIsRotating('right');
-    addLog(`↻ Rotação direita (${rotationSpeed}%)`, 'info');
     startSimRotation('right');
     if (isConnected) client?.rotate('right', rotationSpeed / 100, 0, serial);
   };
 
-  const handleStop = () => {
+  const handleRotateStop = () => {
     stopSimRotation();
     setIsRotating(null);
-    addLog('⏹ Rotação parada', 'warning');
     if (isConnected) client?.move('stop', 0, 0, serial);
   };
 
   const quickAngles = [0, 90, 180, 270];
 
   const handleGoToAngle = (angle: number) => {
-    addLog(`🧭 Ir para ${angle}°`, 'info');
-    // Animate heading to target
     setHeading(angle);
     if (isConnected) {
       client?.publish(`robot/${serial}/cmd`, {
-        cmd: 'rotate_to',
-        params: { angle, speed: rotationSpeed / 100 },
-        timestamp: Date.now(),
+        cmd: 'rotate_to', params: { angle, speed: rotationSpeed / 100 }, timestamp: Date.now(),
       });
     }
   };
@@ -183,104 +124,91 @@ const RotationControlCard = () => {
     <motion.div
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: 0.05 }}
       className="bg-card rounded-2xl border border-border p-4 shadow-card"
     >
       <h2 className="text-sm font-bold text-foreground mb-3 flex items-center gap-2">
-        <Compass className="w-4 h-4 text-secondary" />
-        Controle de Rotação
+        🕹️ Controle Manual & Rotação
+        <MqttBadge />
       </h2>
 
-      {/* Mini compass */}
-      <div className="flex flex-col items-center gap-2">
-        <div className="relative w-32 h-32">
-          <svg viewBox="0 0 100 100" className="w-full h-full">
-            <circle cx="50" cy="50" r="46" fill="none" stroke="hsl(var(--border))" strokeWidth="1.5" />
-            <circle cx="50" cy="50" r="40" fill="none" stroke="hsl(var(--border))" strokeWidth="0.5" strokeDasharray="3 3" />
-            {[{ l: 'N', a: 0 }, { l: 'L', a: 90 }, { l: 'S', a: 180 }, { l: 'O', a: 270 }].map(d => {
-              const r = 34;
-              const rad = d.a * (Math.PI / 180);
-              return (
-                <text key={d.l} x={50 + r * Math.sin(rad)} y={50 - r * Math.cos(rad)}
-                  textAnchor="middle" dominantBaseline="central"
-                  className="fill-muted-foreground text-[8px] font-bold">{d.l}</text>
-              );
-            })}
-            <g transform={`rotate(${heading}, 50, 50)`}>
-              <polygon points="50,12 47,50 53,50" fill="hsl(var(--destructive))" opacity="0.85" />
-              <polygon points="50,88 47,50 53,50" fill="hsl(var(--muted-foreground))" opacity="0.3" />
-            </g>
-            <circle cx="50" cy="50" r="4" fill="hsl(var(--primary))" />
-            <circle cx="50" cy="50" r="2" fill="hsl(var(--background))" />
-          </svg>
-          {isRotating && (
-            <div className="absolute inset-0 rounded-full border-2 border-primary animate-ping opacity-20" />
-          )}
+      <div className="flex gap-4 items-start">
+        {/* Left: Joystick */}
+        <div className="flex flex-col items-center gap-2 flex-1">
+          <Joystick size={160} onMove={handleMove} onRelease={handleRelease} />
+          <div className="grid grid-cols-2 gap-2 w-full">
+            <div className="bg-muted rounded-lg p-2 text-center">
+              <p className="text-[10px] text-muted-foreground">Ângulo</p>
+              <p className="text-lg font-bold text-foreground">{currentAngle}°</p>
+            </div>
+            <div className="bg-muted rounded-lg p-2 text-center">
+              <p className="text-[10px] text-muted-foreground">Potência</p>
+              <p className="text-lg font-bold text-primary">{currentDist}%</p>
+            </div>
+          </div>
+          <div className="w-full">
+            <label className="text-xs text-muted-foreground font-semibold mb-1 block">Velocidade: {speed}%</label>
+            <Slider value={[speed]} onValueChange={([v]) => setSpeed(v)} min={10} max={100} step={5} />
+          </div>
         </div>
-        <p className="text-2xl font-bold text-foreground">{Math.round(heading)}°</p>
+
+        {/* Right: Compass + rotation */}
+        <div className="flex flex-col items-center gap-2 flex-1">
+          <div className="relative w-28 h-28">
+            <svg viewBox="0 0 100 100" className="w-full h-full">
+              <circle cx="50" cy="50" r="46" fill="none" stroke="hsl(var(--border))" strokeWidth="1.5" />
+              <circle cx="50" cy="50" r="40" fill="none" stroke="hsl(var(--border))" strokeWidth="0.5" strokeDasharray="3 3" />
+              {[{ l: 'N', a: 0 }, { l: 'L', a: 90 }, { l: 'S', a: 180 }, { l: 'O', a: 270 }].map(d => {
+                const r = 34, rad = d.a * (Math.PI / 180);
+                return <text key={d.l} x={50 + r * Math.sin(rad)} y={50 - r * Math.cos(rad)}
+                  textAnchor="middle" dominantBaseline="central" className="fill-muted-foreground text-[8px] font-bold">{d.l}</text>;
+              })}
+              <g transform={`rotate(${heading}, 50, 50)`}>
+                <polygon points="50,12 47,50 53,50" fill="hsl(var(--destructive))" opacity="0.85" />
+                <polygon points="50,88 47,50 53,50" fill="hsl(var(--muted-foreground))" opacity="0.3" />
+              </g>
+              <circle cx="50" cy="50" r="4" fill="hsl(var(--primary))" />
+              <circle cx="50" cy="50" r="2" fill="hsl(var(--background))" />
+            </svg>
+            {isRotating && <div className="absolute inset-0 rounded-full border-2 border-primary animate-ping opacity-20" />}
+          </div>
+          <p className="text-xl font-bold text-foreground">{Math.round(heading)}°</p>
+
+          <div className="grid grid-cols-3 gap-1.5 w-full">
+            <Button variant="outline" size="sm" className="h-10 gap-1 text-xs"
+              onPointerDown={handleRotateLeft} onPointerUp={handleRotateStop} onPointerLeave={handleRotateStop}>
+              <RotateCcw className="w-3.5 h-3.5" /> ↺
+            </Button>
+            <Button variant="destructive" size="sm" className="h-10 text-xs" onClick={handleRotateStop}>
+              <StopCircle className="w-3.5 h-3.5" />
+            </Button>
+            <Button variant="outline" size="sm" className="h-10 gap-1 text-xs"
+              onPointerDown={handleRotateRight} onPointerUp={handleRotateStop} onPointerLeave={handleRotateStop}>
+              <RotateCw className="w-3.5 h-3.5" /> ↻
+            </Button>
+          </div>
+
+          <div className="flex gap-1.5 justify-center flex-wrap">
+            {quickAngles.map((a) => (
+              <button key={a} onClick={() => handleGoToAngle(a)}
+                className="px-2 py-1 text-[10px] rounded-lg bg-muted hover:bg-muted/80 text-foreground font-mono transition-colors">{a}°</button>
+            ))}
+          </div>
+
+          <div className="w-full">
+            <label className="text-xs text-muted-foreground font-semibold mb-1 block">Vel. angular: {rotationSpeed}%</label>
+            <Slider value={[rotationSpeed]} onValueChange={([v]) => setRotationSpeed(v)} min={10} max={100} step={5} />
+          </div>
+        </div>
       </div>
 
-      {/* Rotation buttons */}
-      <div className="grid grid-cols-3 gap-2 mt-3">
-        <Button
-          variant="outline"
-          size="sm"
-          className="h-12 gap-1"
-          onPointerDown={handleRotateLeft}
-          onPointerUp={handleStop}
-          onPointerLeave={handleStop}
-        >
-          <RotateCcw className="w-4 h-4" /> ↺
-        </Button>
-        <Button
-          variant="destructive"
-          size="sm"
-          className="h-12 gap-1"
-          onClick={handleStop}
-        >
-          <StopCircle className="w-4 h-4" /> Parar
-        </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          className="h-12 gap-1"
-          onPointerDown={handleRotateRight}
-          onPointerUp={handleStop}
-          onPointerLeave={handleStop}
-        >
-          <RotateCw className="w-4 h-4" /> ↻
-        </Button>
-      </div>
-
-      {/* Quick angles */}
-      <div className="flex gap-2 mt-3 justify-center">
-        {quickAngles.map((a) => (
-          <button
-            key={a}
-            onClick={() => handleGoToAngle(a)}
-            className="px-3 py-1.5 text-xs rounded-lg bg-muted hover:bg-muted/80 text-foreground font-mono transition-colors"
-          >
-            {a}°
-          </button>
-        ))}
-      </div>
-
-      {/* Speed slider */}
       <div className="mt-3">
-        <label className="text-xs text-muted-foreground font-semibold mb-1 block">
-          Vel. angular: {rotationSpeed}%
-        </label>
-        <Slider
-          value={[rotationSpeed]}
-          onValueChange={([v]) => setRotationSpeed(v)}
-          min={10}
-          max={100}
-          step={5}
-        />
+        <EmergencyButton onEmergency={handleEmergency} />
       </div>
     </motion.div>
   );
 };
+
+
 
 // ─── MQTT connection badge ───
 const MqttBadge = () => {
@@ -469,14 +397,11 @@ const OperationDashboard = () => {
       )}
 
       <div className="flex-1 p-4 flex flex-col gap-4 overflow-y-auto">
-        {/* Manual Control */}
-        <ManualControlCard />
+        {/* Unified Manual + Rotation Control */}
+        <UnifiedControlCard />
 
         {/* Quick Voice Control */}
         <QuickVoiceCard />
-
-        {/* Rotation Control */}
-        <RotationControlCard />
 
         {/* Animations */}
         <AnimationsCard />
