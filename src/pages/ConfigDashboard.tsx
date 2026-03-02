@@ -4,7 +4,7 @@ import StatusHeader from '@/components/StatusHeader';
 import {
   Wrench, Radio, Network, Stethoscope, Map, BarChart3,
   ScrollText, Download, Settings, Layers, Shield, Package,
-  FlaskConical, Users, MonitorPlay, Compass, Search, Wifi, Cpu,
+  FlaskConical, Users, MonitorPlay, Compass, Search, Wifi, Cpu, Activity,
 } from 'lucide-react';
 
 interface ConfigItem {
@@ -36,6 +36,8 @@ const configItems: ConfigItem[] = [
   { icon: MonitorPlay, title: 'Mídia', desc: 'Streaming e gravações', path: '/media', gradient: 'from-primary to-success/80' },
   { icon: Cpu, title: 'Eng. Reversa Android', desc: 'Diagnóstico placa Android .10', path: '/android-diag', gradient: 'from-destructive to-primary/80' },
   { icon: Settings, title: 'Configurações', desc: 'Idioma, tema, geral', path: '/settings', gradient: 'from-muted-foreground to-muted-foreground/60' },
+  { icon: Radio, title: 'Log MQTT', desc: 'Eventos e mensagens MQTT', path: '/mqtt', gradient: 'from-primary to-warning/80' },
+  { icon: Network, title: 'Topologia de Rede', desc: 'Mapa de dispositivos na rede', path: '/network-diagnostics', gradient: 'from-secondary to-success/80' },
 ];
 
 const ConfigDashboard = () => {

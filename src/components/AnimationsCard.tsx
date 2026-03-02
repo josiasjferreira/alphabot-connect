@@ -22,10 +22,15 @@ A Solar Life Energy estará presente com soluções completas em energia solar, 
 
 Vai ser uma honra te encontrar lá, {{NOME_CONVIDADO}}. Eu sou o Ken e estou esperando por você na Feira de Energia Renováveis no Cais do Sertão. Vamos juntos ligar o futuro na energia certa!`;
 
+// Audio files for buttons (MP3)
+const AUDIO_FILES: Record<string, string> = {
+  fotos: '/audio/Ken_Convite_Fotos.mp3',
+  solar: '/audio/Ken_Solar_Life_Energy.mp3',
+  quem: '/audio/Quem_sou_eu_Ken_Robo_Recepcionista.mp3',
+};
+
+// TTS fallback scripts for buttons without MP3
 const TTS_SCRIPTS: Record<string, string> = {
-  fotos: `Olá! Eu sou o Ken, o robô humanoide da Solar Life Energy! Que tal tirar uma foto comigo? Vamos registrar esse momento especial! Venha aqui do meu lado e sorria! Essa foto vai ficar incrível! Vamos lá, se aproxime e diga X!`,
-  solar: `A Solar Life Energy é uma empresa inovadora que traz soluções completas em energia solar. Trabalhamos com painéis solares de última geração, inversores inteligentes e sistemas de monitoramento avançados. Nossa missão é ajudar empresas e famílias a economizar na conta de energia enquanto cuidam do planeta. Com a Solar Life, você gera sua própria energia limpa e renovável!`,
-  quem: `Eu sou o Ken! Um robô humanoide de última geração, desenvolvido para interagir com pessoas de forma natural e acolhedora. Fui criado para ser um assistente inteligente, capaz de conversar, apresentar produtos, receber visitantes e até dançar! Sou movido por inteligência artificial e estou aqui para tornar sua experiência única e memorável.`,
   destina: `Esta tecnologia se destina a todos que acreditam no futuro da energia limpa! Empresários que querem reduzir custos operacionais, famílias que desejam economizar na conta de luz, condomínios, indústrias, comércios e instituições públicas. Qualquer pessoa ou organização que queira investir em sustentabilidade e eficiência energética pode se beneficiar das soluções da Solar Life Energy.`,
   convide: `Gostou do que viu? Então convide seus amigos e familiares para conhecer a Solar Life Energy também! Compartilhe essa experiência incrível. Quanto mais pessoas conhecerem as vantagens da energia solar, mais rápido construímos um futuro sustentável. Indique a Solar Life para quem você gosta! Juntos, vamos transformar o mundo com energia limpa!`,
 };
@@ -91,13 +96,24 @@ const AnimationsCard = () => {
     addLog(`🎭 ${btn.label}`, 'info');
     playBackgroundTone('happy', 0.15);
 
-    const script = TTS_SCRIPTS[btn.scriptKey];
-    speakText(script, () => { setIsSpeaking(false); setActiveId(null); });
+    const audioFile = AUDIO_FILES[btn.scriptKey];
+    if (audioFile) {
+      // Play MP3 file
+      if (audioRef.current) { audioRef.current.pause(); }
+      audioRef.current = new Audio(audioFile);
+      audioRef.current.onended = () => { setIsSpeaking(false); setActiveId(null); };
+      audioRef.current.onerror = () => { setIsSpeaking(false); setActiveId(null); };
+      audioRef.current.play().catch(() => { setIsSpeaking(false); setActiveId(null); });
+    } else {
+      // Fallback to TTS
+      const script = TTS_SCRIPTS[btn.scriptKey];
+      speakText(script, () => { setIsSpeaking(false); setActiveId(null); });
+    }
 
     if (isConnected) {
       publish(`robot/${serial}/cmd/animation`, {
         cmd: 'play_animation',
-        params: { expression: 'happy', gesture: 'wave', tts_text: script },
+        params: { expression: 'happy', gesture: 'wave' },
         timestamp: Date.now(),
       });
     }
@@ -134,7 +150,7 @@ const AnimationsCard = () => {
       >
         <h2 className="text-2xl font-bold text-foreground flex items-center gap-3">
           <Sparkles className="w-7 h-7 text-primary" />
-          Animações & Expressões
+          Vamos Conversar ?
         </h2>
         {expanded ? (
           <ChevronUp className="w-6 h-6 text-muted-foreground" />
@@ -152,6 +168,20 @@ const AnimationsCard = () => {
             transition={{ duration: 0.2 }}
             className="overflow-hidden"
           >
+            {/* Clique aqui para conversar — plays MP3 — right below title */}
+            <div className="mt-4">
+              <Button
+                variant="default"
+                size="lg"
+                className="w-full gap-3 gradient-solar text-white font-bold text-xl py-6"
+                disabled={isSpeaking}
+                onClick={handlePlayAudio}
+              >
+                <Mic className={`w-7 h-7 ${activeId === 'audio-mp3' ? 'animate-pulse' : ''}`} />
+                Clique aqui para conversar
+              </Button>
+            </div>
+
             {/* Action buttons in 2 columns */}
             <div className="grid grid-cols-2 gap-4 mt-6">
               {ACTION_BUTTONS.map((btn) => (
@@ -176,20 +206,6 @@ const AnimationsCard = () => {
                   )}
                 </Button>
               ))}
-            </div>
-
-            {/* Clique aqui para conversar — plays MP3 */}
-            <div className="mt-6">
-              <Button
-                variant="default"
-                size="lg"
-                className="w-full gap-3 gradient-solar text-white font-bold text-xl py-6"
-                disabled={isSpeaking}
-                onClick={handlePlayAudio}
-              >
-                <Mic className={`w-7 h-7 ${activeId === 'audio-mp3' ? 'animate-pulse' : ''}`} />
-                Clique aqui para conversar
-              </Button>
             </div>
 
             {/* Convite personalizado TTS */}
@@ -224,11 +240,6 @@ const AnimationsCard = () => {
               </Button>
             )}
 
-            {!isConnected && (
-              <p className="text-base text-muted-foreground text-center mt-4">
-                Conecte ao MQTT para enviar animações
-              </p>
-            )}
           </motion.div>
         )}
       </AnimatePresence>
