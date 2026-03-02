@@ -6,9 +6,10 @@ import { useRobotStore } from '@/store/useRobotStore';
 import { playBackgroundTone } from '@/lib/audioEffects';
 import {
   Sparkles, Smile, Heart, Zap, Hand, PartyPopper,
-  Eye, Frown, ChevronDown, ChevronUp, Volume2, MessageCircle,
+  Eye, Frown, ChevronDown, ChevronUp, Volume2, MessageCircle, Mic,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 
 interface AnimationPreset {
   id: string;
@@ -32,6 +33,18 @@ const PRESETS: AnimationPreset[] = [
   { id: 'greeting', label: 'Boas-vindas', icon: <Volume2 className="w-4 h-4" />, expression: 'happy', gesture: 'greeting', color: 'bg-primary/15 text-primary border-primary/20', tone: 'warm', phrase: 'Olá! Bem-vindos à Solar Life! Eu sou o Ken, seu assistente robô.' },
 ];
 
+const CONVITE_SCRIPT = `Olá, {{NOME_CONVIDADO}}, eu sou o Ken, o robô humanoide da Solar Life Energy. Que alegria falar com você!
+
+Estou aqui para te fazer um convite muito especial. Você está convidado para a Feira de Energia Renováveis no Cais do Sertão. Um evento incrível, onde tecnologia, inovação e sustentabilidade se encontram para mostrar o futuro da energia limpa.
+
+Lá você vai poder conhecer projetos inspiradores de energia renovável, trocar ideias com especialistas do setor e ver de perto como a tecnologia está transformando a forma como geramos e consumimos energia.
+
+A sua presença, {{NOME_CONVIDADO}}, é muito importante. Juntos, podemos construir um futuro mais sustentável para todos.
+
+A Solar Life Energy estará presente com soluções completas em energia solar, ajudando empresas e pessoas a economizar e a reduzir o impacto ambiental. E eu, o Ken, estarei lá pessoalmente para te receber, explicar tudo e interagir com você.
+
+Vai ser uma honra te encontrar lá, {{NOME_CONVIDADO}}. Eu sou o Ken e estou esperando por você na Feira de Energia Renováveis no Cais do Sertão. Vamos juntos ligar o futuro na energia certa!`;
+
 const speakPhrase = (text: string) => {
   try {
     if (!('speechSynthesis' in window)) return;
@@ -40,7 +53,6 @@ const speakPhrase = (text: string) => {
     utterance.lang = 'pt-BR';
     utterance.rate = 0.95;
     utterance.pitch = 1.1;
-    // Try to find a pt-BR voice
     const voices = window.speechSynthesis.getVoices();
     const ptVoice = voices.find(v => v.lang.startsWith('pt'));
     if (ptVoice) utterance.voice = ptVoice;
@@ -54,7 +66,32 @@ const AnimationsCard = () => {
   const { addLog } = useRobotStore();
   const [expanded, setExpanded] = useState(true);
   const [activeId, setActiveId] = useState<string | null>(null);
+  const [nomeConvidado, setNomeConvidado] = useState('');
+  const [isSpeaking, setIsSpeaking] = useState(false);
   const [ttsEnabled, setTtsEnabled] = useState(true);
+
+  const handleConvite = useCallback(() => {
+    const nome = nomeConvidado.trim() || 'amigo';
+    const script = CONVITE_SCRIPT.replace(/\{\{NOME_CONVIDADO\}\}/g, nome);
+    setIsSpeaking(true);
+    addLog(`🎙️ Convite TTS para: ${nome}`, 'info');
+
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(script);
+      utterance.lang = 'pt-BR';
+      utterance.rate = 0.92;
+      utterance.pitch = 1.1;
+      const voices = window.speechSynthesis.getVoices();
+      const ptVoice = voices.find(v => v.lang.startsWith('pt'));
+      if (ptVoice) utterance.voice = ptVoice;
+      utterance.onend = () => setIsSpeaking(false);
+      utterance.onerror = () => setIsSpeaking(false);
+      window.speechSynthesis.speak(utterance);
+    }
+
+    playBackgroundTone('warm', 0.15);
+  }, [nomeConvidado, addLog]);
 
   const handleTrigger = useCallback((preset: AnimationPreset) => {
     setActiveId(preset.id);
@@ -166,21 +203,39 @@ const AnimationsCard = () => {
               ))}
             </div>
 
-            {/* Botão de conversa com áudio MP3 */}
-            <div className="mt-3">
+            {/* Convite personalizado TTS */}
+            <div className="mt-3 space-y-2">
+              <div className="flex items-center gap-2">
+                <Input
+                  placeholder="Nome do convidado..."
+                  value={nomeConvidado}
+                  onChange={(e) => setNomeConvidado(e.target.value)}
+                  className="text-xs h-9"
+                />
+              </div>
               <Button
                 variant="default"
                 size="lg"
                 className="w-full gap-2 gradient-solar text-white font-bold text-sm py-3"
-                onClick={() => {
-                  const audio = new Audio('/audio/Ken_Robo_Recepcionista.mp3');
-                  audio.play().catch(() => {});
-                  addLog('🎙️ Reproduzindo áudio Ken Robô Recepcionista', 'info');
-                }}
+                disabled={isSpeaking}
+                onClick={handleConvite}
               >
-                <MessageCircle className="w-5 h-5" />
-                Clique aqui para conversar
+                <Mic className={`w-5 h-5 ${isSpeaking ? 'animate-pulse' : ''}`} />
+                {isSpeaking ? 'Falando...' : 'Clique aqui para conversar'}
               </Button>
+              {isSpeaking && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full text-xs"
+                  onClick={() => {
+                    window.speechSynthesis?.cancel();
+                    setIsSpeaking(false);
+                  }}
+                >
+                  ⏹ Parar
+                </Button>
+              )}
             </div>
 
             {!isConnected && (
