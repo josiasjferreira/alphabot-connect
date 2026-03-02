@@ -15,8 +15,6 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import AnimationsCard from '@/components/AnimationsCard';
 import ChatIACard from '@/components/ChatIACard';
-import NetworkInfo from '@/components/NetworkInfo';
-import MqttEventLog from '@/components/MqttEventLog';
 import {
   RotateCcw, RotateCw, StopCircle, Compass, Radio,
   ShoppingBag, Settings2,
@@ -409,11 +407,6 @@ const OperationDashboard = () => {
         {/* Chat IA */}
         <ChatIACard />
 
-        {/* Network Info */}
-        <NetworkInfo />
-
-        {/* MQTT Event Log */}
-        <MqttEventLog />
 
         {/* Secondary cards */}
         <div className="grid grid-cols-1 gap-3">
