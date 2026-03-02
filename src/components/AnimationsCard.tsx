@@ -6,7 +6,7 @@ import { useRobotStore } from '@/store/useRobotStore';
 import { playBackgroundTone } from '@/lib/audioEffects';
 import {
   Sparkles, Smile, Heart, Zap, Hand, PartyPopper,
-  Eye, Frown, ChevronDown, ChevronUp, Volume2,
+  Eye, Frown, ChevronDown, ChevronUp, Volume2, MessageCircle,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
@@ -164,6 +164,23 @@ const AnimationsCard = () => {
                   {p.phrase && <Volume2 className="w-2.5 h-2.5 text-muted-foreground" />}
                 </Button>
               ))}
+            </div>
+
+            {/* Botão de conversa com áudio MP3 */}
+            <div className="mt-3">
+              <Button
+                variant="default"
+                size="lg"
+                className="w-full gap-2 gradient-solar text-white font-bold text-sm py-3"
+                onClick={() => {
+                  const audio = new Audio('/audio/Ken_Robo_Recepcionista.mp3');
+                  audio.play().catch(() => {});
+                  addLog('🎙️ Reproduzindo áudio Ken Robô Recepcionista', 'info');
+                }}
+              >
+                <MessageCircle className="w-5 h-5" />
+                Clique aqui para conversar
+              </Button>
             </div>
 
             {!isConnected && (

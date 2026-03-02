@@ -4,12 +4,11 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Play, Pause, Save, User, Phone, CheckCircle, LogOut,
   Maximize2, Minimize2, ChevronRight, Sparkles, MessageCircle,
-  Volume2, VolumeX,
+  Volume2, VolumeX, Circle,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import StatusHeader from '@/components/StatusHeader';
 import SolarProductModal from '@/components/SolarProductModal';
-import AudioPanel from '@/components/AudioPanel';
 import { SOLAR_PRODUCTS, type SolarProduct } from '@/data/solarProducts';
 import { useToast } from '@/hooks/use-toast';
 import { useRobotStore } from '@/store/useRobotStore';
@@ -38,6 +37,67 @@ const ProductShowcase = () => {
   const videoFallbackRef = useRef<ReturnType<typeof setTimeout>>();
   const slideshowVideoRef = useRef<HTMLVideoElement>(null);
   const [audioUnlocked, setAudioUnlocked] = useState(false);
+  const [isRecordingVideo, setIsRecordingVideo] = useState(false);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const recordedChunksRef = useRef<Blob[]>([]);
+  const presenceGreetedRef = useRef(false);
+
+  // Presence sensor greeting
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const { topic } = (e as CustomEvent).detail;
+      if (topic === 'robot/sensors/presence' && !presenceGreetedRef.current) {
+        presenceGreetedRef.current = true;
+        const greeting = new SpeechSynthesisUtterance('Olá!! Seja Bem Vindo!');
+        greeting.lang = 'pt-BR';
+        greeting.rate = 0.95;
+        greeting.pitch = 1.1;
+        const voices = window.speechSynthesis.getVoices();
+        const ptVoice = voices.find(v => v.lang.startsWith('pt'));
+        if (ptVoice) greeting.voice = ptVoice;
+        window.speechSynthesis.speak(greeting);
+        // Reset after 30s to greet next person
+        setTimeout(() => { presenceGreetedRef.current = false; }, 30000);
+      }
+    };
+    window.addEventListener('mqtt-message', handler);
+    return () => window.removeEventListener('mqtt-message', handler);
+  }, []);
+
+  // Video recording functions
+  const startVideoRecording = useCallback(() => {
+    const canvas = document.querySelector('video') as HTMLVideoElement;
+    if (!canvas) return;
+    try {
+      const stream = (canvas as any).captureStream?.(30) || (canvas as any).mozCaptureStream?.(30);
+      if (!stream) return;
+      const recorder = new MediaRecorder(stream, { mimeType: 'video/webm;codecs=vp9' });
+      recordedChunksRef.current = [];
+      recorder.ondataavailable = (e) => { if (e.data.size > 0) recordedChunksRef.current.push(e.data); };
+      recorder.onstop = () => {
+        const blob = new Blob(recordedChunksRef.current, { type: 'video/webm' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `INTERACAO_${clientName || 'cliente'}_${Date.now()}.webm`;
+        a.click();
+        URL.revokeObjectURL(url);
+      };
+      recorder.start(1000);
+      mediaRecorderRef.current = recorder;
+      setIsRecordingVideo(true);
+    } catch (err) {
+      console.error('Failed to start video recording:', err);
+    }
+  }, [clientName]);
+
+  const stopVideoRecording = useCallback(() => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      mediaRecorderRef.current.stop();
+    }
+    mediaRecorderRef.current = null;
+    setIsRecordingVideo(false);
+  }, []);
 
   // Auto-log page access
   useEffect(() => {
@@ -109,6 +169,10 @@ const ProductShowcase = () => {
       toast({ title: t('showcase.enterName'), variant: 'destructive' });
       return;
     }
+    // Start video recording on save (interaction)
+    if (!isRecordingVideo) {
+      startVideoRecording();
+    }
     await saveInteraction({
       id: `interaction-${Date.now()}`,
       clientName: clientName.trim(),
@@ -121,7 +185,7 @@ const ProductShowcase = () => {
     setSaved(true);
     toast({ title: t('showcase.saved') });
     setTimeout(() => { setSaved(false); setClientName(''); setClientWhatsapp(''); }, 2000);
-  }, [clientName, clientWhatsapp, selectedProduct, toast, t]);
+  }, [clientName, clientWhatsapp, selectedProduct, toast, t, isRecordingVideo, startVideoRecording]);
 
   const handleEndReception = useCallback(() => {
     dispatchEvent('LEAVE_RECEPTION');
@@ -356,15 +420,10 @@ const ProductShowcase = () => {
           ))}
         </div>
 
-        {/* Audio Control Panel */}
-        <div className="mt-5">
-          <AudioPanel />
-        </div>
-
         {/* Client Lead Capture */}
         <div className="mt-5 rounded-2xl border border-border bg-card p-4 space-y-3">
-          <h3 className="font-bold text-xs uppercase tracking-wider text-foreground flex items-center gap-2">
-            <Sparkles className="w-4 h-4 text-solar-gold" />
+          <h3 className="font-bold uppercase tracking-wider text-foreground flex items-center gap-2" style={{ fontSize: '150%' }}>
+            <Sparkles className="w-5 h-5 text-solar-gold" />
             {t('showcase.clientSection')}
           </h3>
 
@@ -399,6 +458,20 @@ const ProductShowcase = () => {
             {saved ? <CheckCircle className="w-6 h-6" /> : <Save className="w-6 h-6" />}
             {saved ? t('showcase.savedSuccess') : t('showcase.saveInteraction')}
           </motion.button>
+
+          {/* Video Recording Control */}
+          {isRecordingVideo && (
+            <motion.button
+              initial={{ opacity: 0, y: 5 }}
+              animate={{ opacity: 1, y: 0 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={stopVideoRecording}
+              className="w-full h-12 rounded-xl bg-destructive text-destructive-foreground flex items-center justify-center gap-2 font-bold text-sm shadow-lg animate-pulse"
+            >
+              <Circle className="w-4 h-4 fill-current" />
+              Parar Gravação · INTERAÇÃO
+            </motion.button>
+          )}
         </div>
 
         {/* Footer */}
