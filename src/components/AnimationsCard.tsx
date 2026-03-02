@@ -1,37 +1,14 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useMQTT } from '@/hooks/useMQTT';
 import { useMQTTConfigStore } from '@/store/useMQTTConfigStore';
 import { useRobotStore } from '@/store/useRobotStore';
 import { playBackgroundTone } from '@/lib/audioEffects';
 import {
-  Sparkles, Smile, Heart, Zap, Hand, PartyPopper,
-  Eye, Frown, ChevronDown, ChevronUp, Volume2, MessageCircle, Mic,
+  Sparkles, ChevronDown, ChevronUp, Volume2, Mic, Camera, Sun, User, Users, Share2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-
-interface AnimationPreset {
-  id: string;
-  label: string;
-  icon: React.ReactNode;
-  expression: string;
-  gesture?: string;
-  color: string;
-  tone: 'happy' | 'warm' | 'love' | 'celebrate' | 'magic' | 'alert';
-  phrase?: string; // TTS phrase to speak
-}
-
-const PRESETS: AnimationPreset[] = [
-  { id: 'happy', label: 'Alegria', icon: <Smile className="w-4 h-4" />, expression: 'happy', gesture: 'nod', color: 'bg-success/15 text-success border-success/20', tone: 'happy', phrase: 'Estou muito feliz!' },
-  { id: 'love', label: 'Amor', icon: <Heart className="w-4 h-4" />, expression: 'love', gesture: 'heart', color: 'bg-destructive/15 text-destructive border-destructive/20', tone: 'love', phrase: 'Eu adoro vocês!' },
-  { id: 'surprise', label: 'Surpresa', icon: <Zap className="w-4 h-4" />, expression: 'surprise', gesture: 'jump', color: 'bg-warning/15 text-warning border-warning/20', tone: 'magic', phrase: 'Uau, que surpresa!' },
-  { id: 'wink', label: 'Piscadela', icon: <Eye className="w-4 h-4" />, expression: 'wink', color: 'bg-primary/15 text-primary border-primary/20', tone: 'happy' },
-  { id: 'wave', label: 'Acenar', icon: <Hand className="w-4 h-4" />, expression: 'neutral', gesture: 'wave', color: 'bg-secondary/15 text-secondary border-secondary/20', tone: 'warm', phrase: 'Olá, tudo bem?' },
-  { id: 'celebrate', label: 'Celebrar', icon: <PartyPopper className="w-4 h-4" />, expression: 'happy', gesture: 'celebrate', color: 'bg-accent/15 text-accent-foreground border-accent/20', tone: 'celebrate', phrase: 'Vamos comemorar! Isso é incrível!' },
-  { id: 'sad', label: 'Triste', icon: <Frown className="w-4 h-4" />, expression: 'sad', color: 'bg-muted text-muted-foreground border-border', tone: 'alert' },
-  { id: 'greeting', label: 'Boas-vindas', icon: <Volume2 className="w-4 h-4" />, expression: 'happy', gesture: 'greeting', color: 'bg-primary/15 text-primary border-primary/20', tone: 'warm', phrase: 'Olá! Bem-vindos à Solar Life! Eu sou o Ken, seu assistente robô.' },
-];
 
 const CONVITE_SCRIPT = `Olá, {{NOME_CONVIDADO}}, eu sou o Ken, o robô humanoide da Solar Life Energy. Que alegria falar com você!
 
@@ -45,17 +22,45 @@ A Solar Life Energy estará presente com soluções completas em energia solar, 
 
 Vai ser uma honra te encontrar lá, {{NOME_CONVIDADO}}. Eu sou o Ken e estou esperando por você na Feira de Energia Renováveis no Cais do Sertão. Vamos juntos ligar o futuro na energia certa!`;
 
-const speakPhrase = (text: string) => {
+const TTS_SCRIPTS: Record<string, string> = {
+  fotos: `Olá! Eu sou o Ken, o robô humanoide da Solar Life Energy! Que tal tirar uma foto comigo? Vamos registrar esse momento especial! Venha aqui do meu lado e sorria! Essa foto vai ficar incrível! Vamos lá, se aproxime e diga X!`,
+  solar: `A Solar Life Energy é uma empresa inovadora que traz soluções completas em energia solar. Trabalhamos com painéis solares de última geração, inversores inteligentes e sistemas de monitoramento avançados. Nossa missão é ajudar empresas e famílias a economizar na conta de energia enquanto cuidam do planeta. Com a Solar Life, você gera sua própria energia limpa e renovável!`,
+  quem: `Eu sou o Ken! Um robô humanoide de última geração, desenvolvido para interagir com pessoas de forma natural e acolhedora. Fui criado para ser um assistente inteligente, capaz de conversar, apresentar produtos, receber visitantes e até dançar! Sou movido por inteligência artificial e estou aqui para tornar sua experiência única e memorável.`,
+  destina: `Esta tecnologia se destina a todos que acreditam no futuro da energia limpa! Empresários que querem reduzir custos operacionais, famílias que desejam economizar na conta de luz, condomínios, indústrias, comércios e instituições públicas. Qualquer pessoa ou organização que queira investir em sustentabilidade e eficiência energética pode se beneficiar das soluções da Solar Life Energy.`,
+  convide: `Gostou do que viu? Então convide seus amigos e familiares para conhecer a Solar Life Energy também! Compartilhe essa experiência incrível. Quanto mais pessoas conhecerem as vantagens da energia solar, mais rápido construímos um futuro sustentável. Indique a Solar Life para quem você gosta! Juntos, vamos transformar o mundo com energia limpa!`,
+};
+
+interface ActionButton {
+  id: string;
+  label: string;
+  icon: React.ReactNode;
+  scriptKey: string;
+  color: string;
+}
+
+const ACTION_BUTTONS: ActionButton[] = [
+  { id: 'fotos', label: 'Ken Convida para fotos (Clique aqui)', icon: <Camera className="w-6 h-6" />, scriptKey: 'fotos', color: 'bg-primary/15 text-primary border-primary/30' },
+  { id: 'solar', label: 'Conheça à Solar Life Energy', icon: <Sun className="w-6 h-6" />, scriptKey: 'solar', color: 'bg-warning/15 text-warning border-warning/30' },
+  { id: 'quem', label: 'Quem sou eu', icon: <User className="w-6 h-6" />, scriptKey: 'quem', color: 'bg-secondary/15 text-secondary border-secondary/30' },
+  { id: 'destina', label: 'Para quem se Destina esta tecnologia', icon: <Users className="w-6 h-6" />, scriptKey: 'destina', color: 'bg-success/15 text-success border-success/30' },
+  { id: 'convide', label: 'Convide seus amigos', icon: <Share2 className="w-6 h-6" />, scriptKey: 'convide', color: 'bg-destructive/15 text-destructive border-destructive/30' },
+];
+
+const speakText = (text: string, onEnd?: () => void) => {
   try {
     if (!('speechSynthesis' in window)) return;
     window.speechSynthesis.cancel();
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.lang = 'pt-BR';
-    utterance.rate = 0.95;
+    utterance.rate = 0.92;
     utterance.pitch = 1.1;
     const voices = window.speechSynthesis.getVoices();
     const ptVoice = voices.find(v => v.lang.startsWith('pt'));
     if (ptVoice) utterance.voice = ptVoice;
+    if (onEnd) {
+      utterance.onend = onEnd;
+      utterance.onerror = onEnd;
+    }
     window.speechSynthesis.speak(utterance);
   } catch {}
 };
@@ -68,91 +73,73 @@ const AnimationsCard = () => {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [nomeConvidado, setNomeConvidado] = useState('');
   const [isSpeaking, setIsSpeaking] = useState(false);
-  const [ttsEnabled, setTtsEnabled] = useState(true);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const handleConvite = useCallback(() => {
     const nome = nomeConvidado.trim() || 'amigo';
     const script = CONVITE_SCRIPT.replace(/\{\{NOME_CONVIDADO\}\}/g, nome);
     setIsSpeaking(true);
+    setActiveId('convite');
     addLog(`🎙️ Convite TTS para: ${nome}`, 'info');
-
-    if ('speechSynthesis' in window) {
-      window.speechSynthesis.cancel();
-      const utterance = new SpeechSynthesisUtterance(script);
-      utterance.lang = 'pt-BR';
-      utterance.rate = 0.92;
-      utterance.pitch = 1.1;
-      const voices = window.speechSynthesis.getVoices();
-      const ptVoice = voices.find(v => v.lang.startsWith('pt'));
-      if (ptVoice) utterance.voice = ptVoice;
-      utterance.onend = () => setIsSpeaking(false);
-      utterance.onerror = () => setIsSpeaking(false);
-      window.speechSynthesis.speak(utterance);
-    }
-
+    speakText(script, () => { setIsSpeaking(false); setActiveId(null); });
     playBackgroundTone('warm', 0.15);
   }, [nomeConvidado, addLog]);
 
-  const handleTrigger = useCallback((preset: AnimationPreset) => {
-    setActiveId(preset.id);
-    addLog(`🎭 Animação: ${preset.label}`, 'info');
+  const handleActionButton = useCallback((btn: ActionButton) => {
+    setActiveId(btn.id);
+    setIsSpeaking(true);
+    addLog(`🎭 ${btn.label}`, 'info');
+    playBackgroundTone('happy', 0.15);
 
-    // Play synthesized tone
-    playBackgroundTone(preset.tone, 0.2);
-
-    // Speak phrase via TTS
-    if (ttsEnabled && preset.phrase) {
-      speakPhrase(preset.phrase);
-    }
+    const script = TTS_SCRIPTS[btn.scriptKey];
+    speakText(script, () => { setIsSpeaking(false); setActiveId(null); });
 
     if (isConnected) {
       publish(`robot/${serial}/cmd/animation`, {
         cmd: 'play_animation',
-        params: {
-          expression: preset.expression,
-          gesture: preset.gesture || null,
-          tts_text: preset.phrase || null,
-        },
+        params: { expression: 'happy', gesture: 'wave', tts_text: script },
         timestamp: Date.now(),
       });
-
-      publish(`csjbot/${serial}/cmd`, {
-        cmd: 'expression',
-        params: { name: preset.expression },
-        timestamp: Date.now(),
-      });
-
-      if (preset.gesture) {
-        publish(`robot/${serial}/cmd`, {
-          cmd: 'gesture',
-          params: { name: preset.gesture },
-          timestamp: Date.now(),
-        });
-      }
     }
+  }, [isConnected, publish, serial, addLog]);
 
-    setTimeout(() => setActiveId(null), 1200);
-  }, [isConnected, publish, serial, addLog, ttsEnabled]);
+  const handleStop = () => {
+    window.speechSynthesis?.cancel();
+    audioRef.current?.pause();
+    setIsSpeaking(false);
+    setActiveId(null);
+  };
+
+  const handlePlayAudio = () => {
+    setIsSpeaking(true);
+    setActiveId('audio-mp3');
+    if (!audioRef.current) {
+      audioRef.current = new Audio('/audio/Ken_Robo_Recepcionista.mp3');
+    }
+    audioRef.current.currentTime = 0;
+    audioRef.current.onended = () => { setIsSpeaking(false); setActiveId(null); };
+    audioRef.current.play().catch(() => { setIsSpeaking(false); setActiveId(null); });
+  };
 
   return (
     <motion.div
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: 0.1 }}
-      className="bg-card rounded-2xl border border-border p-4 shadow-card"
+      className="bg-card rounded-2xl border border-border p-6 shadow-card"
     >
       <button
         onClick={() => setExpanded((e) => !e)}
         className="w-full flex items-center justify-between"
       >
-        <h2 className="text-sm font-bold text-foreground flex items-center gap-2">
-          <Sparkles className="w-4 h-4 text-primary" />
+        <h2 className="text-2xl font-bold text-foreground flex items-center gap-3">
+          <Sparkles className="w-7 h-7 text-primary" />
           Animações & Expressões
         </h2>
         {expanded ? (
-          <ChevronUp className="w-4 h-4 text-muted-foreground" />
+          <ChevronUp className="w-6 h-6 text-muted-foreground" />
         ) : (
-          <ChevronDown className="w-4 h-4 text-muted-foreground" />
+          <ChevronDown className="w-6 h-6 text-muted-foreground" />
         )}
       </button>
 
@@ -165,81 +152,80 @@ const AnimationsCard = () => {
             transition={{ duration: 0.2 }}
             className="overflow-hidden"
           >
-            {/* TTS toggle */}
-            <div className="flex items-center justify-end gap-1.5 mt-2">
-              <button
-                onClick={(e) => { e.stopPropagation(); setTtsEnabled(!ttsEnabled); }}
-                className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold transition-colors ${
-                  ttsEnabled
-                    ? 'bg-primary/10 text-primary border border-primary/20'
-                    : 'bg-muted text-muted-foreground border border-border'
-                }`}
-              >
-                <Volume2 className="w-3 h-3" />
-                Voz {ttsEnabled ? 'ON' : 'OFF'}
-              </button>
-            </div>
-
-            <div className="grid grid-cols-4 gap-2 mt-2">
-              {PRESETS.map((p) => (
+            {/* Action buttons in 2 columns */}
+            <div className="grid grid-cols-2 gap-4 mt-6">
+              {ACTION_BUTTONS.map((btn) => (
                 <Button
-                  key={p.id}
+                  key={btn.id}
                   variant="outline"
-                  size="sm"
-                  onClick={() => handleTrigger(p)}
-                  className={`h-auto flex-col gap-1 py-2.5 px-1 border transition-all ${
-                    activeId === p.id ? p.color + ' scale-110' : ''
+                  onClick={() => handleActionButton(btn)}
+                  disabled={isSpeaking && activeId !== btn.id}
+                  className={`h-auto flex-col gap-3 py-6 px-4 border-2 transition-all text-center whitespace-normal leading-tight ${
+                    activeId === btn.id ? btn.color + ' scale-105 ring-2 ring-primary/30' : ''
                   }`}
                 >
                   <motion.div
-                    animate={activeId === p.id ? { rotate: [0, -10, 10, 0], scale: [1, 1.3, 1] } : {}}
+                    animate={activeId === btn.id ? { rotate: [0, -10, 10, 0], scale: [1, 1.3, 1] } : {}}
                     transition={{ duration: 0.4 }}
                   >
-                    {p.icon}
+                    {btn.icon}
                   </motion.div>
-                  <span className="text-[10px] leading-tight font-medium">{p.label}</span>
-                  {p.phrase && <Volume2 className="w-2.5 h-2.5 text-muted-foreground" />}
+                  <span className="text-base font-bold leading-snug">{btn.label}</span>
+                  {activeId === btn.id && isSpeaking && (
+                    <Volume2 className="w-5 h-5 animate-pulse text-primary" />
+                  )}
                 </Button>
               ))}
             </div>
 
-            {/* Convite personalizado TTS */}
-            <div className="mt-3 space-y-2">
-              <div className="flex items-center gap-2">
-                <Input
-                  placeholder="Nome do convidado..."
-                  value={nomeConvidado}
-                  onChange={(e) => setNomeConvidado(e.target.value)}
-                  className="text-xs h-9"
-                />
-              </div>
+            {/* Clique aqui para conversar — plays MP3 */}
+            <div className="mt-6">
               <Button
                 variant="default"
                 size="lg"
-                className="w-full gap-2 gradient-solar text-white font-bold text-sm py-3"
+                className="w-full gap-3 gradient-solar text-white font-bold text-xl py-6"
+                disabled={isSpeaking}
+                onClick={handlePlayAudio}
+              >
+                <Mic className={`w-7 h-7 ${activeId === 'audio-mp3' ? 'animate-pulse' : ''}`} />
+                Clique aqui para conversar
+              </Button>
+            </div>
+
+            {/* Convite personalizado TTS */}
+            <div className="mt-6 space-y-3">
+              <Input
+                placeholder="Nome do convidado..."
+                value={nomeConvidado}
+                onChange={(e) => setNomeConvidado(e.target.value)}
+                className="text-base h-12"
+              />
+              <Button
+                variant="outline"
+                size="lg"
+                className="w-full gap-3 font-bold text-lg py-5 border-2 border-primary/30"
                 disabled={isSpeaking}
                 onClick={handleConvite}
               >
-                <Mic className={`w-5 h-5 ${isSpeaking ? 'animate-pulse' : ''}`} />
-                {isSpeaking ? 'Falando...' : 'Clique aqui para conversar'}
+                <Mic className={`w-6 h-6 ${activeId === 'convite' ? 'animate-pulse' : ''}`} />
+                {isSpeaking && activeId === 'convite' ? 'Falando convite...' : 'Convite Personalizado (TTS)'}
               </Button>
-              {isSpeaking && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="w-full text-xs"
-                  onClick={() => {
-                    window.speechSynthesis?.cancel();
-                    setIsSpeaking(false);
-                  }}
-                >
-                  ⏹ Parar
-                </Button>
-              )}
             </div>
 
+            {/* Stop button */}
+            {isSpeaking && (
+              <Button
+                variant="destructive"
+                size="lg"
+                className="w-full mt-4 text-lg font-bold py-5"
+                onClick={handleStop}
+              >
+                ⏹ Parar
+              </Button>
+            )}
+
             {!isConnected && (
-              <p className="text-[10px] text-muted-foreground text-center mt-2">
+              <p className="text-base text-muted-foreground text-center mt-4">
                 Conecte ao MQTT para enviar animações
               </p>
             )}
