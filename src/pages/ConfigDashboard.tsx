@@ -4,7 +4,7 @@ import StatusHeader from '@/components/StatusHeader';
 import {
   Wrench, Radio, Network, Stethoscope, Map, BarChart3,
   ScrollText, Download, Settings, Layers, Shield, Package,
-  FlaskConical, Users, MonitorPlay, Compass, Search, Wifi, Cpu, Activity,
+  FlaskConical, Users, MonitorPlay, Compass, Search, Wifi, Cpu, Activity, UserPlus,
 } from 'lucide-react';
 
 interface ConfigItem {
@@ -38,6 +38,7 @@ const configItems: ConfigItem[] = [
   { icon: Settings, title: 'Configurações', desc: 'Idioma, tema, geral', path: '/settings', gradient: 'from-muted-foreground to-muted-foreground/60' },
   { icon: Radio, title: 'Log MQTT', desc: 'Eventos e mensagens MQTT', path: '/mqtt', gradient: 'from-primary to-warning/80' },
   { icon: Network, title: 'Topologia de Rede', desc: 'Mapa de dispositivos na rede', path: '/network-diagnostics', gradient: 'from-secondary to-success/80' },
+  { icon: UserPlus, title: 'Leads Capturados', desc: 'Visualizar cadastros da feira', path: '/lead-admin', gradient: 'from-success to-primary/80' },
 ];
 
 const ConfigDashboard = () => {
