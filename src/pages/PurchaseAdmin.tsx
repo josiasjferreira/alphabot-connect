@@ -69,8 +69,7 @@ export default function PurchaseAdmin() {
 
   const handleShareWhatsApp = () => {
     const body = generateEmailBody(purchases);
-    const phone = '5511999999999'; // número do Josias
-    const url = `https://wa.me/5511999999999?text=${encodeURIComponent(body)}`;
+    const url = `https://wa.me/5511953070018?text=${encodeURIComponent(body)}`;
     window.open(url, '_blank');
   };
 
