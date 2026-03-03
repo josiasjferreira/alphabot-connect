@@ -12,7 +12,7 @@ import {
 } from '@/db/purchaseDatabase';
 import {
   ArrowLeft, Download, Search, CheckCircle2, Clock,
-  BookOpen, Mail, RefreshCw, Copy, ShoppingBag,
+  BookOpen, Mail, RefreshCw, Copy, ShoppingBag, MessageCircle,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -67,6 +67,13 @@ export default function PurchaseAdmin() {
     });
   };
 
+  const handleShareWhatsApp = () => {
+    const body = generateEmailBody(purchases);
+    const phone = '5511999999999'; // número do Josias
+    const url = `https://wa.me/5511999999999?text=${encodeURIComponent(body)}`;
+    window.open(url, '_blank');
+  };
+
   const handleOpenMailto = () => {
     const subject = encodeURIComponent(`Relatório de Vendas — E-book A Revolução Humanoide — ${new Date().toLocaleDateString('pt-BR')}`);
     const body = encodeURIComponent(generateEmailBody(purchases));
@@ -117,7 +124,10 @@ export default function PurchaseAdmin() {
           <Copy className="w-4 h-4" /> Copiar Relatório
         </Button>
         <Button onClick={handleOpenMailto} variant="default" size="sm" className="flex-1 gap-1.5">
-          <Mail className="w-4 h-4" /> Enviar E-mail
+          <Mail className="w-4 h-4" /> E-mail
+        </Button>
+        <Button onClick={handleShareWhatsApp} variant="default" size="sm" className="flex-1 gap-1.5 bg-green-600 hover:bg-green-700">
+          <MessageCircle className="w-4 h-4" /> WhatsApp
         </Button>
       </div>
 
