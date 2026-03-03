@@ -17,7 +17,7 @@ import AnimationsCard from '@/components/AnimationsCard';
 import ChatIACard from '@/components/ChatIACard';
 import {
   RotateCcw, RotateCw, StopCircle, Compass, Radio,
-  ShoppingBag, Settings2,
+  ShoppingBag, Settings2, BookOpen,
   Wifi, WifiOff, Loader2, UserPlus,
   Send, MapPin, ArrowRight,
 } from 'lucide-react';
@@ -415,6 +415,12 @@ const OperationDashboard = () => {
             title="Falar com o Ken e receber novidades"
             desc="Cadastro de leads na feira (offline)"
             onClick={() => navigate('/lead-capture')}
+          />
+          <PlaceholderCard
+            icon={<BookOpen className="w-5 h-5 text-primary-foreground" />}
+            title="E-book A Revolução Humanoide"
+            desc="Comprar via PIX"
+            onClick={() => navigate('/ebook')}
           />
           <PlaceholderCard
             icon={<ShoppingBag className="w-5 h-5 text-primary-foreground" />}
