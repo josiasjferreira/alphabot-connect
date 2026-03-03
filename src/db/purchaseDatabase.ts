@@ -70,6 +70,15 @@ export async function getPurchaseCount(): Promise<number> {
   return db.count('ebook_purchases');
 }
 
+export async function updatePurchaseStatus(id: string, status: 'pending' | 'confirmed'): Promise<void> {
+  const db = await getDB();
+  const purchase = await db.get('ebook_purchases', id);
+  if (purchase) {
+    purchase.status = status;
+    await db.put('ebook_purchases', purchase);
+  }
+}
+
 export async function exportPurchasesCSV(): Promise<string> {
   const purchases = await getAllPurchases();
   const header = 'Nome,Email,WhatsApp,Produto,Status,Data';
@@ -78,4 +87,12 @@ export async function exportPurchasesCSV(): Promise<string> {
     return `"${p.customerName}","${p.email}","${p.whatsapp}","${p.product}","${p.status}","${date}"`;
   });
   return [header, ...rows].join('\n');
+}
+
+export function generateEmailBody(purchases: EbookPurchase[]): string {
+  const lines = purchases.map(p => {
+    const date = new Date(p.createdAt).toLocaleString('pt-BR');
+    return `• ${p.customerName} | ${p.email} | ${p.whatsapp} | ${p.status === 'confirmed' ? '✅ Confirmado' : '⏳ Pendente'} | ${date}`;
+  });
+  return `Relatório de Vendas — E-book "A Revolução Humanoide"\nTotal: ${purchases.length} aquisição(ões)\n\n${lines.join('\n')}\n\nGerado em: ${new Date().toLocaleString('pt-BR')}`;
 }
