@@ -39,6 +39,7 @@ import SensorDashboard from "./pages/SensorDashboard";
 import CameraStream from "./pages/CameraStream";
 import LeadCapture from "./pages/LeadCapture";
 import LeadAdmin from "./pages/LeadAdmin";
+import EbookPurchase from "./pages/EbookPurchase";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -86,6 +87,7 @@ const App = () => (
           <Route path="/camera" element={<CameraStream />} />
           <Route path="/lead-capture" element={<LeadCapture />} />
           <Route path="/lead-admin" element={<LeadAdmin />} />
+          <Route path="/ebook" element={<EbookPurchase />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </HashRouter>
