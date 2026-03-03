@@ -18,7 +18,7 @@ import ChatIACard from '@/components/ChatIACard';
 import {
   RotateCcw, RotateCw, StopCircle, Compass, Radio,
   ShoppingBag, Settings2,
-  Wifi, WifiOff, Loader2,
+  Wifi, WifiOff, Loader2, UserPlus,
   Send, MapPin, ArrowRight,
 } from 'lucide-react';
 
@@ -410,6 +410,12 @@ const OperationDashboard = () => {
 
         {/* Secondary cards */}
         <div className="grid grid-cols-1 gap-3">
+          <PlaceholderCard
+            icon={<UserPlus className="w-5 h-5 text-primary-foreground" />}
+            title="Falar com o Ken e receber novidades"
+            desc="Cadastro de leads na feira (offline)"
+            onClick={() => navigate('/lead-capture')}
+          />
           <PlaceholderCard
             icon={<ShoppingBag className="w-5 h-5 text-primary-foreground" />}
             title="Produtos Solar Life"

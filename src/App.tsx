@@ -37,6 +37,8 @@ import SlamEventAudio from "./pages/SlamEventAudio";
 import MotionControl from "./pages/MotionControl";
 import SensorDashboard from "./pages/SensorDashboard";
 import CameraStream from "./pages/CameraStream";
+import LeadCapture from "./pages/LeadCapture";
+import LeadAdmin from "./pages/LeadAdmin";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -82,6 +84,8 @@ const App = () => (
           <Route path="/motion" element={<MotionControl />} />
           <Route path="/sensors" element={<SensorDashboard />} />
           <Route path="/camera" element={<CameraStream />} />
+          <Route path="/lead-capture" element={<LeadCapture />} />
+          <Route path="/lead-admin" element={<LeadAdmin />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </HashRouter>
