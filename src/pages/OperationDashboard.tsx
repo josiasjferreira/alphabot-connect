@@ -411,6 +411,12 @@ const OperationDashboard = () => {
         {/* Secondary cards */}
         <div className="grid grid-cols-1 gap-3">
           <PlaceholderCard
+            icon={<span className="text-lg">🧠</span>}
+            title="Emy NeuroControl"
+            desc="Controle neural + joints + EEG/Gaze mock"
+            onClick={() => navigate('/neurocontrol')}
+          />
+          <PlaceholderCard
             icon={<UserPlus className="w-5 h-5 text-primary-foreground" />}
             title="Falar com o Ken e receber novidades"
             desc="Cadastro de leads na feira (offline)"
