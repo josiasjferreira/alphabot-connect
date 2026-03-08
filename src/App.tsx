@@ -91,6 +91,7 @@ const App = () => (
           <Route path="/lead-admin" element={<LeadAdmin />} />
           <Route path="/ebook" element={<EbookPurchase />} />
           <Route path="/purchase-admin" element={<PurchaseAdmin />} />
+          <Route path="/neurocontrol" element={<NeuroControl />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </HashRouter>
