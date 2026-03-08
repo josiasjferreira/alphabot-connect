@@ -41,6 +41,7 @@ import LeadCapture from "./pages/LeadCapture";
 import LeadAdmin from "./pages/LeadAdmin";
 import EbookPurchase from "./pages/EbookPurchase";
 import PurchaseAdmin from "./pages/PurchaseAdmin";
+import NeuroControl from "./pages/NeuroControl";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -90,6 +91,7 @@ const App = () => (
           <Route path="/lead-admin" element={<LeadAdmin />} />
           <Route path="/ebook" element={<EbookPurchase />} />
           <Route path="/purchase-admin" element={<PurchaseAdmin />} />
+          <Route path="/neurocontrol" element={<NeuroControl />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </HashRouter>
