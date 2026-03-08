@@ -41,6 +41,7 @@ import LeadCapture from "./pages/LeadCapture";
 import LeadAdmin from "./pages/LeadAdmin";
 import EbookPurchase from "./pages/EbookPurchase";
 import PurchaseAdmin from "./pages/PurchaseAdmin";
+import NeuroControl from "./pages/NeuroControl";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
